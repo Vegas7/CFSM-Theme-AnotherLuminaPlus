@@ -11,40 +11,41 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
+  Server,
+  Sliders,
+  RotateCcw,
   ArrowLeft,
-  Coins,
-  ArrowUpDown,
-  ChevronDown,
-  ChevronUp,
   CircleDollarSign,
+  Compass,
   ClipboardCheck,
   ClipboardCopy,
   Cloud,
   CloudAlert,
   CloudDownload,
   CloudOff,
-  EyeOff,
+  ChevronDown,
+  ChevronUp,
   Grid3x3,
-  LayoutTemplate,
   LayoutGrid,
+  LayoutTemplate,
+  Layers,
   List,
   ListFilter,
   Moon,
-  Network,
-  Plus,
   Rows3,
-  Save,
   Search,
   Sparkles,
+  Square,
   Sun,
   SunMoon,
-  Wallpaper,
-  X,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { InstancePanel } from "@/components/instance/InstancePanel";
 import { Spinner } from "@/components/ui/Spinner";
 import { Flag } from "@/components/ui/Flag";
+import { MatrixPatternEditor } from "@/components/matrix/MatrixPatternEditor";
+import { LatencyBars } from "@/components/node/LatencyBars";
+import { QualityBars } from "@/components/node/QualityBars";
 import { useCarrierNames, usePublicConfig } from "@/hooks/usePublicConfig";
 import { useHourlyClock } from "@/hooks/useClock";
 import { useAllPingLineOverrides } from "@/hooks/usePingOverview";
@@ -66,7 +67,19 @@ import {
   saveLocalThemeSettings,
 } from "@/services/themeSettingsStore";
 import { copyText } from "@/utils/clipboard";
-import type { NodeInfo, PingTask, ThemeSettings } from "@/types/cfsm";
+import type {
+  MatrixColorTheme,
+  MatrixBootEffect,
+  NodeInfo,
+  PingTask,
+  ThemeSettings,
+  PingLatencyColors,
+  PingLatencyThresholds,
+  PingLossColors,
+  PingLossThresholds,
+  PingOverviewBucket,
+  TrafficSpectrumColors,
+} from "@/types/cfsm";
 import {
   calculateCostSummary,
   calculateCostPremiumAmount,
@@ -81,13 +94,28 @@ import {
   type CostPremiumEntry,
 } from "@/utils/cost";
 import { normalizeNodeIdentityList } from "@/utils/nodeIdentity";
-import { MAX_RENEWAL_REMINDER_DAYS } from "@/utils/renewalReminder";
+import {
+  DEFAULT_PING_LATENCY_COLORS,
+  DEFAULT_PING_LATENCY_THRESHOLDS,
+  DEFAULT_PING_LOSS_COLORS,
+  DEFAULT_PING_LOSS_THRESHOLDS,
+  DEFAULT_TRAFFIC_SPECTRUM_COLORS,
+  STATUS_BAR_PRESETS,
+  type StatusBarPreset,
+  normalizePingLatencyColors,
+  normalizePingLatencyThresholds,
+  normalizePingLossColors,
+  normalizePingLossThresholds,
+  normalizeTrafficSpectrumColors,
+} from "@/utils/themeSettings";
+import { buildTrafficQuotaSegmentColors } from "@/utils/metricTone";
 import {
   dedupeGroupLabels,
   normalizeHomeGroupOrder,
   normalizeHomeRegionOrder,
   sortHomeGroupOptions,
 } from "@/utils/homeNodes";
+import { MAX_RENEWAL_REMINDER_DAYS } from "@/utils/renewalReminder";
 import {
   HOMEPAGE_MULTI_PING_MAX_COUNT,
   HOMEPAGE_MULTI_PING_MIN_COUNT,
@@ -103,30 +131,139 @@ import {
   withPreferredAppearance,
   type ResolvedThemeSettings,
 } from "@/utils/themeSettings";
+
 import {
-  getDefaultOverviewRatingLabelText,
   type OverviewRatingKind,
+  getDefaultOverviewRatingLabelText,
 } from "@/utils/overviewRating";
 import { HOME_SORT_FIELDS, HOME_SORT_FIELD_LABELS } from "@/utils/homeSort";
+
+const OVERVIEW_RATING_LABEL_FIELDS: Array<{
+  key: Extract<OverviewRatingKind, "bandwidth" | "asset">;
+  title: string;
+  scopeBadge: string;
+  description: string;
+  toggleKey: "showBandwidthRating" | "showAssetRating";
+  tierHint: string;
+  isBadge?: boolean;
+}> = [
+  {
+    key: "bandwidth",
+    title: "实时带宽",
+    scopeBadge: "展台顶部",
+    description: "显示在「集群展台」标题旁，实时反馈总吞吐负荷。",
+    toggleKey: "showBandwidthRating",
+    tierHint: "对应阶梯：≤1Mbps、≤10Mbps、≤100Mbps、>100Mbps",
+    isBadge: true,
+  },
+  {
+    key: "asset",
+    title: "资产规模",
+    scopeBadge: "卡片底部",
+    description: "显示在「资产总值」卡片右下角，按总资产规模定级。",
+    toggleKey: "showAssetRating",
+    tierHint: "对应阶梯：≤500元、≤1500元、≤3000元、>3000元",
+  },
+];
+
+
+interface ColorThemeOption {
+  id: MatrixColorTheme;
+  label: string;
+  badge: string;
+  desc: string;
+  colors: [string, string, string, string];
+  badgeClass: string;
+}
+
+const COLOR_THEME_OPTIONS: ColorThemeOption[] = [
+  {
+    id: "default",
+    label: "经典标准",
+    badge: "CLASSIC",
+    desc: "绿 · 橙 · 红 常规监控色阶",
+    colors: ["#34d399", "#10b981", "#f59e0b", "#ef4444"],
+    badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
+  },
+  {
+    id: "eva",
+    label: "EVA 初号机",
+    badge: "EVA UNIT-01",
+    desc: "机体紫 · 荧光绿 · 警告橙 · 暴走红",
+    colors: ["#7c3aed", "#00ff66", "#f97316", "#ef4444"],
+    badgeClass: "bg-purple-500/15 text-purple-600 dark:text-purple-300 border-purple-500/30",
+  },
+  {
+    id: "cyberpunk",
+    label: "夜之城 2077",
+    badge: "NIGHT CITY",
+    desc: "斯安威斯坦青 · 霓虹亮黄 · 超频绯红",
+    colors: ["#00f0ff", "#fcee0a", "#ff0055", "#ef4444"],
+    badgeClass: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border-cyan-500/30",
+  },
+  {
+    id: "divergence",
+    label: "命运石之门",
+    badge: "1.048596%",
+    desc: "待机暖杏橙 · 氖气放电暖橙 · 烈焰超频红橙",
+    colors: ["#fdba74", "#f97316", "#ea580c", "#ef4444"],
+    badgeClass: "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/30",
+  },
+];
+
+interface BootEffectOption {
+  id: MatrixBootEffect;
+  label: string;
+  badge: string;
+  desc: string;
+  badgeClass: string;
+}
+
+const BOOT_EFFECT_OPTIONS: BootEffectOption[] = [
+  {
+    id: "laser-scan",
+    label: "激光横扫 (Laser Scan)",
+    badge: "RADAR",
+    desc: "经典雷达激光束自左向右横向扫描显影，纯正 SAO 机能风格",
+    badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
+  },
+  {
+    id: "digital-rain",
+    label: "数码雨流 (Digital Rain)",
+    badge: "CASCADE",
+    desc: "交错流光瀑布自上而下倾泻显影，如黑客帝国代码雨般涌现",
+    badgeClass: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border-cyan-500/30",
+  },
+  {
+    id: "cyber-glitch",
+    label: "神经故障 (Cyber Glitch)",
+    badge: "OVERCLOCK",
+    desc: "斯安威斯坦电光青与超频品红噪波爆闪、行撕裂与协议校准咬合",
+    badgeClass: "bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-300 border-fuchsia-500/30",
+  },
+  {
+    id: "divergence-flux",
+    label: "世界线跳变 (Divergence Flux)",
+    badge: "1.048596%",
+    desc: "真空管惰性氖气放电赤橙火花高频跳动，自左向右逐位锁定定格",
+    badgeClass: "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/30",
+  },
+];
 
 const APPEARANCE_OPTIONS = [
   { value: "light", label: "浅色", icon: Sun },
   { value: "system", label: "跟随系统", icon: SunMoon },
   { value: "dark", label: "深色", icon: Moon },
 ] as const;
+
 const NODE_VIEW_MODE_OPTIONS = [
-  { value: "large", label: "大卡片", icon: LayoutGrid },
-  { value: "compact", label: "小卡片", icon: Rows3 },
+  { value: "large", label: "大卡片", icon: Square },
+  { value: "compact", label: "小卡片", icon: LayoutGrid },
   { value: "mini", label: "迷你卡片", icon: Grid3x3 },
   { value: "list", label: "列表", icon: List },
 ] as const;
-const MOBILE_VIEW_MODE_OPTIONS = NODE_VIEW_MODE_OPTIONS.filter((option) => option.value !== "list");
 
-// 大卡片/小卡片显示单条还是多条线路。value 直接是 enableHomepageMultiPing 的布尔值。
-const HOMEPAGE_PING_MODE_OPTIONS = [
-  { value: false, label: "单线路", icon: Rows3 },
-  { value: true, label: "多线路", icon: ListFilter },
-] as const;
+const MOBILE_VIEW_MODE_OPTIONS = NODE_VIEW_MODE_OPTIONS.filter((option) => option.value !== "list");
 
 function localDateInputMax() {
   const now = new Date();
@@ -136,16 +273,6 @@ function localDateInputMax() {
     String(now.getDate()).padStart(2, "0"),
   ].join("-");
 }
-
-const OVERVIEW_RATING_LABEL_FIELDS: Array<{
-  key: OverviewRatingKind;
-  title: string;
-  toggleKey: "showTrafficRating" | "showBandwidthRating" | "showAssetRating";
-}> = [
-  { key: "traffic", title: "累计流量", toggleKey: "showTrafficRating" },
-  { key: "bandwidth", title: "实时带宽", toggleKey: "showBandwidthRating" },
-  { key: "asset", title: "资产概览", toggleKey: "showAssetRating" },
-];
 
 function sortTasks(tasks: PingTask[]) {
   return [...tasks].sort((left, right) => {
@@ -240,9 +367,6 @@ function applyClientAssignment(
   return next;
 }
 
-// 反查:client uuid → 所属 task id(字符串 key)。UI 保证每个 client 最多归属一个
-// task,所以简单的后写覆盖 map 就是精确的。下面的「全选可用」reducer 和每次渲染的
-// 可选节点过滤共用它,把「某 client 归属哪个 task」的推导收在一处。
 function invertBindings(bindings: HomepagePingTaskBindings): Map<string, string> {
   const assignedTaskByClient = new Map<string, string>();
   for (const [taskId, clients] of Object.entries(bindings)) {
@@ -278,18 +402,28 @@ function applyAvailableClientAssignments(
   return next;
 }
 
-// 本页托管设置的键清单唯一来源:草稿类型(ThemeDraft)、seed(draftFromSettings)与内容签名
-// 都从它派生。新增一项设置只需在这里加一行,再到 JSX 里接 patch()。
-// 刻意不标注返回类型:让推断给出全字段必填的具体类型,ThemeDraft 才能安全地 Omit/扩展。
 function pickManagedThemeSettings(settings: ResolvedThemeSettings) {
   return {
     defaultAppearance: settings.defaultAppearance,
     desktopNodeViewMode: settings.desktopNodeViewMode,
     mobileNodeViewMode: settings.mobileNodeViewMode,
+    clusterOverviewMode: settings.clusterOverviewMode,
+    matrixColorTheme: settings.matrixColorTheme,
+    matrixMockFill: settings.matrixMockFill,
+    matrixBootAnimation: settings.matrixBootAnimation,
+    matrixBootEffect: settings.matrixBootEffect,
+    matrixCustomPattern: settings.matrixCustomPattern,
+    matrixUserPresets: settings.matrixUserPresets,
     homepagePingBindings: settings.homepagePingBindings,
     homepageDefaultPingTaskId: settings.homepageDefaultPingTaskId,
     enableHomepageMultiPing: settings.enableHomepageMultiPing,
     homepageMultiPingTaskIds: settings.homepageMultiPingTaskIds,
+    fakePingForUnbound: settings.fakePingForUnbound,
+    pingLatencyThresholds: normalizePingLatencyThresholds(settings.pingLatencyThresholds),
+    pingLatencyColors: normalizePingLatencyColors(settings.pingLatencyColors),
+    pingLossThresholds: normalizePingLossThresholds(settings.pingLossThresholds),
+    pingLossColors: normalizePingLossColors(settings.pingLossColors),
+    trafficSpectrumColors: normalizeTrafficSpectrumColors(settings.trafficSpectrumColors),
     showHomeOverview: settings.showHomeOverview,
     showAssetOverview: settings.showAssetOverview,
     showGroupTabs: settings.showGroupTabs,
@@ -303,13 +437,14 @@ function pickManagedThemeSettings(settings: ResolvedThemeSettings) {
     homeSortField: settings.homeSortField,
     homeSortDirection: settings.homeSortDirection,
     offlineNodesFirst: settings.offlineNodesFirst,
+    adminNickname: settings.adminNickname,
     showCostSummary: settings.showCostSummary,
+    showCostSummaryFloatingButton: settings.showCostSummaryFloatingButton,
+    showPriceForGuests: settings.showPriceForGuests,
     renewalReminderDays: settings.renewalReminderDays,
     showOverviewRatings: settings.showOverviewRatings,
-    showTrafficRating: settings.showTrafficRating,
     showBandwidthRating: settings.showBandwidthRating,
     showAssetRating: settings.showAssetRating,
-    trafficRatingLabels: settings.trafficRatingLabels,
     bandwidthRatingLabels: settings.bandwidthRatingLabels,
     assetRatingLabels: settings.assetRatingLabels,
     compactShowTrafficTotal: settings.compactShowTrafficTotal,
@@ -318,15 +453,12 @@ function pickManagedThemeSettings(settings: ResolvedThemeSettings) {
     showConnections: settings.showConnections,
     hiddenNodes: settings.hiddenNodes,
     costIgnoredNodes: settings.costIgnoredNodes,
-    // 按键排序:costPremiums 的键序随编辑历史漂移(删掉再加回同一键会排到最后),而 dirty /
-    // reseed 判断都走 JSON.stringify 签名——不排序会把"内容相同、键序不同"误判成有未保存改动。
     costPremiums: Object.fromEntries(
       Object.keys(settings.costPremiums)
         .sort()
         .map((uuid) => [uuid, settings.costPremiums[uuid]]),
     ),
     costRateApiUrl: settings.costRateApiUrl,
-    surfaceOpacity: settings.surfaceOpacity,
   };
 }
 
@@ -336,28 +468,25 @@ function managedSettingsSignature(settings: ThemeSettings & Record<string, unkno
 
 type ManagedThemeSettings = ReturnType<typeof pickManagedThemeSettings>;
 
-// 表单草稿:与托管设置同名同构,仅三处以「编辑态」存储——隐藏/忽略列表在表单里是多行文本
-// (提交时再归一化回数组),三个评级名称合成按 kind 索引的对象(UI 按 OVERVIEW_RATING_LABEL_FIELDS
-// 循环渲染)。其余字段直接透传,不维护第二份键清单。
 type ThemeDraft = Omit<
   ManagedThemeSettings,
   | "hiddenNodes"
   | "costIgnoredNodes"
-  | "trafficRatingLabels"
   | "bandwidthRatingLabels"
   | "assetRatingLabels"
 > & {
-  ratingLabels: Record<OverviewRatingKind, string>;
+  ratingLabels: {
+    bandwidth: string;
+    asset: string;
+  };
   hiddenNodesText: string;
   costIgnoredText: string;
 };
 
-// 服务端设置 → 表单草稿。reseed effect 和重置按钮都经 seedDrafts 走这里。
 function draftFromSettings(settings: ResolvedThemeSettings): ThemeDraft {
   const {
     hiddenNodes,
     costIgnoredNodes,
-    trafficRatingLabels,
     bandwidthRatingLabels,
     assetRatingLabels,
     ...rest
@@ -365,7 +494,6 @@ function draftFromSettings(settings: ResolvedThemeSettings): ThemeDraft {
   return {
     ...rest,
     ratingLabels: {
-      traffic: trafficRatingLabels,
       bandwidth: bandwidthRatingLabels,
       asset: assetRatingLabels,
     },
@@ -378,7 +506,6 @@ type BooleanDraftKey = {
   [K in keyof ThemeDraft]: ThemeDraft[K] extends boolean ? K : never;
 }[keyof ThemeDraft];
 
-// 统一的「标题 + 说明 + 开关」行。memo + 稳定的 patch 引用:编辑无关字段的击键不再重渲这些行。
 const ToggleRow = memo(function ToggleRow({
   field,
   title,
@@ -402,13 +529,12 @@ const ToggleRow = memo(function ToggleRow({
         type="checkbox"
         checked={checked}
         onChange={(event) => onPatch(field, event.target.checked)}
-        className="h-4 w-4 shrink-0 accent-[var(--accent-500)]"
+        className="h-4 w-4 shrink-0 accent-(--accent-500)"
       />
     </label>
   );
 });
 
-// 设置页的下拉框：原生箭头贴着右边框，这里隐藏它、自己画一个，左右都缩进 12px（样式见 .setting-select）。
 function SettingSelect({
   wrapperClassName,
   className,
@@ -420,7 +546,7 @@ function SettingSelect({
       <select
         {...props}
         className={clsx(
-          "surface-inset text-[13px] text-[var(--text-primary)] outline-none",
+          "surface-inset text-[13px] text-(--text-primary) outline-none",
           className,
         )}
       >
@@ -434,8 +560,6 @@ function SettingSelect({
 const EMPTY_ASSIGNED_CLIENTS: string[] = [];
 const EMPTY_ADMIN_CLIENTS: NodeInfo[] = [];
 
-// 单个 Ping 任务的绑定卡片。memo:编辑无关设置的击键不再重渲任务列表;展开态的
-// tasks×clients 复选网格只在绑定/搜索/展开变化时重算。
 const TaskBindingSection = memo(function TaskBindingSection({
   task,
   defaultTaskId,
@@ -450,7 +574,6 @@ const TaskBindingSection = memo(function TaskBindingSection({
   onPatchBindings,
 }: {
   task: PingTask;
-  /** 站点当前的「默认线路」，用来给对应那张卡片打标。 */
   defaultTaskId: number;
   assigned: string[];
   expanded: boolean;
@@ -470,10 +593,7 @@ const TaskBindingSection = memo(function TaskBindingSection({
   const existingAssigned =
     clientsById.size > 0 ? assigned.filter((uuid) => clientsById.has(uuid)) : assigned;
   const assignedSummary = summarizeNodes(existingAssigned, clientsById);
-  // 探测线路是后端固定的，没绑定的节点会落到站长选的「默认线路」，这里标出来免得站长
-  // 以为「0 个节点」就是没人用它。
   const isDefaultTask = task.id === defaultTaskId;
-  // 过滤只有展开的任务需要;收起的卡片跳过,搜索输入不再对每个任务做 O(clients) 扫描。
   const selectableVisibleClients = expanded
     ? visibleClients.filter((client) => {
         const assignedTaskId = assignedTaskByClientUuid.get(client.uuid);
@@ -488,29 +608,29 @@ const TaskBindingSection = memo(function TaskBindingSection({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
+            <h3 className="text-[15px] font-semibold text-(--text-primary)">
               {task.name || `任务 #${task.id}`}
             </h3>
             {isDefaultTask && (
-              <span className="rounded-full border border-[var(--hairline)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-tertiary)]">
+              <span className="rounded-full border border-(--hairline) px-2 py-0.5 text-[10px] font-medium text-(--text-tertiary)">
                 默认线路
               </span>
             )}
           </div>
-          <div className="mt-2 text-[12px] text-[var(--text-secondary)]">
-            <span className="font-medium text-[var(--text-primary)]">
+          <div className="mt-2 text-[12px] text-(--text-secondary)">
+            <span className="font-medium text-(--text-primary)">
               {existingAssigned.length > 0
                 ? `${existingAssigned.length} 台节点在首页显示这条线路的延迟`
                 : "还没有节点选这条线路"}
             </span>
             {isDefaultTask && (
               <>
-                <span className="mx-2 text-[var(--text-tertiary)]">·</span>
+                <span className="mx-2 text-(--text-tertiary)">·</span>
                 <span>没单独指定线路的节点都走这条</span>
               </>
             )}
           </div>
-          <p className="mt-2 text-[12px] text-[var(--text-tertiary)]" title={assignedSummary}>
+          <p className="mt-2 text-[12px] text-(--text-tertiary)" title={assignedSummary}>
             {assignedSummary}
           </p>
         </div>
@@ -534,7 +654,7 @@ const TaskBindingSection = memo(function TaskBindingSection({
               {allVisibleSelectableAssigned ? "已全选可用" : "全选可用"}
             </button>
           )}
-          {existingAssigned.length > 0 && (
+          {assigned.length > 0 && (
             <button
               type="button"
               onClick={() => {
@@ -561,15 +681,15 @@ const TaskBindingSection = memo(function TaskBindingSection({
       </div>
 
       {expanded && (
-        <div className="mt-4 border-t border-[var(--hairline)] pt-4">
+        <div className="mt-4 border-t border-(--hairline) pt-4">
           <label className="surface-inset flex items-center gap-2 px-3 py-2">
-            <Search size={14} className="text-[var(--text-tertiary)]" />
+            <Search size={14} className="text-(--text-tertiary)" />
             <input
               value={nodeSearch}
               onChange={(event) => onNodeSearch(event.target.value)}
               placeholder="搜索节点名称 / UUID / 分组 / 地区"
               aria-label="搜索节点"
-              className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-[var(--text-tertiary)]"
+              className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-(--text-tertiary)"
             />
           </label>
 
@@ -581,10 +701,10 @@ const TaskBindingSection = memo(function TaskBindingSection({
                 <label
                   key={client.uuid}
                   className={clsx(
-                    "flex cursor-pointer items-start gap-3 rounded-[12px] border px-3 py-3 transition-colors",
+                    "flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition-colors",
                     checked
-                      ? "border-[var(--border-strong)] bg-[color-mix(in_srgb,var(--hover-bg)_72%,transparent)]"
-                      : "border-[var(--hairline)] bg-transparent hover:bg-[var(--hover-bg)]",
+                      ? "border-(--border-strong) bg-[color-mix(in_srgb,var(--hover-bg)_72%,transparent)]"
+                      : "border-(--hairline) bg-transparent hover:bg-(--hover-bg)",
                   )}
                 >
                   <input
@@ -596,7 +716,7 @@ const TaskBindingSection = memo(function TaskBindingSection({
                         applyClientAssignment(prev, task.id, client.uuid, nextChecked),
                       );
                     }}
-                    className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent-500)]"
+                    className="mt-1 h-4 w-4 shrink-0 accent-(--accent-500)"
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -621,8 +741,6 @@ const TaskBindingSection = memo(function TaskBindingSection({
 
 type PremiumDetail = ReturnType<typeof calculateCostSummary>["details"][number];
 
-// 溢价录入列表。memo:编辑其他设置的击键不重渲整表——引用变化只来自
-// costPremiums 切片、搜索结果与汇率加载态。
 const PremiumList = memo(function PremiumList({
   clients,
   costPremiums,
@@ -641,7 +759,7 @@ const PremiumList = memo(function PremiumList({
   onPatchAcquiredAt: (uuid: string, rawValue: string) => void;
 }) {
   return (
-    <div className="surface-inset max-h-[320px] overflow-y-auto">
+    <div className="surface-inset max-h-80 overflow-y-auto">
       {clients.map((client) => {
         const entry = costPremiums[client.uuid];
         const detail = detailByUuid.get(client.uuid);
@@ -656,12 +774,12 @@ const PremiumList = memo(function PremiumList({
         return (
           <div
             key={client.uuid}
-            className="flex items-center justify-between gap-3 border-b border-[var(--hairline)] px-3 py-2 last:border-b-0"
+            className="flex flex-col gap-2 border-b border-(--hairline) px-3 py-2.5 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
           >
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Flag region={client.region ?? ""} size={13} />
               <span
-                className="truncate text-[13px] text-[var(--text-primary)]"
+                className="truncate text-[13px] font-medium text-(--text-primary)"
                 title={client.name}
               >
                 {client.name}
@@ -693,7 +811,7 @@ const PremiumList = memo(function PremiumList({
                 </span>
               )}
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2 max-sm:w-full">
               <input
                 type="number"
                 inputMode="decimal"
@@ -701,7 +819,6 @@ const PremiumList = memo(function PremiumList({
                 min="0"
                 value={entry?.paidCny ?? ""}
                 onChange={(event) => {
-                  // 键入 `-`/`e` 等非法中间态时 value 为空串,不能误当"留空即清除"删掉记录。
                   if (event.target.validity.badInput) return;
                   onPatchPaid(client.uuid, event.target.value);
                 }}
@@ -713,15 +830,13 @@ const PremiumList = memo(function PremiumList({
                     ? "实际收购价（人民币），留空即清除记录"
                     : "该节点已忽略或汇率缺失，无法折算剩余价值"
                 }
-                className="surface-inset w-24 px-2 py-1 text-right text-[13px] outline-none disabled:opacity-45"
+                className="surface-inset w-24 px-2 py-1 text-right text-[13px] outline-none disabled:opacity-45 max-sm:flex-1"
               />
               <input
                 type="date"
                 max={acquiredAtMax}
                 value={entry?.acquiredAt ?? ""}
                 onChange={(event) => onPatchAcquiredAt(client.uuid, event.target.value)}
-                // 与收购价同门槛:汇率/基准未就绪时 patchPremiumAcquiredAt 无法回算,
-                // 放开输入只会被静默丢弃(受控值弹回旧日期)。
                 disabled={!entry || !canCompute}
                 aria-label={`${client.name} 的收购日期`}
                 title={
@@ -729,7 +844,7 @@ const PremiumList = memo(function PremiumList({
                     ? "收购日期：修改后会按当前价格、周期、到期日和汇率回算该日剩余价值，重新计算并固化溢价"
                     : "该节点已忽略或汇率缺失，无法折算剩余价值"
                 }
-                className="surface-inset w-[8.75rem] px-2 py-1 text-[12px] outline-none disabled:opacity-45"
+                className="surface-inset w-35 px-2 py-1 text-[12px] outline-none disabled:opacity-45 max-sm:flex-1"
               />
             </div>
           </div>
@@ -739,51 +854,109 @@ const PremiumList = memo(function PremiumList({
   );
 });
 
-/* ------------------------------------------------------------------ *
- * 设置分组与搜索直达
- * ------------------------------------------------------------------ */
+type ThemeTabId = "home" | "card" | "cost";
 
-type ThemeTabId = "appearance" | "home" | "card" | "cost" | "ping";
 
-/**
- * 设置按分组分页，一次只渲染一组。
- *
- * 原来九个分区一条直线排下来：桌面 4100px（5.4 屏）、手机 6000px（6.7 屏），节点越多越长，
- * 改一项设置要把整页扫一遍。分组后一组只剩 1~2 屏，顶栏和分组导航都钉住不动，来回改也不用滚。
- * 加新设置时一并想好放哪一组。
- */
+interface LatencyTierConfig {
+  key: keyof PingLatencyColors;
+  label: string;
+  hint: string;
+  defaultColor: string;
+}
+
+const LATENCY_TIER_CONFIG: readonly LatencyTierConfig[] = [
+  { key: "excellent" as const, label: "极佳 (<=)", hint: "最优网络，极低延迟", defaultColor: DEFAULT_PING_LATENCY_COLORS.excellent },
+  { key: "good" as const, label: "良好 (<=)", hint: "畅快体验，稳定流畅", defaultColor: DEFAULT_PING_LATENCY_COLORS.good },
+  { key: "moderate" as const, label: "轻度 (<=)", hint: "轻度感知，正常可接受", defaultColor: DEFAULT_PING_LATENCY_COLORS.moderate },
+  { key: "elevated" as const, label: "偏高 (<=)", hint: "较高延迟，可明显感知", defaultColor: DEFAULT_PING_LATENCY_COLORS.elevated },
+  { key: "critical" as const, label: "极高", hint: "严重延迟，极度拥堵或告警", defaultColor: DEFAULT_PING_LATENCY_COLORS.critical },
+] as const;
+
+const LOSS_TIER_CONFIG = [
+  { key: "zero" as const, label: "无丢包 (0%)", hint: "网络通畅，零样本丢失", defaultColor: DEFAULT_PING_LOSS_COLORS.zero },
+  { key: "low" as const, label: "轻微丢包", hint: "偶发微量丢包，基本可用", defaultColor: DEFAULT_PING_LOSS_COLORS.low },
+  { key: "medium" as const, label: "中度丢包", hint: "较明显持续丢包，需注意", defaultColor: DEFAULT_PING_LOSS_COLORS.medium },
+  { key: "high" as const, label: "严重丢包", hint: "严重丢包甚至失联脱网", defaultColor: DEFAULT_PING_LOSS_COLORS.high },
+] as const;
+
+const TRAFFIC_SPECTRUM_ANCHOR_CONFIG = [
+  {
+    key: "start" as const,
+    label: "充裕健康色 (0% ~ 15%)",
+    stage: "充裕健康期",
+    hint: "初始充裕配额，健康充足状态",
+    defaultColor: DEFAULT_TRAFFIC_SPECTRUM_COLORS.start,
+  },
+  {
+    key: "mid" as const,
+    label: "半程消耗色 (~50%)",
+    stage: "半程稳定期",
+    hint: "中期消耗过半，进入稳定过渡期",
+    defaultColor: DEFAULT_TRAFFIC_SPECTRUM_COLORS.mid,
+  },
+  {
+    key: "high" as const,
+    label: "警戒消耗色 (~80%)",
+    stage: "警戒告警期",
+    hint: "额度告急进入警戒红热期",
+    defaultColor: DEFAULT_TRAFFIC_SPECTRUM_COLORS.high,
+  },
+  {
+    key: "end" as const,
+    label: "耗尽告警色 (100%)",
+    stage: "耗尽守护",
+    hint: "严格锁止最终暴走赤红守护",
+    defaultColor: DEFAULT_TRAFFIC_SPECTRUM_COLORS.end,
+  },
+] as const;
+
+const PREVIEW_LATENCY_BUCKETS: PingOverviewBucket[] = [
+  18, 36, 55, 72, 88, 105, 120, 138, 155, 168, 185, 198, 215, 245, 280, 320,
+].map((v, i) => ({
+  index: i,
+  value: v,
+  loss: 0,
+  total: 60,
+  lost: 0,
+  startAt: null,
+  endAt: null,
+  offline: false,
+}));
+
+const PREVIEW_LOSS_BUCKETS: PingOverviewBucket[] = [
+  0, 0, 0, 0, 1.5, 2.8, 4.5, 6.2, 8.5, 12.0, 16.5, 22.0, 35.0, 55.0, 78.0, 100.0,
+].map((loss, i) => ({
+  index: i,
+  value: 30,
+  loss,
+  total: 60,
+  lost: Math.round((loss / 100) * 60),
+  startAt: null,
+  endAt: null,
+  offline: false,
+}));
+
 const THEME_TABS: ReadonlyArray<{
   id: ThemeTabId;
   label: string;
   hint: string;
-  icon: typeof LayoutTemplate;
+  icon: typeof ListFilter;
 }> = [
-  { id: "appearance", label: "外观", hint: "外观、卡片尺寸、透明度", icon: LayoutTemplate },
-  { id: "home", label: "首页", hint: "总览、排序、隐藏节点", icon: ListFilter },
-  { id: "card", label: "卡片", hint: "卡片上显示哪些信息", icon: Rows3 },
-  { id: "cost", label: "花费", hint: "资产统计与收购溢价", icon: CircleDollarSign },
-  { id: "ping", label: "延迟", hint: "线路与逐节点指定", icon: Activity },
+  { id: "home", label: "首页", hint: "外观、展台、权限与评级", icon: ListFilter },
+  { id: "card", label: "服务器", hint: "视图、指标、排序与延迟", icon: Server },
+  { id: "cost", label: "资产", hint: "费用统计与二手溢价", icon: CircleDollarSign },
 ];
 
-const DEFAULT_THEME_TAB: ThemeTabId = "appearance";
+const DEFAULT_THEME_TAB: ThemeTabId = "home";
 
 function isThemeTabId(value: string | null): value is ThemeTabId {
   return value != null && THEME_TABS.some((tab) => tab.id === value);
 }
 
-/** 停手多久自动保存（站长那边之后还有自动同步自己的防抖，见 SITE_THEME_SYNC_DEBOUNCE_MS）。 */
 const THEME_AUTO_SAVE_DEBOUNCE_MS = 600;
-
-/** 设置区底部与页脚之间再留一点空（各层的内边距另算）。 */
 const BODY_BOTTOM_GAP = 2;
-
-/** 窗口再矮也给设置区留这么高，剩下的让整页滚。 */
 const MIN_BODY_HEIGHT = 320;
 
-/**
- * 工具栏上替代保存按钮的状态：谁都不用点保存 —— 站长的改动同步到后端，访客的存本机。
- * 同步失败的原因与「重试」在底部的 SiteThemeSyncNotice，这里只说结果。
- */
 function SiteSyncIndicator({
   phase,
   invalid,
@@ -794,9 +967,7 @@ function SiteSyncIndicator({
   phase: SiteThemeSyncPhase;
   invalid: boolean;
   waiting: boolean;
-  /** 登录站长：存完还要发到后端；访客只存本机。 */
   toSite: boolean;
-  /** 访客这次会话已经存过一次（站长看 phase）。 */
   savedLocally: boolean;
 }) {
   const [icon, text] = invalid
@@ -805,25 +976,23 @@ function SiteSyncIndicator({
         toSite ? "有设置填得不对，暂未同步" : "有设置填得不对，暂未保存",
       ]
     : !toSite
-      ? waiting
-        ? [<Spinner key="spin" size={14} />, "正在保存到本机"]
-        : savedLocally
-          ? [<Save key="saved" size={14} />, "已保存到本机"]
-          : [<Save key="local" size={14} />, "改动自动保存到本机"]
-      : waiting || phase === "pending" || phase === "saving"
-        ? [<Spinner key="spin" size={14} />, "正在同步到后端"]
-        : phase === "error"
-          ? [<CloudAlert key="alert" size={14} />, "同步到后端失败"]
-          : phase === "synced"
-            ? [<Cloud key="done" size={14} />, "已同步到后端"]
-            : [<Cloud key="idle" size={14} />, "改动自动同步到后端"];
+      ? [
+          <Sparkles key="local" size={14} />,
+          savedLocally ? "已保存到本机" : "改动会自动保存到本机",
+        ]
+      : phase === "saving" || phase === "pending" || waiting
+        ? [<Cloud key="syncing" size={14} className="is-spinning" />, "正在同步到后端…"]
+        : phase === "synced"
+          ? [<Cloud key="synced" size={14} />, "已同步到后端"]
+          : phase === "error"
+            ? [<CloudAlert key="error" size={14} />, "同步失败，正在重试…"]
+            : [<Cloud key="idle" size={14} />, "改动会自动同步到后端"];
+
   return (
     <span
-      role="status"
-      aria-live="polite"
       className={clsx(
         "theme-manage-sync-status",
-        (invalid || phase === "error") && "is-error",
+        invalid || phase === "error" ? "is-error" : undefined,
       )}
     >
       {icon}
@@ -841,35 +1010,39 @@ export function ThemeManage() {
     refetch: refetchConfig,
   } = usePublicConfig();
   const carrierNames = useCarrierNames();
-  // 全部托管设置收敛为单个草稿对象。之前是 30 个平行 useState,每新增一项设置要同步维护
-  // 声明/seedDrafts/payload/依赖数组四处清单;现在键清单只在 pickManagedThemeSettings 一处。
   const [draft, setDraft] = useState<ThemeDraft>(() =>
     draftFromSettings(DEFAULT_THEME_SETTINGS),
   );
   const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
-  // 分组页签记在地址里：刷新、后退、把链接发给别人都还在同一组。
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const activeTab: ThemeTabId = isThemeTabId(tabParam) ? tabParam : DEFAULT_THEME_TAB;
-  // 多线路模式下「单线路设置」默认收起（大/小卡片用不到它）。但不能删：迷你卡片与列表永远
-  // 走单线路，这里是它们唯一的入口，所以留一个展开按钮。单线路模式下这块恒展开。
-  const [taskSearch, setTaskSearch] = useState("");
+  const normalizedTab = tabParam === "ping" ? "card" : tabParam;
+  const activeTab: ThemeTabId = isThemeTabId(normalizedTab) ? normalizedTab : DEFAULT_THEME_TAB;
   const [nodeSearch, setNodeSearch] = useState("");
   const [premiumSearch, setPremiumSearch] = useState("");
-  // 访客的「已保存到本机」：这次会话存过一次才显示（站长那边看同步状态）。
   const [savedLocally, setSavedLocally] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const sectionsRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // 登录站长：改动自动保存并同步到后端，没有保存按钮（口径见 useCanSyncSiteTheme）。
+
+  // 右上角悬浮气泡 Toast（fixed 脱离文档流，0 挤动页面布局，3 秒自动淡出）
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  }, []);
+
   const canSaveToSite = useCanSyncSiteTheme();
   const siteSync = useSiteThemeSyncStatus();
   const editVersionRef = useRef(0);
 
-  // 单字段更新收口,所有表单控件都走它。值未变时原样返回 prev,保留旧的独立 useState
-  // 在同值 set 时不触发重渲染的行为。
   const patch = useCallback(
     <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => {
       editVersionRef.current += 1;
@@ -877,7 +1050,7 @@ export function ThemeManage() {
     },
     [],
   );
-  // 绑定关系的三个入口(勾选/全选/清空)都是基于前值的函数式更新,单独收口。
+
   const patchBindings = useCallback(
     (updater: (prev: HomepagePingTaskBindings) => HomepagePingTaskBindings) => {
       editVersionRef.current += 1;
@@ -888,23 +1061,18 @@ export function ThemeManage() {
     },
     [],
   );
-  /**
-   * 设置区是独立滚动区：顶栏固定，卡片只在自己的区域里滚，永远不会滑到顶栏那一块去。
-   * 高度只能量出来 —— 顶栏高度随登录态和换行变化，页脚高度也随站点信息变。量完页面本身正好不用滚，
-   * 只有窗口特别矮时才退回整页滚动（min-height 兜底）。
-   */
+
   useEffect(() => {
     const element = bodyRef.current;
     if (!element) return;
     const measure = () => {
+      if (window.innerWidth < 900) {
+        element.style.removeProperty("--theme-body-height");
+        return;
+      }
       const rect = element.getBoundingClientRect();
-      // 只拿「和设置区自身高度无关」的量来算，否则每量一次都会漂：
-      // 设置区在文档里的上沿（只受顶栏影响）、页脚自身高度、main 的下留白。
-      // 别去量 main 或页脚的位置 —— 它们被这块撑着走，量出来会越算越大 / 越算越小。
       const top = rect.top + window.scrollY;
       const main = element.closest("main");
-      // 设置区到 main 之间每一层的下内边距（页面下留白、.theme-manage 的 py-2 …）都要算上，
-      // 少算一层页面就会多出那么几像素的滚动。
       let padBottom = 0;
       for (
         let node: HTMLElement | null = element.parentElement;
@@ -923,7 +1091,6 @@ export function ThemeManage() {
     };
     measure();
     window.addEventListener("resize", measure);
-    // 顶栏换行（访客的按钮挤到第二行）、页脚多一行都会改变可用高度。
     const observer = new ResizeObserver(measure);
     const topbar = document.querySelector(".theme-topbar");
     const footer = document.querySelector(".site-footer");
@@ -937,7 +1104,6 @@ export function ThemeManage() {
 
   const openTab = useCallback(
     (next: ThemeTabId) => {
-      // replace：换分组不该在浏览器历史里堆一串，按返回要回首页。view 等其它参数原样保留。
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);
@@ -946,8 +1112,11 @@ export function ThemeManage() {
         },
         { replace: true },
       );
-      // 换组回到这一组的顶部：滚的是设置区，不是整个页面。
-      sectionsRef.current?.scrollTo({ top: 0 });
+      if (window.innerWidth >= 900) {
+        sectionsRef.current?.scrollTo({ top: 0 });
+      } else {
+        bodyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     },
     [setSearchParams],
   );
@@ -956,8 +1125,119 @@ export function ThemeManage() {
     setExpandedTaskId((current) => (current === taskId ? null : taskId));
     setNodeSearch("");
   }, []);
-  // 三个改线路的回调共用一段收尾：归一化（去重、按上限截断）后，值没变就返回原草稿，
-  // 免得每次 onChange 都制造新对象让整页重渲染。
+
+
+  const patchPingLatencyThreshold = useCallback(
+    (key: keyof PingLatencyThresholds, val: number) => {
+      editVersionRef.current += 1;
+      setDraft((prev) => ({
+        ...prev,
+        pingLatencyThresholds: {
+          ...prev.pingLatencyThresholds,
+          [key]: val,
+        },
+      }));
+    },
+    [],
+  );
+
+  const patchPingLatencyColor = useCallback(
+    (key: keyof PingLatencyColors, val: string) => {
+      editVersionRef.current += 1;
+      setDraft((prev) => ({
+        ...prev,
+        pingLatencyColors: {
+          ...prev.pingLatencyColors,
+          [key]: val,
+        },
+      }));
+    },
+    [],
+  );
+
+  const resetPingLatency = useCallback(() => {
+      editVersionRef.current += 1;
+    setDraft((prev) => ({
+      ...prev,
+      pingLatencyThresholds: { ...DEFAULT_PING_LATENCY_THRESHOLDS },
+      pingLatencyColors: { ...DEFAULT_PING_LATENCY_COLORS },
+    }));
+  }, []);
+
+  const patchPingLossThreshold = useCallback(
+    (key: keyof PingLossThresholds, val: number) => {
+      editVersionRef.current += 1;
+      setDraft((prev) => ({
+        ...prev,
+        pingLossThresholds: {
+          ...prev.pingLossThresholds,
+          [key]: val,
+        },
+      }));
+    },
+    [],
+  );
+
+  const patchPingLossColor = useCallback(
+    (key: keyof PingLossColors, val: string) => {
+      editVersionRef.current += 1;
+      setDraft((prev) => ({
+        ...prev,
+        pingLossColors: {
+          ...prev.pingLossColors,
+          [key]: val,
+        },
+      }));
+    },
+    [],
+  );
+
+  const resetPingLoss = useCallback(() => {
+      editVersionRef.current += 1;
+    setDraft((prev) => ({
+      ...prev,
+      pingLossThresholds: { ...DEFAULT_PING_LOSS_THRESHOLDS },
+      pingLossColors: { ...DEFAULT_PING_LOSS_COLORS },
+    }));
+  }, []);
+
+  const patchTrafficSpectrumColor = useCallback(
+    (key: keyof TrafficSpectrumColors, val: string) => {
+      editVersionRef.current += 1;
+      setDraft((prev) => ({
+        ...prev,
+        trafficSpectrumColors: {
+          ...prev.trafficSpectrumColors,
+          [key]: val,
+        },
+      }));
+    },
+    [],
+  );
+
+  const applyStatusBarPreset = useCallback((preset: StatusBarPreset) => {
+    editVersionRef.current += 1;
+    setDraft((prev) => ({
+      ...prev,
+      trafficSpectrumColors: { ...preset.colors },
+      pingLatencyColors: { ...preset.latencyColors },
+      pingLossColors: { ...preset.lossColors },
+    }));
+  }, []);
+
+  const resetTrafficSpectrum = useCallback(() => {
+      editVersionRef.current += 1;
+    setDraft((prev) => ({
+      ...prev,
+      trafficSpectrumColors: { ...DEFAULT_TRAFFIC_SPECTRUM_COLORS },
+    }));
+  }, []);
+
+  const previewTrafficSegmentColors = useMemo(
+    () => buildTrafficQuotaSegmentColors(draft.trafficSpectrumColors),
+    [draft.trafficSpectrumColors],
+  );
+
   const commitMultiPingTaskIds = useCallback(
     (mutate: (prev: number[]) => number[]) => {
       editVersionRef.current += 1;
@@ -973,6 +1253,7 @@ export function ThemeManage() {
     },
     [],
   );
+
   const patchMultiPingTask = useCallback(
     (slot: number, rawValue: string) => {
       commitMultiPingTaskIds((ids) => {
@@ -980,12 +1261,12 @@ export function ThemeManage() {
           ids.splice(slot, 1);
           return ids;
         }
-        // 选了别的槽位已经在用的线路：两条互换，而不是禁用那个选项、逼站长先把那边改掉。
         return assignHomepageMultiPingTask(ids, slot, Number(rawValue));
       });
     },
     [commitMultiPingTaskIds],
   );
+
   const removeMultiPingTask = useCallback(
     (slot: number) => {
       commitMultiPingTaskIds((ids) => {
@@ -995,8 +1276,7 @@ export function ThemeManage() {
     },
     [commitMultiPingTaskIds],
   );
-  // 「添加线路」补的是第一条还没被选的线路，站长再按需改成别的；补不到就什么都不做
-  // （按钮那时本来就是禁用的）。
+
   const addMultiPingTask = useCallback(() => {
     commitMultiPingTaskIds((ids) => {
       const nextTask = sortedTasksRef.current.find((task) => !ids.includes(task.id));
@@ -1005,58 +1285,36 @@ export function ThemeManage() {
     });
   }, [commitMultiPingTaskIds]);
 
-  // CF-Server-Monitor 的探测线路由后端固定（八条，见 CARRIER_TASKS），没有可配置的 ping 任务列表；
-  // 名字则跟着后端的 custom_*_name / node_N_name 走（站长改过就显示他改的）。
   const pingTasks = useMemo(() => carrierPingTasks(carrierNames), [carrierNames]);
-  const tasksLoading = false;
+
   const {
     data: adminClients,
-    isLoading: clientsLoading,
     error: clientsError,
   } = useQuery({
-    queryKey: ["theme-manage", "node-meta"],
+    queryKey: ["admin", "clients"],
     queryFn: ({ signal }) => getNodes({ signal }),
-    staleTime: 60_000,
-    retry: 1,
+    staleTime: 30_000,
+    retry: false,
   });
 
-  // 「当前已保存的设置」= 站点预设 + 本机覆盖，和全站读取口径一致。
-  // 只取后端的话，reseed 会在 config 到达后把草稿冲回站点默认值，
-  // 用户会以为自己保存的设置丢了。
-  const localThemeSettings = useLocalThemeSettings();
-  // 首页卡片上点线路名换过的线路（另一份本机存储）。不归表单草稿管，只在拼 siteDefaults 快照时并进去。
-  const localLineOverrides = useAllPingLineOverrides();
-  const localLineOverrideCount = Object.keys(localLineOverrides).length;
   const sourceThemeSettings = useMemo(
-    () =>
-      normalizeThemeSettings(
-        // 与全站读设置同口径：后台「默认外观」垫底（见 useThemeSettings），表单才显示实际生效的外观。
-        withPreferredAppearance(config?.preferredAppearance, {
-          ...(config?.theme_settings ?? {}),
-          ...localThemeSettings,
-        }),
-      ),
-    [config?.preferredAppearance, config?.theme_settings, localThemeSettings],
+    () => normalizeThemeSettings(config?.theme_settings),
+    [config?.theme_settings],
   );
-  // 按内容判断服务端设置是否真的变化，避免同内容 refetch 重置草稿。
   const sourceSignature = useMemo(
     () => JSON.stringify(pickManagedThemeSettings(sourceThemeSettings)),
     [sourceThemeSettings],
   );
   const lastSeededSignatureRef = useRef<string | null>(null);
 
-  // 把服务端设置灌入草稿的唯一出口,reseed effect 和重置按钮都走它,避免两边逻辑漂移。
   const seedDrafts = useCallback((next: ResolvedThemeSettings) => {
     setDraft(draftFromSettings(next));
   }, []);
 
-  const sortedTasks = useMemo(() => sortTasks(pingTasks), [pingTasks]);
-  // 「添加线路」要挑「第一条还没选的」，但那个回调声明在 sortedTasks 之前、且不该因为
-  // 线路名变化就重建（会连累整块表单重渲染），所以走 ref 读当前值。
+  const sortedTasks = useMemo(() => sortTasks(pingTasks ?? []), [pingTasks]);
   const sortedTasksRef = useRef(sortedTasks);
   sortedTasksRef.current = sortedTasks;
-  // 能选几条：后端给几条线路就最多几条，再被主题的上限夹一次（后端以后加线路，
-  // 抬 HOMEPAGE_MULTI_PING_MAX_COUNT 即可，这里不用动）。
+
   const multiPingSlotLimit = Math.min(
     HOMEPAGE_MULTI_PING_MAX_COUNT,
     Math.max(sortedTasks.length, HOMEPAGE_MULTI_PING_MIN_COUNT),
@@ -1067,8 +1325,6 @@ export function ThemeManage() {
     [sortedClients],
   );
 
-  // 后端实际存在的分组,按首页 Tab 的渲染顺序排列(已配置的在前,未排序的在后)。
-  // 用户直接拖动这个列表来调整顺序。
   const availableGroups = useMemo(
     () => dedupeGroupLabels(sortedClients.map((client) => client.group)),
     [sortedClients],
@@ -1085,13 +1341,6 @@ export function ThemeManage() {
     patch("homeGroupOrder", next);
   };
 
-  const filteredTasks = useMemo(() => {
-    const keyword = taskSearch.trim().toLowerCase();
-    if (!keyword) return sortedTasks;
-    // 探测方式/目标是主题拼出来的固定值（后端不下发），拿它们当搜索维度只会误导。
-    return sortedTasks.filter((task) => task.name.toLowerCase().includes(keyword));
-  }, [sortedTasks, taskSearch]);
-
   const visibleClients = useMemo(
     () => filterClients(sortedClients, nodeSearch),
     [nodeSearch, sortedClients],
@@ -1101,10 +1350,6 @@ export function ThemeManage() {
     [premiumSearch, sortedClients],
   );
 
-  // 溢价表格里"当前剩余价值"仅供参考,用已保存的汇率源/忽略名单算(不用草稿里还没保存的
-  // 编辑),口径与资产统计页完全一致(同一个 calculateCostSummary),但不叠加溢价本身。
-  // 与上面的节点列表复用同一份查询：设置页只需要静态 meta，不该为一列参考值
-  // 再挂一个常驻的实时轮询。
   const allMeta = sortedClients;
   const premiumRateQuery = useQuery({
     queryKey: ["cost-rates", sourceThemeSettings.costRateApiUrl],
@@ -1127,8 +1372,6 @@ export function ThemeManage() {
     return map;
   }, [allMeta, now, sourceThemeSettings.costIgnoredNodes, premiumRateQuery.data]);
 
-  // 使用当前价格、周期、到期日和汇率回算指定收购日的剩余价值；结果只在用户编辑
-  // 收购价/日期时用于固化溢价，不会因后续续费或汇率变化自动改写。
   const premiumBasisAt = useCallback(
     (uuid: string, acquiredAt?: string): number | null => {
       if (!premiumRateQuery.data) return null;
@@ -1161,7 +1404,6 @@ export function ThemeManage() {
     [draft.costPremiums],
   );
 
-  // 收购价清空即删条目；溢价按收购日的回算剩余价值算出并固化，不随后续续费/汇率漂移。
   const patchPremiumPaid = useCallback(
     (uuid: string, rawValue: string) => {
       editVersionRef.current += 1;
@@ -1194,7 +1436,6 @@ export function ThemeManage() {
     [premiumBasisAt],
   );
 
-  // 主动修改收购日期时重新回算该日剩余价值并固化新溢价；保存后仍保持固定。
   const patchPremiumAcquiredAt = useCallback(
     (uuid: string, rawValue: string) => {
       editVersionRef.current += 1;
@@ -1227,9 +1468,17 @@ export function ThemeManage() {
     draft.enableHomepageMultiPing &&
     !isHomepageMultiPingConfigured(draft.homepageMultiPingTaskIds);
 
-  // 由当前草稿拼出的设置 payload,保存请求和 dirty 判断都用它。草稿字段与设置同名,这里只做
-  // 「编辑态 → 存储态」的换形与归一化;文本域(hiddenNodesText/costIgnoredText)和 ratingLabels
-  // 解构出来换回存储字段,其余原样透传。
+  const setRatingLabelDraft = useCallback((key: "bandwidth" | "asset", value: string) => {
+    editVersionRef.current += 1;
+    setDraft((prev) => ({
+      ...prev,
+      ratingLabels: {
+        ...prev.ratingLabels,
+        [key]: value,
+      },
+    }));
+  }, []);
+
   const draftThemeSettings = useMemo<ThemeSettings>(() => {
     const { ratingLabels, hiddenNodesText, costIgnoredText, ...rest } = draft;
     return {
@@ -1237,7 +1486,6 @@ export function ThemeManage() {
       homepagePingBindings: pruneBindings(rest.homepagePingBindings),
       homeGroupOrder: normalizeHomeGroupOrder(rest.homeGroupOrder),
       homeRegionOrder: normalizeHomeRegionOrder(rest.homeRegionOrder),
-      trafficRatingLabels: ratingLabels.traffic,
       bandwidthRatingLabels: ratingLabels.bandwidth,
       assetRatingLabels: ratingLabels.asset,
       hiddenNodes: normalizeNodeIdentityList(hiddenNodesText),
@@ -1247,26 +1495,18 @@ export function ThemeManage() {
     };
   }, [draft]);
 
-  // 只比较本页实际管理的设置。enableAdminButton/showPingChart 这类隐藏设置会通过
-  // baseSettings 在保存时保留,但不该让表单永远显示为 dirty。
   const draftSignature = useMemo(
     () => managedSettingsSignature(draftThemeSettings as ThemeSettings & Record<string, unknown>),
     [draftThemeSettings],
   );
-  // draftSignature 用的是归一化后的 cost-rate URL,非法输入会被收敛回默认值,于是非法输入
-  // 不会被判为 dirty,用户既无法保存也无法重置出来。所以单独跟踪原始文本,让编辑始终把表单
-  // 标为 dirty(重置可用),而保存按钮再额外按合法性把关(见下文)。
   const costRateApiUrlDirty =
     draft.costRateApiUrl.trim() !== sourceThemeSettings.costRateApiUrl;
   const isDirty = draftSignature !== sourceSignature || costRateApiUrlDirty;
 
-  // 用户重新编辑后清掉「已保存」提示,避免过期的成功提示和 dirty 表单并存。
   useEffect(() => {
     if (isDirty) setMessage(null);
   }, [isDirty]);
 
-  // 服务端设置真正变化时灌入草稿。首次灌入之后,只要表单有未保存编辑(含保存中)就跳过,
-  // 避免 refetch / 其他端保存的回流静默覆盖用户草稿。
   useEffect(() => {
     if (!config) return;
     if (lastSeededSignatureRef.current === sourceSignature) return;
@@ -1275,16 +1515,13 @@ export function ThemeManage() {
     seedDrafts(sourceThemeSettings);
   }, [config, isDirty, sourceSignature, sourceThemeSettings, seedDrafts]);
 
-  // 每个 client 归属哪个 task 的反查,只在绑定草稿变化时重建。与「全选可用」reducer
-  // 共用 invertBindings() 避免推导漂移,并把可选节点过滤保持在 O(tasks × clients),
-  // 而不是每个 client 都重扫一遍 bindings。
   const assignedTaskByClientUuid = useMemo(
     () => invertBindings(draft.homepagePingBindings),
     [draft.homepagePingBindings],
   );
 
-  // 「已单独指定 N / 共几台」：只数节点表里还在的。绑定里留着删掉的节点 ID，直接加总会出现
-  // 「11 / 5 台」（见 TaskBindingSection 的 existingAssigned）。
+  // 「已设 N 台」：只数节点表里还在的。绑定里留着删掉的节点 ID，直接加总会出现「11 / 5 台」
+  // （见 TaskBindingSection 的 existingAssigned）。节点表还没加载出来时先照绑定里存的数。
   const assignedNodeCount = useMemo(() => {
     if (clientsById.size === 0) return assignedTaskByClientUuid.size;
     let count = 0;
@@ -1294,19 +1531,10 @@ export function ThemeManage() {
     return count;
   }, [assignedTaskByClientUuid, clientsById]);
 
-  /**
-   * 自动保存：表单一停手就把草稿存进本机；登录站长那边自动同步随即把它发到后端
-   * （见 startSiteThemeAutoSync），访客的就只留在这台设备。两边都没有保存按钮。
-   * 等人停手再存：打字时每个字都存一次，整站读设置的地方都跟着重算。填错了（汇率接口地址、多线路
-   * 一条都没选）不存。
-   *
-   * **只认这次会话里真改过的**（`editVersionRef` 只在表单回调里加）：草稿播种和站点配置到达之间有一拍
-   * 「默认值草稿 vs 已有设置」，不挡住的话，光打开设置页就会把这台设备本机存的旧设置存一遍
-   * —— 站长那边接着被自动同步推到后端，盖掉他在别的设备上的配置。
-   *
-   * 存之前把 lastSeededSignatureRef 钉到这份草稿：否则存完「当前生效的设置」变了、表单又不再 dirty，
-   * 灌草稿的 effect 会拿归一化后的设置重灌一遍 —— 正在输入的多行文本会被吞掉末尾的逗号和换行。
-   */
+  const localThemeSettings = useLocalThemeSettings();
+  const allLineOverrides = useAllPingLineOverrides();
+  const localLineOverrideCount = Object.keys(allLineOverrides).length;
+
   const autoSaveRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     autoSaveRef.current = null;
@@ -1330,13 +1558,8 @@ export function ThemeManage() {
     draftThemeSettings,
     sourceSignature,
   ]);
-  // 停手不到防抖时长就离开设置页：把这次改动存上（站长的由自动同步在页面外照常发出去）。
   useEffect(() => () => autoSaveRef.current?.(), []);
 
-  /**
-   * 当前设置的完整站点快照，「复制配置 JSON」粘到后台「主题自定义配置」用（未登录时才有这个按钮）。
-   * 含配色、卡片上换过的线路等本页之外的设置，拼法见 buildSiteThemeOptions（自动同步用的是同一份）。
-   */
   const { snapshot: siteDefaults } = useSiteThemeOptions(draftThemeSettings);
 
   const siteDefaultsJson = useMemo(
@@ -1356,19 +1579,10 @@ export function ThemeManage() {
     setError("复制失败，请检查浏览器的剪贴板权限");
   };
 
-  /**
-   * 清掉本地覆盖，回到后端 theme_options + 主题默认值。
-   *
-   * 工具栏的「改用后端配置」按钮走这里：本机存过的设置只要还在，后端改的配置就永远压不过来
-   * （合并规则是本地覆盖优先），必须先把本地那份丢掉。登录站长的改动平时已经自动同步、本机是空的，
-   * 所以只在本机还有没同步上的改动时才给这个按钮（见 hasUnsyncedLocalChanges）。
-   */
   const handleRestoreSiteDefaults = () => {
-    // 登录站长同步失败时，本机改动会一直等着重试；丢掉本机就不该再发出去。
     cancelSiteThemeSync();
     resetLocalThemeSettings();
     clearPingLineOverrides();
-    // 表单同步回站点默认值：否则会留下一份"已被清除但仍显示"的脏草稿。
     seedDrafts(
       normalizeThemeSettings(
         withPreferredAppearance(config?.preferredAppearance, config?.theme_settings ?? {}),
@@ -1378,7 +1592,6 @@ export function ThemeManage() {
     setError(null);
   };
 
-  // 表单改了、还没到自动保存那一下（登录站长）。
   const draftAwaitingAutoSave = draftSignature !== sourceSignature;
   const siteHasUnsyncedChanges = hasUnsyncedLocalChanges({
     hasLocalChanges: Object.keys(localThemeSettings).length > 0 || localLineOverrideCount > 0,
@@ -1398,10 +1611,10 @@ export function ThemeManage() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
         <div role="alert" className="space-y-2">
-          <div className="text-[15px] font-semibold text-[var(--text-primary)]">
+          <div className="text-[15px] font-semibold text-(--text-primary)">
             无法读取主题配置
           </div>
-          <p className="max-w-[32rem] text-[13px] text-[var(--text-secondary)]">
+          <p className="max-w-lg text-[13px] text-(--text-secondary)">
             {configError instanceof Error ? configError.message : "请稍后重试。"}
           </p>
         </div>
@@ -1409,11 +1622,11 @@ export function ThemeManage() {
           <button
             type="button"
             onClick={() => void refetchConfig()}
-            className="control-button px-4 py-2 text-[13px] font-medium"
+            className="theme-manage-button px-4 py-2 text-[13px] font-medium"
           >
             重试
           </button>
-          <Link to="/" className="control-button px-4 py-2 text-[13px] font-medium">
+          <Link to="/" className="theme-manage-button px-4 py-2 text-[13px] font-medium">
             返回首页
           </Link>
         </div>
@@ -1422,21 +1635,33 @@ export function ThemeManage() {
   }
 
   const adminError = clientsError instanceof Error ? clientsError.message : null;
-  const noTasksYet = !tasksLoading && !clientsLoading && sortedTasks.length === 0;
-  const noFilteredTaskMatch = !tasksLoading && !clientsLoading && !noTasksYet && filteredTasks.length === 0;
-  const setRatingLabelDraft = (kind: OverviewRatingKind, value: string) => {
-    editVersionRef.current += 1;
-    setDraft((prev) => ({
-      ...prev,
-      ratingLabels: { ...prev.ratingLabels, [kind]: value },
-    }));
-  };
   const acquiredAtMax = localDateInputMax();
 
   return (
     <div className="theme-manage flex flex-col gap-5 py-2">
-      {/* 一行的粘性顶栏。原来是一整块 masthead（大标题 + 说明 + 统计），占掉小半屏、还跟着页面滚走，
-          改设置时想看同步状态得先滚回顶上。 */}
+      {/* 右上角悬浮气泡 Toast（fixed 绝对定位，绝不挤压页面任何布局，3秒自动淡出） */}
+      {toastMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-5 right-5 z-9999 flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-2xl border border-emerald-500/35 bg-(--bg-card)/95 backdrop-blur-md text-xs font-semibold text-emerald-600 dark:text-emerald-400 pointer-events-auto"
+        >
+          <span className="flex h-2 w-2 relative shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span>{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="ml-1 text-(--text-muted) hover:text-(--text-primary) transition-colors text-xs leading-none"
+            title="关闭通知"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <header className="theme-topbar">
         <Link to="/" className="instance-page-back theme-topbar-back">
           <ArrowLeft size={14} />
@@ -1444,8 +1669,6 @@ export function ThemeManage() {
         </Link>
         <h1 className="theme-topbar-title">主题设置</h1>
         <div className="theme-manage-toolbar-actions">
-          {/* 两边都没有保存按钮了（停手就自动保存），「重置」退不回已经存下的改动，留着只会让人以为能撤销。
-              填错了（不自动保存）把那一项改对即可。 */}
           {(!canSaveToSite || siteHasUnsyncedChanges) && (
             <button
               type="button"
@@ -1453,8 +1676,8 @@ export function ThemeManage() {
               className="theme-manage-button"
               title={
                 canSaveToSite
-                  ? "放弃这台设备上还没同步到后端的改动（含配色、首页卡片上换过的线路），改用后端当前的配置"
-                  : "放弃本机存过的设置（含配色、首页卡片上换过的线路），改用后端当前的配置（后台「外观设置 → 主题自定义配置」下发的那份）"
+                  ? "放弃这台设备上还没同步到后端的改动，改用后端当前的配置"
+                  : "放弃本机存过的设置，改用后端当前的配置"
               }
             >
               <CloudDownload size={14} />
@@ -1475,7 +1698,6 @@ export function ThemeManage() {
           <SiteSyncIndicator
             phase={siteSync.phase}
             invalid={isDirty && (draftCostRateApiUrlInvalid || draftMultiPingInvalid)}
-            // 表单停手等自动保存的那一小段也算「保存中」，不然会先闪一下「已保存」。
             waiting={draftAwaitingAutoSave}
             toSite={canSaveToSite}
             savedLocally={savedLocally}
@@ -1483,14 +1705,13 @@ export function ThemeManage() {
         </div>
       </header>
 
-
       {(message || error || adminError) && (
         <div className="flex flex-col gap-3">
           {message && (
             <div
               role="status"
               aria-live="polite"
-              className="rounded-[12px] border border-[color-mix(in_srgb,var(--status-online)_28%,transparent)] bg-[color-mix(in_srgb,var(--status-online)_11%,var(--surface))] px-4 py-3 text-[13px] text-[var(--status-online)]"
+              className="rounded-xl border border-[color-mix(in_srgb,var(--status-online)_28%,transparent)] bg-[color-mix(in_srgb,var(--status-online)_11%,var(--surface))] px-4 py-3 text-[13px] text-(--status-online)"
             >
               {message}
             </div>
@@ -1498,7 +1719,7 @@ export function ThemeManage() {
           {error && (
             <div
               role="alert"
-              className="rounded-[12px] border border-[color-mix(in_srgb,var(--status-offline)_28%,transparent)] bg-[color-mix(in_srgb,var(--status-offline)_11%,var(--surface))] px-4 py-3 text-[13px] text-[var(--status-offline)]"
+              className="rounded-xl border border-[color-mix(in_srgb,var(--status-offline)_28%,transparent)] bg-[color-mix(in_srgb,var(--status-offline)_11%,var(--surface))] px-4 py-3 text-[13px] text-(--status-offline)"
             >
               {error}
             </div>
@@ -1506,9 +1727,9 @@ export function ThemeManage() {
           {adminError && (
             <div
               role="alert"
-              className="rounded-[12px] border border-[color-mix(in_srgb,var(--status-offline)_28%,transparent)] bg-[color-mix(in_srgb,var(--status-offline)_11%,var(--surface))] px-4 py-3 text-[13px] text-[var(--status-offline)]"
+              className="rounded-xl border border-[color-mix(in_srgb,var(--status-offline)_28%,transparent)] bg-[color-mix(in_srgb,var(--status-offline)_11%,var(--surface))] px-4 py-3 text-[13px] text-(--status-offline)"
             >
-              无法读取后台 Ping 任务或节点列表: {adminError}
+              无法读取后台节点列表: {adminError}
             </div>
           )}
         </div>
@@ -1533,12 +1754,12 @@ export function ThemeManage() {
         </nav>
 
         <div className="theme-manage-sections" ref={sectionsRef}>
-          {activeTab === "appearance" && (
+          {activeTab === "home" && (
             <>
               <InstancePanel
                 id="set-appearance"
                 kicker="外观"
-                title="默认外观"
+                title="显示外观"
                 aside={<LayoutTemplate size={16} />}
               >
                 <div className="instance-segmented is-prominent is-even">
@@ -1559,16 +1780,359 @@ export function ThemeManage() {
               </InstancePanel>
 
               <InstancePanel
+                kicker="总览"
+                title="监控总览"
+                aside={<Layers size={16} />}
+              >
+                <div className="grid gap-3 md:grid-cols-2">
+                  <ToggleRow
+                    field="showHomeOverview"
+                    title="监控总览"
+                    desc="在首页顶部展示监控总览模块。"
+                    checked={draft.showHomeOverview}
+                    onPatch={patch}
+                  />
+                  <ToggleRow
+                    field="showAssetOverview"
+                    title="资产总值卡"
+                    desc="总览里写着资产总值的那张卡。不想展示开销就关掉，其余指标卡不受影响。"
+                    checked={draft.showAssetOverview}
+                    onPatch={patch}
+                  />
+                </div>
+              </InstancePanel>
+
+              <InstancePanel
+                kicker="权限"
+                title="访客权限"
+                aside={<Compass size={16} />}
+              >
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <span className="setting-subhead-title block mb-2">卡片操作入口</span>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <ToggleRow
+                        field="showCostSummary"
+                        title="资产入口"
+                        desc="在资产卡片显示进入按钮；未公开时仅管理员可见。"
+                        checked={draft.showCostSummary}
+                        onPatch={patch}
+                      />
+                      <ToggleRow
+                        field="showCostSummaryFloatingButton"
+                        title="悬浮入口"
+                        desc="在右下角悬浮显示资产入口，未显示卡片时生效。"
+                        checked={draft.showCostSummaryFloatingButton}
+                        onPatch={patch}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-(--border-subtle) pt-3">
+                    <span className="setting-subhead-title block mb-2">访客公开与可见性权限</span>
+                    <div className="grid gap-3">
+                      <ToggleRow
+                        field="showPriceForGuests"
+                        title="公开资产"
+                        desc="允许访客查看机器价格与资产总额，关闭则保密。"
+                        checked={draft.showPriceForGuests}
+                        onPatch={patch}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </InstancePanel>
+
+              
+
+              {draft.clusterOverviewMode === "nodes" && (
+                <InstancePanel
+                  id="set-matrix-settings"
+                  kicker="矩阵"
+                  title="矩阵定制"
+                  aside={<LayoutGrid size={16} />}
+                >
+                  {/* 1. 矩阵配色风格切换 */}
+                  <div>
+                    <div className="flex items-center justify-between gap-3 mb-2.5">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-(--text-primary) flex items-center gap-1.5">
+                          <span>配色风格</span>
+                          {(() => {
+                            const currentOpt = COLOR_THEME_OPTIONS.find(
+                              (opt) => opt.id === (draft.matrixColorTheme ?? "default"),
+                            ) ?? COLOR_THEME_OPTIONS[0];
+                            return (
+                              <span
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${currentOpt.badgeClass}`}
+                              >
+                                {currentOpt.badge}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        <p className="text-[11px] text-(--text-muted) mt-0.5">
+                          定制方格矩阵与指标卡片的高光配色风格。
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                      {COLOR_THEME_OPTIONS.map((opt) => {
+                        const isSelected = (draft.matrixColorTheme ?? "default") === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => patch("matrixColorTheme", opt.id)}
+                            data-active={isSelected ? "true" : "false"}
+                            aria-pressed={isSelected}
+                            className={`setting-color-theme-card ${opt.id === "eva" ? "is-eva" : ""}`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="flex items-center gap-1 shrink-0 p-1 rounded-md bg-(--bg-card) border border-(--hairline)">
+                                {opt.colors.map((c, i) => (
+                                  <span
+                                    key={i}
+                                    className="w-2.5 h-2.5 rounded-xs"
+                                    style={{ backgroundColor: c }}
+                                  />
+                                ))}
+                              </div>
+                              <div className="min-w-0">
+                                <span className="text-xs font-medium text-(--text-primary) block truncate">
+                                  {opt.label}
+                                </span>
+                                <span className="text-[10px] text-(--text-muted) block truncate">
+                                  {opt.desc}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="setting-color-theme-radio" aria-hidden="true">
+                              {isSelected && (
+                                <div className="setting-color-theme-radio-dot" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 2. SAO 主题开场动画 */}
+                  <div className="mt-4 pt-3.5 border-t border-(--hairline)">
+                    <label className="flex items-center justify-between gap-3 cursor-pointer">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-(--text-primary) flex items-center gap-1.5">
+                          <span>开屏动画</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30">
+                            BOOT INTRO
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-(--text-muted) mt-0.5">
+                          进入首页时播放光效开屏动画，随后载入数据。
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={draft.matrixBootAnimation ?? true}
+                        onChange={(event) => patch("matrixBootAnimation", event.target.checked)}
+                        className="h-4 w-4 shrink-0 accent-(--accent-500)"
+                      />
+                    </label>
+
+                    {/* 开场点阵图案自定义画布（仅在开启开场动画时展开） */}
+                    {(draft.matrixBootAnimation ?? true) && (
+                      <div className="mt-3.5 space-y-4">
+                        {/* 动效形式独立选择器 */}
+                        <div className="rounded-xl border border-(--hairline) bg-[color-mix(in_srgb,var(--bg-card)_55%,transparent)] p-3 sm:p-3.5">
+                          <div className="flex items-center justify-between gap-2 mb-2.5">
+                            <div>
+                              <div className="text-xs font-semibold text-(--text-primary) flex items-center gap-1.5">
+                                <span>动效样式</span>
+                                {(() => {
+                                  const currentEffect =
+                                    BOOT_EFFECT_OPTIONS.find(
+                                      (e) => e.id === (draft.matrixBootEffect ?? "laser-scan"),
+                                    ) ?? BOOT_EFFECT_OPTIONS[0];
+                                  return (
+                                    <span
+                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${currentEffect.badgeClass}`}
+                                    >
+                                      {currentEffect.badge}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
+                              <p className="text-[11px] text-(--text-muted) mt-0.5">
+                                选择开屏画面的入场动效样式。
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {BOOT_EFFECT_OPTIONS.map((opt) => {
+                              const isSelected = (draft.matrixBootEffect ?? "laser-scan") === opt.id;
+                              return (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  onClick={() => patch("matrixBootEffect", opt.id)}
+                                  data-active={isSelected ? "true" : "false"}
+                                  aria-pressed={isSelected}
+                                  className="setting-color-theme-card"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-xs font-medium text-(--text-primary) truncate">
+                                          {opt.label}
+                                        </span>
+                                      </div>
+                                      <span className="text-[10px] text-(--text-muted) block truncate mt-0.5">
+                                        {opt.desc}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="setting-color-theme-radio" aria-hidden="true">
+                                    {isSelected && (
+                                      <div className="setting-color-theme-radio-dot" />
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* 点阵画板 */}
+                        <MatrixPatternEditor
+                        value={draft.matrixCustomPattern}
+                        userPresets={draft.matrixUserPresets}
+                        colorTheme={draft.matrixColorTheme ?? "default"}
+                        bootEffect={draft.matrixBootEffect ?? "laser-scan"}
+                        onApply={(pattern) => {
+                          patch("matrixCustomPattern", pattern);
+                          showToast("已将点阵图案应用到首页并同步云端");
+                        }}
+                        onSaveUserPresets={(presets) => {
+                          patch("matrixUserPresets", presets);
+                          showToast("用户预设已更新并同步云端");
+                        }}
+                      />
+                    </div>
+                  )}
+                  </div>
+
+                  {/* 3. 模拟数据填充空闲机位插槽 */}
+                  <div className="mt-4 pt-3.5 border-t border-(--hairline)">
+                    <label className="flex items-center justify-between gap-3 cursor-pointer">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-(--text-primary) flex items-center gap-1.5">
+                          <span>模拟数据填充空闲机位插槽</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-600 dark:text-blue-300 border border-blue-500/30">
+                            MOCK FILL
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-(--text-muted) mt-0.5">
+                          开启后，机架方格矩阵中未接入服务器的闲置插槽将使用模拟数据填满，并在运行期间周期性随机变幻「空闲待机」、「活跃传输」与「高吞吐」状态及吞吐速率，令机架方格更显生机灵动。
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={draft.matrixMockFill ?? false}
+                        onChange={(event) => patch("matrixMockFill", event.target.checked)}
+                        className="h-4 w-4 shrink-0 accent-(--accent-500)"
+                      />
+                    </label>
+                  </div>
+                </InstancePanel>
+              )}
+
+              <InstancePanel
+                id="set-overview-ratings"
+                kicker="评级"
+                title="状态评级"
+                aside={<ListFilter size={16} />}
+              >
+                <div className="grid gap-3 md:grid-cols-2">
+                  {OVERVIEW_RATING_LABEL_FIELDS.map((field) => {
+                    const defaultLabel = getDefaultOverviewRatingLabelText(field.key);
+                    const ratingEnabled = draft[field.toggleKey];
+                    return (
+                      <div
+                        key={field.key}
+                        className={`surface-inset flex min-w-0 flex-col gap-2.5 px-4 py-3 transition-colors ${
+                          field.isBadge ? "border-l-2 border-l-(--accent-500)" : ""
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="setting-subhead-title">{field.title}</span>
+                              <span
+                                className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                                  field.isBadge
+                                    ? "bg-(--accent-500)/15 text-(--accent-400) border border-(--accent-500)/30"
+                                    : "bg-white/5 text-(--text-muted) border border-white/10"
+                                }`}
+                              >
+                                {field.isBadge && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-pulse" />}
+                                {field.scopeBadge}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-[11px] text-(--text-tertiary) leading-normal">
+                              {field.description}
+                            </p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={draft[field.toggleKey]}
+                            onChange={(event) => patch(field.toggleKey, event.target.checked)}
+                            className="h-4 w-4 shrink-0 mt-0.5 accent-(--accent-500)"
+                            title={`开启/关闭${field.title}`}
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 mt-auto pt-1">
+                          <div className="flex items-center justify-between text-[11px] text-(--text-muted)">
+                            <span>自定义分级词</span>
+                            {!ratingEnabled && <span className="opacity-70">(已停用)</span>}
+                          </div>
+                          <input
+                            value={draft.ratingLabels[field.key]}
+                            disabled={!ratingEnabled}
+                            onChange={(event) => setRatingLabelDraft(field.key, event.target.value)}
+                            placeholder={defaultLabel}
+                            aria-label={`${field.title}评级名称`}
+                            className="surface-inset w-full px-3 py-1.5 text-[12px] outline-none disabled:opacity-60 font-mono"
+                          />
+                          <span className="setting-hint">
+                            {field.tierHint}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </InstancePanel>
+            </>
+          )}
+
+          {activeTab === "card" && (
+            <>
+              {/* 面板 1: 默认视图 */}
+              <InstancePanel
                 id="set-view"
                 kicker="视图"
-                title="默认卡片视图"
+                title="默认视图"
                 aside={<LayoutGrid size={16} />}
               >
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="surface-inset setting-segment-slot flex flex-col gap-3 px-4 py-4">
                     <div>
                       <div className="setting-subhead-title">
-                        桌面端默认
+                        桌面端
                       </div>
                       <div className="mt-1 setting-hint">
                         适用于宽度大于 720px 的浏览器窗口。
@@ -1593,7 +2157,7 @@ export function ThemeManage() {
                   <div className="surface-inset setting-segment-slot flex flex-col gap-3 px-4 py-4">
                     <div>
                       <div className="setting-subhead-title">
-                        移动端默认
+                        移动端
                       </div>
                       <div className="mt-1 setting-hint">
                         适用于宽度小于等于 720px 的手机或窄屏窗口。
@@ -1618,472 +2182,826 @@ export function ThemeManage() {
                 </div>
               </InstancePanel>
 
+              {/* 面板 2: 卡片指标 */}
               <InstancePanel
-                id="set-opacity"
-                kicker="背景"
-                title="卡片透明度"
-                aside={<Wallpaper size={16} />}
-              >
-                <div className="flex flex-col gap-4">
-                  <div className="surface-inset flex flex-col gap-3 px-4 py-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <span className="setting-subhead-title">
-                        卡片不透明度
-                      </span>
-                      <span className="inline-flex items-center gap-1.5">
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={1}
-                          inputMode="numeric"
-                          value={draft.surfaceOpacity}
-                          onChange={(event) => {
-                            // Number("") === 0,没有这行的话清空输入框(想重新输入)会把值跳成 0。
-                            if (event.target.value.trim() === "") return;
-                            const next = Number(event.target.value);
-                            if (!Number.isFinite(next)) return;
-                            patch("surfaceOpacity", Math.min(100, Math.max(0, Math.round(next))));
-                          }}
-                          aria-label="卡片不透明度百分比"
-                          className="surface-inset w-20 px-3 py-2 text-right text-[13px] tabular outline-none"
-                        />
-                        <span className="text-[13px] font-medium text-[var(--text-tertiary)]">%</span>
-                      </span>
-                    </div>
-                    <span className="setting-hint">
-                      输入 0–100 的整数。100 = 完全不透明，数值越低卡片越通透、越能透出站点背景图。
-                      低于 95 时会自动叠加一层可读性遮罩，保证文字清晰。
-                    </span>
-                  </div>
-                  <div className="surface-inset px-4 py-3 setting-hint">
-                    要更换背景图、站点标题或站点图标，请到 <code>/admin#admin</code> 的外观设置中修改，
-                    它们对所有主题统一生效。
-                  </div>
-                </div>
-              </InstancePanel>
-            </>
-          )}
+              id="set-card-content"
+              kicker="指标"
+              title="卡片指标"
+              description="自选各视图卡片上呈现的具体参数与开关。"
+              aside={<Rows3 size={16} />}
+            >
+              <div className="grid gap-3 md:grid-cols-2">
+                <ToggleRow
+                  field="showGroupTabs"
+                  title="分组标签"
+                  desc="在服务器列表上方显示分组切换标签。"
+                  checked={draft.showGroupTabs}
+                  onPatch={patch}
+                />
+                <ToggleRow
+                  field="showRegionBar"
+                  title="地区标签"
+                  desc="在服务器列表上方显示国旗地区筛选。"
+                  checked={draft.showRegionBar}
+                  onPatch={patch}
+                />
+                <ToggleRow
+                  field="showCardGroup"
+                  title="分组名称"
+                  desc="在服务器卡片副标题标注所属分组。"
+                  checked={draft.showCardGroup}
+                  onPatch={patch}
+                />
+                <ToggleRow
+                  field="showCardPrice"
+                  title="价格到期"
+                  desc="在卡片中显示续费周期、费用和到期日。"
+                  checked={draft.showCardPrice}
+                  onPatch={patch}
+                />
+                <ToggleRow
+                  field="compactShowTrafficTotal"
+                  title="本期流量"
+                  desc="在紧凑卡片中展示本计费周期（按重置日清零）的上下行用量。"
+                  checked={draft.compactShowTrafficTotal}
+                  onPatch={patch}
+                />
+                <ToggleRow
+                  field="compactShowBilling"
+                  title="计费周期"
+                  desc="在紧凑卡片中标注续费计费周期。"
+                  checked={draft.compactShowBilling}
+                  onPatch={patch}
+                />
+                <ToggleRow
+                  field="compactShowUptime"
+                  title="在线时长"
+                  desc="在紧凑卡片中展示系统持续运行时间。"
+                  checked={draft.compactShowUptime}
+                  onPatch={patch}
+                />
+                <ToggleRow
+                  field="showConnections"
+                  title="连接数量"
+                  desc="在卡片网络区域标注实时网络连接数。"
+                  checked={draft.showConnections}
+                  onPatch={patch}
+                />
+              </div>
+            </InstancePanel>
 
-          {activeTab === "home" && (
-            <>
-              <InstancePanel
-                id="set-home-display"
-                kicker="显示"
-                title="首页显示项"
-                aside={<ListFilter size={16} />}
-              >
-                <div className="grid gap-3 md:grid-cols-3">
-                  <ToggleRow
-                    field="showHomeOverview"
-                    title="显示顶部总览"
-                    desc="展示时间、在线数、地区、流量和速率。"
-                    checked={draft.showHomeOverview}
-                    onPatch={patch}
-                  />
-                  <ToggleRow
-                    field="showAssetOverview"
-                    title="显示资产概览"
-                    desc="总览里那张写着每月花多少钱的卡片。不想把开销公开就关掉，其余总览卡不受影响。"
-                    checked={draft.showAssetOverview}
-                    onPatch={patch}
-                  />
-                  <ToggleRow
-                    field="showGroupTabs"
-                    title="显示分组筛选"
-                    desc="根据后端节点分组生成首页 Tab。"
-                    checked={draft.showGroupTabs}
-                    onPatch={patch}
-                  />
-                  <ToggleRow
-                    field="showRegionBar"
-                    title="显示地区筛选"
-                    desc="按节点地区生成国旗筛选栏，点击某地区只看该地区节点。"
-                    checked={draft.showRegionBar}
-                    onPatch={patch}
-                  />
-                  <ToggleRow
-                    field="showCardGroup"
-                    title="卡片显示分组"
-                    desc="关闭后卡片内不再显示节点分组名（不影响分组筛选栏与备注）。"
-                    checked={draft.showCardGroup}
-                    onPatch={patch}
-                  />
-                  <ToggleRow
-                    field="showCardPrice"
-                    title="卡片显示价格"
-                    desc="关闭后大卡片内不再显示价格。"
-                    checked={draft.showCardPrice}
-                    onPatch={patch}
-                  />
-                </div>
-
-              </InstancePanel>
-
+              {/* 面板 3: 列表排序 */}
               <InstancePanel
                 id="set-home-sort"
                 kicker="排序"
-                title="排序与分组"
-                aside={<ArrowUpDown size={16} />}
-              >
-                {/* 开关和它决定的默认顺序放一起：拆开之后「关掉开关这两组还能不能设」就看不出来了。 */}
-                <ToggleRow
-                  field="enableHomeSort"
-                  title="启用排序切换"
-                  desc="首页显示排序控件，访客可临时切换排序方式（离线节点恒定置底）。关掉后所有人都按下面定的顺序看。"
-                  checked={draft.enableHomeSort}
-                  onPatch={patch}
-                />
-
-                {/* 四个字段一套网格：标题在上、控件撑满格子。宽窄不一、说明乱飘是上一版「看着乱」的来源。 */}
-                <div className="setting-grid is-triple mt-4">
-                  <div className="is-wide setting-segment-slot">
-                    <div className="setting-subhead">
-                      <span className="setting-subhead-title">默认排序维度</span>
-                    </div>
-                    <div className="instance-segmented is-prominent is-even">
-                      {HOME_SORT_FIELDS.map((field) => (
-                        <button
-                          key={field}
-                          type="button"
-                          data-active={draft.homeSortField === field ? "true" : "false"}
-                          aria-pressed={draft.homeSortField === field}
-                          onClick={() => patch("homeSortField", field)}
-                        >
-                          {HOME_SORT_FIELD_LABELS[field]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="setting-subhead">
-                      <span className="setting-subhead-title">默认方向</span>
-                    </div>
-                    <div className="instance-segmented is-prominent is-even">
-                      <button
-                        type="button"
-                        data-active={draft.homeSortDirection === "asc" ? "true" : "false"}
-                        aria-pressed={draft.homeSortDirection === "asc"}
-                        onClick={() => patch("homeSortDirection", "asc")}
-                      >
-                        升序
-                      </button>
-                      <button
-                        type="button"
-                        data-active={draft.homeSortDirection === "desc" ? "true" : "false"}
-                        aria-pressed={draft.homeSortDirection === "desc"}
-                        onClick={() => patch("homeSortDirection", "desc")}
-                      >
-                        降序
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="setting-subhead">
-                      <span className="setting-subhead-title">离线节点</span>
-                    </div>
-                    <div className="instance-segmented is-prominent is-even" role="group" aria-label="离线节点位置">
-                      <button
-                        type="button"
-                        data-active={!draft.offlineNodesFirst ? "true" : "false"}
-                        aria-pressed={!draft.offlineNodesFirst}
-                        onClick={() => patch("offlineNodesFirst", false)}
-                      >
-                        排在最后
-                      </button>
-                      <button
-                        type="button"
-                        data-active={draft.offlineNodesFirst ? "true" : "false"}
-                        aria-pressed={draft.offlineNodesFirst}
-                        onClick={() => patch("offlineNodesFirst", true)}
-                      >
-                        排在最前
-                      </button>
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="setting-subhead">
-                      <span className="setting-subhead-title">默认分组</span>
-                    </div>
-                    <SettingSelect
-                      value={draft.homeDefaultGroup}
-                      onChange={(event) => patch("homeDefaultGroup", event.target.value)}
-                      aria-label="默认分组"
-                    >
-                      <option value="">全部（不指定）</option>
-                      {/* 站点换过分组名时，存着的那个值仍列出来，免得选中项凭空消失。 */}
-                      {draft.homeDefaultGroup !== "" &&
-                        !availableGroups.includes(draft.homeDefaultGroup) && (
-                          <option value={draft.homeDefaultGroup}>
-                            {draft.homeDefaultGroup}（当前没有这个分组）
-                          </option>
-                        )}
-                      {availableGroups.map((group) => (
-                        <option key={group} value={group}>
-                          {group}
-                        </option>
-                      ))}
-                    </SettingSelect>
-                  </div>
-                </div>
-
-                <p className="mt-3 setting-hint">
-                  以上是访客首次打开首页时看到的顺序与分组；访客临时改过的排序只在他自己的标签页里有效。
-                </p>
-
-                <div className="mt-4">
-                  <div className="setting-subhead">
-                    <span className="setting-subhead-title">分组排序</span>
-                    <span className="setting-hint">
-                      调整首页分组 Tab 的显示顺序；未列出的分组按后端顺序排在后面。
-                    </span>
-                  </div>
-                  {orderedDraftGroups.length === 0 ? (
-                    <p className="surface-inset mt-2 px-4 py-3 text-[12px] text-[var(--text-tertiary)]">
-                      {clientsLoading ? "正在加载分组…" : "暂无分组（节点未设置分组时无需排序）"}
-                    </p>
-                  ) : (
-                    <ul className="mt-2 flex flex-col gap-2">
-                      {orderedDraftGroups.map((group, index) => (
-                        <li
-                          key={group}
-                          className="surface-inset flex items-center justify-between gap-3 px-4 py-2.5"
-                        >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <span className="tabular text-[12px] text-[var(--text-tertiary)]">
-                              {index + 1}
-                            </span>
-                            <span
-                              className="truncate text-[13px] text-[var(--text-primary)]"
-                              title={group}
-                            >
-                              {group}
-                            </span>
-                          </span>
-                          <span className="flex shrink-0 items-center gap-1">
-                            <button
-                              type="button"
-                              disabled={index === 0}
-                              onClick={() => moveGroup(index, -1)}
-                              className="theme-manage-button is-compact"
-                              aria-label={`上移 ${group}`}
-                            >
-                              <ChevronUp size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={index === orderedDraftGroups.length - 1}
-                              onClick={() => moveGroup(index, 1)}
-                              className="theme-manage-button is-compact"
-                              aria-label={`下移 ${group}`}
-                            >
-                              <ChevronDown size={14} />
-                            </button>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {/* 地区顺序在首页地区栏上直接拖（站长提的：拖比在这里上下点直观）；这里只留查看和恢复默认。 */}
-                <div className="mt-4">
-                  <div className="setting-subhead">
-                    <span className="setting-subhead-title">地区排序</span>
-                    <span className="setting-hint">
-                      在首页按住地区标签直接拖动（手机上先长按）；新出现的地区按默认规则排在后面。
-                    </span>
-                  </div>
-                  <div className="surface-inset mt-2 flex items-center justify-between gap-3 px-4 py-2.5">
-                    <span
-                      className="truncate text-[13px] text-[var(--text-primary)]"
-                      title={draft.homeRegionOrder.join(" → ")}
-                    >
-                      {draft.homeRegionOrder.length > 0
-                        ? draft.homeRegionOrder.join(" → ")
-                        : "默认：中国大陆、港澳台、新加坡、日本、美国、欧洲、其他"}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={draft.homeRegionOrder.length === 0}
-                      onClick={() => patch("homeRegionOrder", [])}
-                      className="theme-manage-button is-compact shrink-0"
-                    >
-                      恢复默认
-                    </button>
-                  </div>
-                </div>
-
-              </InstancePanel>
-
-              <InstancePanel
-                id="set-home-ratings"
-                kicker="评级"
-                title="总览评级"
-                aside={<Sparkles size={16} />}
-              >
-                <div className="surface-inset px-4 py-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <span className="min-w-0">
-                      <span className="block setting-subhead-title">
-                        三处总览
-                      </span>
-                      <span className="mt-1 block setting-hint">
-                        关掉这里，三处评级一起不显示。
-                      </span>
-                    </span>
-                    <label className="inline-flex shrink-0 items-center gap-2 setting-field-label">
-                      <span>启用</span>
-                      <input
-                        type="checkbox"
-                        checked={draft.showOverviewRatings}
-                        onChange={(event) => patch("showOverviewRatings", event.target.checked)}
-                        className="h-4 w-4 accent-[var(--accent-500)]"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="mt-3 grid gap-3 md:grid-cols-3">
-                    {OVERVIEW_RATING_LABEL_FIELDS.map((field) => {
-                      const defaultLabel = getDefaultOverviewRatingLabelText(field.key);
-                      const ratingEnabled = draft.showOverviewRatings && draft[field.toggleKey];
-                      return (
-                        <div key={field.key} className="flex min-w-0 flex-col gap-2">
-                          <label className="flex items-center justify-between gap-2 setting-field-label">
-                            <span>{field.title}</span>
-                            <input
-                              type="checkbox"
-                              checked={draft[field.toggleKey]}
-                              disabled={!draft.showOverviewRatings}
-                              onChange={(event) => patch(field.toggleKey, event.target.checked)}
-                              className="h-4 w-4 shrink-0 accent-[var(--accent-500)]"
-                            />
-                          </label>
-                          <input
-                            value={draft.ratingLabels[field.key]}
-                            disabled={!ratingEnabled}
-                            onChange={(event) => setRatingLabelDraft(field.key, event.target.value)}
-                            placeholder={defaultLabel}
-                            aria-label={`${field.title}评级名称`}
-                            className="surface-inset w-full px-3 py-2 text-[13px] outline-none disabled:opacity-60"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </InstancePanel>
-
-              <InstancePanel
-                id="set-hidden"
-                kicker="隐藏"
-                title="隐藏节点"
-                aside={<EyeOff size={16} />}
-              >
-                <label className="flex min-w-0 flex-col gap-2">
-                  <span className="setting-field-label">
-                    隐藏列表
-                  </span>
-                  <textarea
-                    value={draft.hiddenNodesText}
-                    onChange={(event) => patch("hiddenNodesText", event.target.value)}
-                    placeholder="每行一个节点名称 / UUID，也可以用逗号分隔"
-                    className="surface-inset min-h-[112px] w-full resize-y px-3 py-2 text-[13px] outline-none"
-                  />
-                  <span className="setting-hint">
-                    已隐藏 {draftHiddenNodes.length} 个节点。按名称或 UUID 匹配、大小写不敏感；隐藏的节点
-                    不显示卡片，也不计入在线数、流量、带宽与资产等任何统计，清空即恢复。
-                  </span>
-                </label>
-              </InstancePanel>
-            </>
-          )}
-
-          {activeTab === "card" && (
-            <>
-              <InstancePanel
-                id="set-card"
-                kicker="卡片"
-                title="卡片显示项"
+                title="列表排序"
                 aside={<Rows3 size={16} />}
               >
-                <div>
-                  <div className="setting-subhead">
-                    <span className="setting-subhead-title">跨视图设置</span>
-                    <span className="setting-hint">
-                      适用于多个卡片尺寸，具体范围以每项说明为准。
-                    </span>
-                  </div>
-                  <div className="mt-2 grid gap-3 md:grid-cols-2">
+                <div className="flex flex-col gap-4">
+                  <div className="grid gap-3 md:grid-cols-2">
                     <ToggleRow
-                      field="showConnections"
-                      title="显示连接数（TCP/UDP）"
-                      desc="在大卡片与小卡片展示实时 TCP / UDP 连接数；需被控端上报，未上报显示 0。默认关闭。"
-                      checked={draft.showConnections}
+                      field="enableHomeSort"
+                      title="允许访客切换排序"
+                      desc="在首页提供排序下拉切换功能。"
+                      checked={draft.enableHomeSort}
+                      onPatch={patch}
+                    />
+                    <ToggleRow
+                      field="offlineNodesFirst"
+                      title="离线节点优先置顶"
+                      desc="开启后失联服务器将排在最上方方便巡检，默认关闭（置底）。"
+                      checked={draft.offlineNodesFirst}
                       onPatch={patch}
                     />
                   </div>
-                </div>
 
-                <div className="mt-4">
-                  <div className="setting-subhead">
-                    <span className="setting-subhead-title">小卡片专属</span>
-                    <span className="setting-hint">
-                      控制小卡片中间信息块的密度；实时速率始终显示。
-                    </span>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="surface-inset flex flex-col gap-2 px-4 py-3">
+                      <span className="setting-subhead-title">默认指标</span>
+                      <SettingSelect
+                        value={draft.homeSortField}
+                        onChange={(event) =>
+                          patch(
+                            "homeSortField",
+                            event.target.value as (typeof HOME_SORT_FIELDS)[number],
+                          )
+                        }
+                      >
+                        {HOME_SORT_FIELDS.map((field) => (
+                          <option key={field} value={field}>
+                            {HOME_SORT_FIELD_LABELS[field]}
+                          </option>
+                        ))}
+                      </SettingSelect>
+                    </div>
+
+                    <div className="surface-inset flex flex-col gap-2 px-4 py-3">
+                      <span className="setting-subhead-title">默认次序</span>
+                      <SettingSelect
+                        value={draft.homeSortDirection}
+                        onChange={(event) =>
+                          patch("homeSortDirection", event.target.value as "asc" | "desc")
+                        }
+                      >
+                        <option value="asc">升序</option>
+                        <option value="desc">降序</option>
+                      </SettingSelect>
+                    </div>
                   </div>
-                  <div className="mt-2 grid gap-3 md:grid-cols-2">
-                    <ToggleRow
-                      field="compactShowTrafficTotal"
-                      title="显示本期流量"
-                      desc="展示本计费周期（按重置日清零）的上行与下行用量。"
-                      checked={draft.compactShowTrafficTotal}
-                      onPatch={patch}
-                    />
-                    <ToggleRow
-                      field="compactShowBilling"
-                      title="显示费用到期"
-                      desc="展示续费价格与剩余天数。"
-                      checked={draft.compactShowBilling}
-                      onPatch={patch}
-                    />
-                    <ToggleRow
-                      field="compactShowUptime"
-                      title="显示在线时间"
-                      desc="在小卡片流量栏右侧展示在线时长。默认开启。"
-                      checked={draft.compactShowUptime}
-                      onPatch={patch}
-                    />
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="surface-inset flex flex-col gap-2 px-4 py-3">
+                      <span className="setting-subhead-title">默认分组</span>
+                      <SettingSelect
+                        value={draft.homeDefaultGroup}
+                        onChange={(event) => patch("homeDefaultGroup", event.target.value)}
+                        aria-label="默认分组"
+                      >
+                        <option value="">全部（不指定）</option>
+                        {/* 站点换过分组名时，存着的那个值仍列出来，免得选中项凭空消失。 */}
+                        {draft.homeDefaultGroup !== "" &&
+                          !availableGroups.includes(draft.homeDefaultGroup) && (
+                            <option value={draft.homeDefaultGroup}>
+                              {draft.homeDefaultGroup}（当前没有这个分组）
+                            </option>
+                          )}
+                        {availableGroups.map((group) => (
+                          <option key={group} value={group}>
+                            {group}
+                          </option>
+                        ))}
+                      </SettingSelect>
+                      <span className="setting-hint">打开首页时默认选中的分组。</span>
+                    </div>
+
+                    {/* 地区顺序在首页地区栏上直接拖（站长提的：拖比在这里上下点直观）；这里只留查看和恢复默认。 */}
+                    <div className="surface-inset flex flex-col gap-2 px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="setting-subhead-title">地区次序</span>
+                        <button
+                          type="button"
+                          disabled={draft.homeRegionOrder.length === 0}
+                          onClick={() => patch("homeRegionOrder", [])}
+                          className="theme-manage-button is-compact shrink-0"
+                        >
+                          恢复默认
+                        </button>
+                      </div>
+                      <span
+                        className="truncate text-[13px] text-(--text-primary)"
+                        title={draft.homeRegionOrder.join(" → ")}
+                      >
+                        {draft.homeRegionOrder.length > 0
+                          ? draft.homeRegionOrder.join(" → ")
+                          : "默认：中国大陆、港澳台、新加坡、日本、美国、欧洲、其他"}
+                      </span>
+                      <span className="setting-hint">
+                        在首页按住地区标签直接拖动（手机上先长按）；新出现的地区按默认规则排在后面。
+                      </span>
+                    </div>
+                  </div>
+
+                  {availableGroups.length > 0 && (
+                    <div className="surface-inset flex flex-col gap-3 px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        <span className="setting-subhead-title">分组次序</span>
+                        <span className="setting-hint">点击上下箭头调整次序</span>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {orderedDraftGroups.map((group, index) => (
+                          <div
+                            key={group}
+                            className="flex items-center justify-between rounded-lg border border-(--hairline) px-3 py-2 text-[13px]"
+                          >
+                            <span>{group}</span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                disabled={index === 0}
+                                onClick={() => moveGroup(index, -1)}
+                                className="theme-manage-button is-compact"
+                              >
+                                <ChevronUp size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={index === orderedDraftGroups.length - 1}
+                                onClick={() => moveGroup(index, 1)}
+                                className="theme-manage-button is-compact"
+                              >
+                                <ChevronDown size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </InstancePanel>
+
+              {/* 面板 4: 网络延迟 */}
+              <InstancePanel
+                id="set-ping-mode"
+                kicker="延迟"
+                title="网络延迟"
+                description="设定延迟展示方式并为服务器指定线路。"
+                aside={<Activity size={16} />}
+              >
+                <div className="flex flex-col gap-4">
+                  <div className="surface-inset flex flex-col gap-3 px-4 py-4">
+                    <span className="setting-subhead-title">展示模式</span>
+                    <div className="instance-segmented is-prominent is-even is-stack-mobile">
+                      <button
+                        type="button"
+                        data-active={!draft.enableHomepageMultiPing ? "true" : "false"}
+                        onClick={() => patch("enableHomepageMultiPing", false)}
+                      >
+                        单线模式
+                      </button>
+                      <button
+                        type="button"
+                        data-active={draft.enableHomepageMultiPing ? "true" : "false"}
+                        onClick={() => patch("enableHomepageMultiPing", true)}
+                      >
+                        多线模式
+                      </button>
+                    </div>
+                  </div>
+
+                  {draft.enableHomepageMultiPing ? (
+                    <div className="surface-inset flex flex-col gap-3 px-4 py-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <span className="setting-subhead-title">多线槽位</span>
+                          <p className="setting-hint mt-1">
+                            卡片将依序展示各线路的实时延迟光柱。
+                          </p>
+                        </div>
+                        {draft.homepageMultiPingTaskIds.length < multiPingSlotLimit && (
+                          <button
+                            type="button"
+                            onClick={addMultiPingTask}
+                            className="theme-manage-button is-compact"
+                          >
+                            + 添加展示线路
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {draft.homepageMultiPingTaskIds.map((taskId, slot) => (
+                          <div
+                            key={slot}
+                            className="flex items-center justify-between gap-2 rounded-[10px] border border-(--hairline) px-3 py-2"
+                          >
+                            <span className="text-[12px] font-medium text-(--text-secondary)">
+                              槽位 #{slot + 1}
+                            </span>
+                            <SettingSelect
+                              value={String(taskId)}
+                              onChange={(event) => patchMultiPingTask(slot, event.target.value)}
+                              wrapperClassName="flex-1"
+                            >
+                              {sortedTasks.map((task) => (
+                                <option key={task.id} value={task.id}>
+                                  {task.name || `线路 #${task.id}`}
+                                </option>
+                              ))}
+                            </SettingSelect>
+                            {draft.homepageMultiPingTaskIds.length > HOMEPAGE_MULTI_PING_MIN_COUNT && (
+                              <button
+                                type="button"
+                                onClick={() => removeMultiPingTask(slot)}
+                                className="theme-manage-button is-compact is-danger"
+                              >
+                                删除
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      <div className="surface-inset flex flex-col gap-2 px-4 py-3">
+                        <span className="setting-subhead-title">默认线路</span>
+                        <SettingSelect
+                          value={String(draft.homepageDefaultPingTaskId)}
+                          onChange={(event) =>
+                            patch("homepageDefaultPingTaskId", Number(event.target.value))
+                          }
+                        >
+                          {sortedTasks.map((task) => (
+                            <option key={task.id} value={task.id}>
+                              {task.name || `线路 #${task.id}`}
+                            </option>
+                          ))}
+                        </SettingSelect>
+                        <span className="setting-hint">未单独指派线路的服务器均显示此线路数据。</span>
+                      </div>
+
+                      <ToggleRow
+                        field="fakePingForUnbound"
+                        title="平滑占位"
+                        desc="无探测数据时显示平滑占位，保持视觉整齐。"
+                        checked={draft.fakePingForUnbound}
+                        onPatch={patch}
+                      />
+
+                      <div className="flex flex-col gap-3">
+                        <span className="setting-subhead-title">
+                          专属线路 (已设 {assignedNodeCount} 台)
+                        </span>
+                        {sortedTasks.map((task) => (
+                          <TaskBindingSection
+                            key={task.id}
+                            task={task}
+                            defaultTaskId={draft.homepageDefaultPingTaskId}
+                            assigned={draft.homepagePingBindings[String(task.id)] ?? EMPTY_ASSIGNED_CLIENTS}
+                            expanded={expandedTaskId === task.id}
+                            clientsById={clientsById}
+                            visibleClients={visibleClients}
+                            assignedTaskByClientUuid={assignedTaskByClientUuid}
+                            nodeSearch={nodeSearch}
+                            onNodeSearch={setNodeSearch}
+                            onToggleExpand={toggleTaskExpanded}
+                            onPatchBindings={patchBindings}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </InstancePanel>
+            {/* 面板 5: 状态光柱 */}
+              {/* 面板 5: 状态光柱 */}
+              <InstancePanel
+                kicker="光柱"
+                title="状态光柱"
+                description="定制流量、延迟与丢包光柱的过渡色与判断门槛。"
+                aside={<Sliders size={16} />}
+              >
+                <div className="flex flex-col gap-5">
+                  {/* 顶置配套方案预设：一套方案联动覆盖流量、延迟、丢包三处光柱 */}
+                  <div className="surface-inset flex flex-col gap-3.5 px-4 py-4">
+                    <div>
+                      <span className="setting-subhead-title">配套预设方案</span>
+                      <p className="setting-hint mt-1">
+                        一键联动设定流量、延迟与丢包光柱的成套视觉方案。
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {STATUS_BAR_PRESETS.map((preset) => {
+                        const isSelected =
+                          draft.trafficSpectrumColors.start === preset.colors.start &&
+                          draft.trafficSpectrumColors.mid === preset.colors.mid &&
+                          draft.trafficSpectrumColors.high === preset.colors.high &&
+                          draft.trafficSpectrumColors.end === preset.colors.end &&
+                          draft.pingLatencyColors.excellent === preset.latencyColors.excellent &&
+                          draft.pingLatencyColors.good === preset.latencyColors.good &&
+                          draft.pingLatencyColors.moderate === preset.latencyColors.moderate &&
+                          draft.pingLatencyColors.elevated === preset.latencyColors.elevated &&
+                          draft.pingLatencyColors.critical === preset.latencyColors.critical &&
+                          draft.pingLossColors.zero === preset.lossColors.zero &&
+                          draft.pingLossColors.low === preset.lossColors.low &&
+                          draft.pingLossColors.medium === preset.lossColors.medium &&
+                          draft.pingLossColors.high === preset.lossColors.high;
+                        const gradient = `linear-gradient(to right, ${preset.colors.start}, ${preset.colors.mid}, ${preset.colors.high}, ${preset.colors.end})`;
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => applyStatusBarPreset(preset)}
+                            data-active={isSelected ? "true" : "false"}
+                            aria-pressed={isSelected}
+                            className="setting-spectrum-preset-card"
+                          >
+                            <div className="flex items-center justify-between gap-1.5 w-full">
+                              <span
+                                className={clsx(
+                                  "text-xs font-semibold truncate",
+                                  isSelected
+                                    ? "text-(--accent-500)"
+                                    : "text-(--text-primary)",
+                                )}
+                              >
+                                {preset.name}
+                              </span>
+                              <div className="setting-color-theme-radio" aria-hidden="true">
+                                {isSelected && <div className="setting-color-theme-radio-dot" />}
+                              </div>
+                            </div>
+                            <div
+                              className="h-2 w-full rounded-full shadow-inner ring-1 ring-black/10 dark:ring-white/10"
+                              style={{ background: gradient }}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 1. 流量进度光柱色谱自定义 */}
+                  <div className="surface-inset flex flex-col gap-3.5 px-4 py-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="setting-subhead-title">流量光柱</span>
+                        <p className="setting-hint mt-1">
+                          从用量充裕到即将耗尽，呈现平滑过渡色谱。
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={resetTrafficSpectrum}
+                        className="theme-manage-button is-compact shrink-0 flex items-center gap-1.5"
+                        title="恢复为默认的监控绿色谱"
+                      >
+                        <RotateCcw size={13} />
+                        重置色彩
+                      </button>
+                    </div>
+
+                    {/* 就近实时预览：18 段发光光柱色谱全貌（置顶呈现） */}
+                    <div className="flex flex-col gap-2.5 rounded-[10px] border border-(--hairline) bg-(--bg-card) p-3.5">
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="font-medium text-(--text-secondary) flex items-center gap-1.5">
+                          <Sparkles size={13} className="text-(--accent-500)" />
+                          流量光柱实时效果 (18 段)
+                        </span>
+                        <span className="text-[11px] text-(--text-tertiary)">
+                          所见即所得 · 0% 充裕至 100% 耗尽连续色谱
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-1 rounded-md bg-(--bg-primary) p-2.5 shadow-inner">
+                        <div className="flex items-center justify-between text-[11px] text-(--text-tertiary) mb-1">
+                          <span>18 段发光光柱色谱全貌：</span>
+                          <span className="font-mono">从轻载平滑过渡至警戒红</span>
+                        </div>
+                        <div className="traffic-quota-track" aria-hidden>
+                          {previewTrafficSegmentColors.map((color, i) => (
+                            <span key={i} className="traffic-quota-segment" style={{ background: color }} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4 锚点 HEX 输入网格 */}
+                    <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                      {TRAFFIC_SPECTRUM_ANCHOR_CONFIG.map(({ key, label, stage, hint, defaultColor }) => {
+                        const currentColor = draft.trafficSpectrumColors[key];
+                        const isEnd = key === "end";
+                        return (
+                          <div
+                            key={key}
+                            className="flex flex-col justify-between gap-2.5 rounded-[10px] border border-(--hairline) bg-(--bg-card) p-3"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[13px] font-semibold text-(--text-primary)">
+                                {label}
+                              </span>
+                              <span
+                                className={clsx(
+                                  "text-[10px] px-1.5 py-0.5 rounded border font-mono font-medium",
+                                  isEnd
+                                    ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                                    : "bg-(--bg-primary) text-(--text-tertiary) border-(--hairline)",
+                                )}
+                              >
+                                {stage}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <label className="relative flex items-center justify-center shrink-0 cursor-pointer">
+                                <span
+                                  className="inline-block h-7 w-7 rounded-full border-2 border-white/40 shadow-sm"
+                                  style={{ backgroundColor: currentColor }}
+                                />
+                                <input
+                                  type="color"
+                                  value={currentColor}
+                                  onChange={(e) => patchTrafficSpectrumColor(key, e.target.value)}
+                                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                  title={`选取${label}`}
+                                />
+                              </label>
+                              <input
+                                type="text"
+                                maxLength={7}
+                                value={currentColor}
+                                onChange={(e) => patchTrafficSpectrumColor(key, e.target.value)}
+                                className="surface-inset px-2.5 py-1 text-[12px] font-mono uppercase text-(--text-primary) w-full outline-none"
+                                placeholder={defaultColor}
+                              />
+                            </div>
+
+                            <p className="text-[11px] text-(--text-tertiary) leading-tight">
+                              {hint}
+                            </p>
+
+                            <div className="flex items-center justify-between gap-2 pt-1 border-t border-(--hairline)">
+                              <span className="text-[11px] text-(--text-secondary) shrink-0">
+                                {isEnd ? "末端特性" : "阶段定位"}
+                              </span>
+                              <span className="text-[11px] font-mono text-(--text-tertiary)">
+                                {isEnd ? "严格警报红守护" : "平滑色谱锚点"}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 2. 延迟评级标准与色彩设置 */}
+                  <div className="surface-inset flex flex-col gap-3.5 px-4 py-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="setting-subhead-title">延迟光柱</span>
+                        <p className="setting-hint mt-1">
+                          设定各毫秒区间的判断门槛与对应光柱颜色。
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={resetPingLatency}
+                        className="theme-manage-button is-compact shrink-0 flex items-center gap-1.5"
+                        title="恢复为默认的 60/100/160/200ms 及预设色"
+                      >
+                        <RotateCcw size={13} />
+                        重置延迟
+                      </button>
+                    </div>
+
+                    {/* 就近实时预览：延迟光柱 */}
+                    <div className="flex flex-col gap-2 rounded-[10px] border border-(--hairline) bg-(--bg-card) p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-1 text-[12px]">
+                        <span className="font-medium text-(--text-secondary) flex items-center gap-1.5">
+                          <Activity size={13} className="text-(--status-success)" />
+                          延迟光柱实时效果 (示例梯度 15ms ~ 320ms)
+                        </span>
+                        <span className="tabular font-medium text-(--text-tertiary) text-[11px]">
+                          门槛：{draft.pingLatencyThresholds.excellent}ms / {draft.pingLatencyThresholds.good}ms / {draft.pingLatencyThresholds.moderate}ms / {draft.pingLatencyThresholds.elevated}ms
+                        </span>
+                      </div>
+                      <div className="rounded-md bg-(--bg-primary) p-2 shadow-inner">
+                        <LatencyBars
+                          buckets={PREVIEW_LATENCY_BUCKETS}
+                          latencyThresholds={draft.pingLatencyThresholds}
+                          latencyColors={draft.pingLatencyColors}
+                          height={18}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                      {LATENCY_TIER_CONFIG.map(({ key, label, hint, defaultColor }) => {
+                        const currentColor = draft.pingLatencyColors[key];
+                        const isThresholdEditable = key !== "critical";
+                        const thresholdVal = isThresholdEditable
+                          ? draft.pingLatencyThresholds[key]
+                          : null;
+
+                        return (
+                          <div
+                            key={key}
+                            className="flex flex-col justify-between gap-2.5 rounded-[10px] border border-(--hairline) bg-(--bg-card) p-3"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[13px] font-semibold text-(--text-primary)">
+                                {label}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <label
+                                  className="metric-color-swatch"
+                                  style={{ background: currentColor }}
+                                  title="点击调整颜色"
+                                >
+                                  <input
+                                    type="color"
+                                    value={currentColor}
+                                    onChange={(e) => patchPingLatencyColor(key, e.target.value)}
+                                  />
+                                </label>
+                                {currentColor.toLowerCase() !== defaultColor.toLowerCase() && (
+                                  <button
+                                    type="button"
+                                    onClick={() => patchPingLatencyColor(key, defaultColor)}
+                                    className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors p-1"
+                                    title="恢复该项默认色"
+                                  >
+                                    <RotateCcw size={12} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <p className="text-[11px] text-(--text-tertiary) leading-tight">
+                              {hint}
+                            </p>
+
+                            <div className="flex items-center justify-between gap-2 pt-1 border-t border-(--hairline)">
+                              <span className="text-[11px] text-(--text-secondary) shrink-0">
+                                {isThresholdEditable ? "门槛上限" : "高延迟区间"}
+                              </span>
+                              {isThresholdEditable ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={9999}
+                                    value={thresholdVal ?? 0}
+                                    onChange={(e) => {
+                                      const num = parseInt(e.target.value, 10);
+                                      if (!Number.isNaN(num) && num > 0) {
+                                        patchPingLatencyThreshold(key, num);
+                                      }
+                                    }}
+                                    className="w-16 rounded-[5px] border border-(--hairline) bg-(--bg-primary) px-2 py-0.5 text-right font-mono text-[12px] font-medium outline-none focus:border-(--status-success)"
+                                  />
+                                  <span className="text-[11px] text-(--text-tertiary)">ms</span>
+                                </div>
+                              ) : (
+                                <span className="font-mono text-[11px] text-(--text-tertiary)">
+                                  &gt; {draft.pingLatencyThresholds.elevated}ms
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 3. 丢包评级标准与色彩设置 */}
+                  <div className="surface-inset flex flex-col gap-3.5 px-4 py-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="setting-subhead-title">丢包光柱</span>
+                        <p className="setting-hint mt-1">
+                          设定不同丢包率区间的判断门槛与对应颜色。
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={resetPingLoss}
+                        className="theme-manage-button is-compact shrink-0 flex items-center gap-1.5"
+                        title="恢复为默认的 3%/10% 门槛及预设色"
+                      >
+                        <RotateCcw size={13} />
+                        重置丢包
+                      </button>
+                    </div>
+
+                    {/* 就近实时预览：丢包光柱 */}
+                    <div className="flex flex-col gap-2 rounded-[10px] border border-(--hairline) bg-(--bg-card) p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-1 text-[12px]">
+                        <span className="font-medium text-(--text-secondary) flex items-center gap-1.5">
+                          <Activity size={13} className="text-(--status-warning)" />
+                          丢包光柱实时效果 (示例梯度 0% ~ 25%)
+                        </span>
+                        <span className="tabular font-medium text-(--text-tertiary) text-[11px]">
+                          门槛：0% / {draft.pingLossThresholds.low}% / {draft.pingLossThresholds.medium}%
+                        </span>
+                      </div>
+                      <div className="rounded-md bg-(--bg-primary) p-2 shadow-inner">
+                        <QualityBars
+                          buckets={PREVIEW_LOSS_BUCKETS}
+                          lossThresholds={draft.pingLossThresholds}
+                          lossColors={draft.pingLossColors}
+                          height={18}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                      {LOSS_TIER_CONFIG.map(({ key, label, hint, defaultColor }) => {
+                        const currentColor = draft.pingLossColors[key];
+                        const isEditable = key === "low" || key === "medium";
+                        const thresholdVal =
+                          key === "low"
+                            ? draft.pingLossThresholds.low
+                            : key === "medium"
+                              ? draft.pingLossThresholds.medium
+                              : null;
+
+                        return (
+                          <div
+                            key={key}
+                            className="flex flex-col justify-between gap-2.5 rounded-[10px] border border-(--hairline) bg-(--bg-card) p-3"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[13px] font-semibold text-(--text-primary)">
+                                {label}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <label
+                                  className="metric-color-swatch"
+                                  style={{ background: currentColor }}
+                                  title="点击调整颜色"
+                                >
+                                  <input
+                                    type="color"
+                                    value={currentColor}
+                                    onChange={(e) => patchPingLossColor(key, e.target.value)}
+                                  />
+                                </label>
+                                {currentColor.toLowerCase() !== defaultColor.toLowerCase() && (
+                                  <button
+                                    type="button"
+                                    onClick={() => patchPingLossColor(key, defaultColor)}
+                                    className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors p-1"
+                                    title="恢复该项默认色"
+                                  >
+                                    <RotateCcw size={12} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <p className="text-[11px] text-(--text-tertiary) leading-tight">
+                              {hint}
+                            </p>
+
+                            <div className="flex items-center justify-between gap-2 pt-1 border-t border-(--hairline)">
+                              <span className="text-[11px] text-(--text-secondary) shrink-0">
+                                {isEditable ? "丢包上限" : "生效条件"}
+                              </span>
+                              {isEditable ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    min={0.1}
+                                    max={100}
+                                    value={thresholdVal ?? 0}
+                                    onChange={(e) => {
+                                      const num = parseFloat(e.target.value);
+                                      if (!Number.isNaN(num) && num > 0) {
+                                        patchPingLossThreshold(key, num);
+                                      }
+                                    }}
+                                    className="w-16 rounded-[5px] border border-(--hairline) bg-(--bg-primary) px-2 py-0.5 text-right font-mono text-[12px] font-medium outline-none focus:border-(--status-success)"
+                                  />
+                                  <span className="text-[11px] text-(--text-tertiary)">%</span>
+                                </div>
+                              ) : (
+                                <span className="font-mono text-[11px] text-(--text-tertiary)">
+                                  {key === "zero" ? "= 0% (完全健康)" : `> ${draft.pingLossThresholds.medium}%`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </InstancePanel>
-            </>
+
+              {/* 面板 6: 隐藏节点 */}
+              <InstancePanel
+                id="set-hidden-nodes"
+                kicker="过滤"
+                title="隐藏节点"
+                aside={<Search size={16} />}
+              >
+                <div className="surface-inset flex flex-col gap-2 px-4 py-3">
+                  <span className="setting-subhead-title">隐藏名单 (每行一个 UUID 或名称)</span>
+                  <textarea
+                    rows={4}
+                    value={draft.hiddenNodesText}
+                    onChange={(event) => patch("hiddenNodesText", event.target.value)}
+                    placeholder="node-uuid-1&#10;Tokyo Edge"
+                    className="surface-inset p-3 text-[13px] font-mono outline-none"
+                  />
+                  <span className="setting-hint">
+                    名单内的服务器不在首页呈现，已生效 {draftHiddenNodes.length} 台。
+                  </span>
+                </div>
+              </InstancePanel>
+
+              </>
           )}
 
           {activeTab === "cost" && (
             <>
+              {/* 面板 1: 财务设置 */}
               <InstancePanel
                 id="set-cost"
-                kicker="花费"
-                title="服务器花费"
+                kicker="资产"
+                title="财务设置"
+                description="管理续费提醒、汇率换算与不计费的排除服务器。"
                 aside={<CircleDollarSign size={16} />}
               >
-                {/* 和「排序与分组」同一套：开关整行在上，字段两列、标题在上，说明收到最下面一行。 */}
-                <ToggleRow
-                  field="showCostSummary"
-                  title="显示资产统计入口"
-                  desc="资产概览卡在就放卡内，不在就悬浮在右下角。关掉后访问资产页会跳回首页。"
-                  checked={draft.showCostSummary}
-                  onPatch={patch}
-                />
-
-                <div className="setting-grid mt-4">
-                  <div className="min-w-0">
-                    <div className="setting-subhead">
-                      <span className="setting-subhead-title">续费提醒</span>
-                    </div>
-                    <label className="surface-inset setting-control flex items-center gap-2 px-3">
-                      <span className="shrink-0 text-[13px] text-[var(--text-secondary)]">到期前</span>
+                <div className="flex flex-col gap-4">
+                  <label className="surface-inset flex flex-col gap-2 px-4 py-3">
+                    <span className="setting-subhead-title">续费提醒</span>
+                    <span className="flex items-center gap-2">
+                      <span className="shrink-0 text-[13px] text-(--text-secondary)">到期前</span>
                       <input
                         type="number"
                         min={0}
@@ -2092,6 +3010,7 @@ export function ThemeManage() {
                         inputMode="numeric"
                         value={draft.renewalReminderDays}
                         onChange={(event) => {
+                          // Number("") === 0，没有这行的话清空输入框（想重新输入）会把值跳成 0、悄悄关掉提醒。
                           if (event.target.value.trim() === "") return;
                           const next = Number(event.target.value);
                           if (!Number.isFinite(next)) return;
@@ -2101,382 +3020,71 @@ export function ThemeManage() {
                           );
                         }}
                         aria-label="续费提醒天数"
-                        className="min-w-0 flex-1 bg-transparent py-2 text-right text-[13px] tabular text-[var(--text-primary)] outline-none"
+                        className="surface-inset w-24 px-3 py-2 text-right text-[13px] tabular outline-none"
                       />
-                      <span className="shrink-0 text-[13px] text-[var(--text-secondary)]">天</span>
-                    </label>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="setting-subhead">
-                      <span className="setting-subhead-title">实时汇率接口</span>
-                    </div>
-                    <input
-                      value={draft.costRateApiUrl}
-                      onChange={(event) => patch("costRateApiUrl", event.target.value)}
-                      placeholder={DEFAULT_THEME_SETTINGS.costRateApiUrl}
-                      aria-invalid={draftCostRateApiUrlInvalid}
-                      aria-label="实时汇率接口"
-                      className="surface-inset setting-control px-3 py-2 text-[13px] outline-none"
-                    />
-                    {draftCostRateApiUrlInvalid && (
-                      <span className="mt-2 block text-[12px] text-[var(--status-offline)]">
-                        请输入 http(s) 链接，保存后将回退默认接口
-                      </span>
-                    )}
-                  </div>
-                  <div className="is-wide min-w-0">
-                    <div className="setting-subhead">
-                      <span className="setting-subhead-title">忽略计费节点</span>
-                    </div>
-                    <textarea
-                      value={draft.costIgnoredText}
-                      onChange={(event) => patch("costIgnoredText", event.target.value)}
-                      placeholder="每行一个节点名称 / UUID，也可以用逗号分隔"
-                      aria-label="忽略计费节点"
-                      className="surface-inset setting-control block min-h-[88px] resize-y px-3 py-2 text-[13px] outline-none"
-                    />
-                  </div>
-                </div>
-
-                <p className="mt-3 setting-hint">
-                  续费提醒显示在资产概览卡上，填 0 就不提醒；汇率接口留空用默认；忽略的节点不计入资产统计。
-                </p>
-              </InstancePanel>
-
-              <InstancePanel
-                id="set-premium"
-                kicker="溢价"
-                title="收购溢价"
-                aside={<Coins size={16} />}
-              >
-                <div className="flex flex-col gap-3">
-                    <p className="setting-hint">
-                      按收购日的剩余价值回算并固化溢价（收购价 − 当日剩余价值，可正可负），之后续费与汇率
-                      变化都不改写；改收购日期会重算，留空即清除记录。已设置 {premiumConfiguredCount} 个节点。
-                    </p>
-                    <label className="surface-inset flex items-center gap-2 px-3 py-2">
-                      <Search size={14} className="text-[var(--text-tertiary)]" />
-                      <input
-                        value={premiumSearch}
-                        onChange={(event) => setPremiumSearch(event.target.value)}
-                        placeholder="搜索节点名称 / UUID / 分组 / 地区"
-                        aria-label="搜索节点"
-                        className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-[var(--text-tertiary)]"
-                      />
-                    </label>
-
-                    {clientsLoading && (
-                      <div className="flex min-h-[15vh] items-center justify-center">
-                        <Spinner size={24} />
-                      </div>
-                    )}
-
-                    {!clientsLoading && sortedClients.length === 0 && (
-                      <div className="theme-manage-empty-state">
-                        <span>还没有任何节点。</span>
-                      </div>
-                    )}
-
-                    {!clientsLoading && sortedClients.length > 0 && filteredPremiumClients.length === 0 && (
-                      <div className="surface-inset px-4 py-5 text-[13px] text-[var(--text-secondary)]">
-                        没有匹配的节点。
-                      </div>
-                    )}
-
-                    {!clientsLoading && filteredPremiumClients.length > 0 && (
-                      <PremiumList
-                        clients={filteredPremiumClients}
-                        costPremiums={draft.costPremiums}
-                        detailByUuid={premiumDetailByUuid}
-                        rateLoading={premiumRateQuery.isLoading}
-                        acquiredAtMax={acquiredAtMax}
-                        onPatchPaid={patchPremiumPaid}
-                        onPatchAcquiredAt={patchPremiumAcquiredAt}
-                      />
-                    )}
-                </div>
-              </InstancePanel>
-            </>
-          )}
-
-          {activeTab === "ping" && (
-            <>
-              <InstancePanel
-                id="set-ping"
-                kicker="线路"
-                title="主页延迟检测"
-                aside={<Activity size={16} />}
-              >
-                <div className="flex flex-col gap-4">
-                  {/* 大卡片 / 小卡片显示哪种：单线路还是多线路。原来是个复选框，和下面的单线路设置
-                      混在一排，看不出「哪些设置属于哪种模式」—— 换成分段切换，选中哪种就只展开哪种的设置。 */}
-                  <div className="surface-inset px-4 py-4">
-                    <div className="min-w-0">
-                      <span className="block setting-subhead-title">
-                        大卡片 / 小卡片显示
-                      </span>
-                      <span className="mt-1 block setting-hint">
-                        迷你卡片与列表放不下多行，始终按单线路显示，不受这里影响。探测线路由后端固定，
-                        共 {sortedTasks.length} 条；没配探测目标的线路没有数据。
-                      </span>
-                    </div>
-                    {/* 整行、等宽、强调色实心：这是本板块的总开关，得一眼看出选中的是哪种。 */}
-                    <div className="instance-segmented is-prominent mt-3">
-                      {HOMEPAGE_PING_MODE_OPTIONS.map(({ value, label, icon: Icon }) => {
-                        const active = draft.enableHomepageMultiPing === value;
-                        return (
-                          <button
-                            key={label}
-                            type="button"
-                            data-active={active ? "true" : "false"}
-                            aria-pressed={active}
-                            disabled={
-                              value && !tasksLoading && sortedTasks.length < HOMEPAGE_MULTI_PING_MIN_COUNT
-                            }
-                            onClick={() => patch("enableHomepageMultiPing", value)}
-                            className="inline-flex items-center justify-center gap-2"
-                          >
-                            <Icon size={15} />
-                            <span>{label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {draft.enableHomepageMultiPing ? (
-                      <div className="mt-4 border-t border-[var(--hairline)] pt-4">
-                        <div className="setting-subhead">
-                          <span className="setting-field-label">
-                            显示这些线路（按顺序）
-                          </span>
-                          <span className="setting-hint">
-                            已选 {draft.homepageMultiPingTaskIds.length} / {multiPingSlotLimit} 条
-                          </span>
-                        </div>
-                        {/* 槽位数量跟着已选条数走。「移除」是紧挨着下拉框的小 × ——
-                            放在标签行右端时会紧贴下一列的标签，看着像是下一条线路的按钮。 */}
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                          {draft.homepageMultiPingTaskIds.map((selectedTaskId, slot) => (
-                            // key 用槽位号、不带线路 id：互换会同时改两个槽位，带 id 的话两个都重新挂载，
-                            // 刚操作的下拉框丢焦点，键盘上下切线路切一下就断。
-                            <div key={slot} className="min-w-0">
-                              <label
-                                htmlFor={`multi-ping-slot-${slot}`}
-                                className="mb-1.5 block setting-field-label"
-                              >
-                                线路 {slot + 1}
-                              </label>
-                              <div className="flex items-center gap-1.5">
-                                <SettingSelect
-                                  id={`multi-ping-slot-${slot}`}
-                                  value={selectedTaskId}
-                                  onChange={(event) =>
-                                    patchMultiPingTask(slot, event.target.value)
-                                  }
-                                  wrapperClassName="flex-1"
-                                >
-                                  {!sortedTasks.some((task) => task.id === selectedTaskId) && (
-                                    <option value={selectedTaskId}>
-                                      任务 #{selectedTaskId}（当前不可用）
-                                    </option>
-                                  )}
-                                  {sortedTasks.map((task) => {
-                                    const usedAt = draft.homepageMultiPingTaskIds.indexOf(task.id);
-                                    const swapsWith = task.id !== selectedTaskId ? usedAt : -1;
-                                    return (
-                                      <option key={task.id} value={task.id}>
-                                        {`${task.name || `任务 #${task.id}`}${
-                                          swapsWith >= 0 ? `（与线路 ${swapsWith + 1} 互换）` : ""
-                                        }`}
-                                      </option>
-                                    );
-                                  })}
-                                </SettingSelect>
-                                <button
-                                  type="button"
-                                  onClick={() => removeMultiPingTask(slot)}
-                                  disabled={
-                                    draft.homepageMultiPingTaskIds.length <=
-                                    HOMEPAGE_MULTI_PING_MIN_COUNT
-                                  }
-                                  aria-label={`移除线路 ${slot + 1}`}
-                                  title="移除这条线路"
-                                  className="surface-inset flex h-[38px] w-[38px] shrink-0 items-center justify-center text-[var(--text-tertiary)] transition-colors hover:border-[var(--status-error)] hover:text-[var(--status-error)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-[var(--hairline)] disabled:hover:text-[var(--text-tertiary)]"
-                                >
-                                  <X size={14} />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-3">
-                          {/* 用设置页统一的小按钮：原来写的 px-3 py-1.5 text-[12px] 这类 Tailwind 类在 <button> 上
-                              不生效（index.css 里没进 layer 的 button 重置压过工具类），字号成了 16px、内边距 0，字顶着边框。 */}
-                          <button
-                            type="button"
-                            onClick={addMultiPingTask}
-                            disabled={
-                              draft.homepageMultiPingTaskIds.length >= multiPingSlotLimit
-                            }
-                            className="theme-manage-button is-compact"
-                          >
-                            <Plus size={13} />
-                            添加线路
-                          </button>
-                          <span
-                            className={clsx(
-                              "text-[11px] leading-relaxed",
-                              draftMultiPingInvalid
-                                ? "text-[var(--status-error)]"
-                                : "text-[var(--text-tertiary)]",
-                            )}
-                            role={draftMultiPingInvalid ? "alert" : undefined}
-                          >
-                            {draftMultiPingInvalid
-                              ? "至少选 1 条线路后再保存，否则会回退到单线路模式。"
-                              : "某条线路没有节点样本时保留该行并显示“无样本”。"}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="mt-4 border-t border-[var(--hairline)] pt-4 setting-hint">
-                        每台节点只显示一条线路，用下面「单线路设置」里的默认线路；个别节点想看别的线路，
-                        用下面的「逐节点指定线路」。
-                      </p>
-                    )}
-                  </div>
-
-                  {/* 单线路设置不能删：迷你卡片与列表永远走单线路，这里是它们唯一的设置入口。 */}
-                  <div className="surface-inset px-4 py-4">
-                    <div className="min-w-0">
-                      <span className="block setting-subhead-title">
-                        单线路设置
-                      </span>
-                      <span className="mt-1 block setting-hint">
-                        {draft.enableHomepageMultiPing
-                          ? "大/小卡片当前走多线路，用不到这组；迷你卡片与列表仍按单线路显示。"
-                          : "作用于所有视图。"}
-                      </span>
-                    </div>
-
-                    {/* 默认线路：原来是标题行右端一个窄下拉，混在一堆文字里看不见。挪到正文、
-                        用和模式切换同一套整行分段控件，选中项强调色实心。 */}
-                    <div className="mt-4 border-t border-[var(--hairline)] pt-4">
-                          <div className="setting-subhead">
-                            <span className="setting-field-label">
-                              默认线路
-                            </span>
-                            <span className="setting-hint">
-                              没单独指定的节点都走这条
-                            </span>
-                          </div>
-                          <div className="instance-segmented is-prominent" role="group" aria-label="默认线路">
-                            {!sortedTasks.some(
-                              (task) => task.id === draft.homepageDefaultPingTaskId,
-                            ) && (
-                              <button
-                                type="button"
-                                data-active="true"
-                                aria-pressed
-                                disabled
-                                className="inline-flex items-center justify-center"
-                              >
-                                任务 #{draft.homepageDefaultPingTaskId}（当前不可用）
-                              </button>
-                            )}
-                            {sortedTasks.map((task) => {
-                              const active = task.id === draft.homepageDefaultPingTaskId;
-                              return (
-                                <button
-                                  key={task.id}
-                                  type="button"
-                                  data-active={active ? "true" : "false"}
-                                  aria-pressed={active}
-                                  onClick={() => patch("homepageDefaultPingTaskId", task.id)}
-                                  className="inline-flex items-center justify-center"
-                                >
-                                  {task.name || `任务 #${task.id}`}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <p className="mt-2 setting-hint">
-                            新加的节点也自动跟着它，不用回来一台台绑；个别节点想看别的线路，用下面的「逐节点指定线路」。
-                          </p>
-                        </div>
-                  </div>
-                </div>
-              </InstancePanel>
-
-              <InstancePanel
-                id="set-ping-bindings"
-                kicker="绑定"
-                title="逐节点指定线路"
-                aside={<Network size={16} />}
-              >
-                <div className="flex flex-col gap-3">
-                  <p className="setting-hint">
-                    没指定的节点都走上面的默认线路；迷你卡片与列表始终按单线路显示，这里指定的对它们同样生效。
-                    已单独指定 {assignedNodeCount} / {sortedClients.length} 台。
-                  </p>
-                  <label className="surface-inset mb-3 flex items-center gap-2 px-3 py-2">
-                    <Search size={14} className="text-[var(--text-tertiary)]" />
-                    <input
-                      value={taskSearch}
-                      onChange={(event) => setTaskSearch(event.target.value)}
-                      placeholder="搜索线路名称"
-                      aria-label="搜索线路"
-                      className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-[var(--text-tertiary)]"
-                    />
+                      <span className="shrink-0 text-[13px] text-(--text-secondary)">天开始提醒</span>
+                    </span>
+                    <span className="setting-hint">
+                      资产总值卡右上角的提醒按这个天数统计即将到期的机器；填 0 关闭提醒（最多 {MAX_RENEWAL_REMINDER_DAYS} 天）。
+                    </span>
                   </label>
 
-                  <div className="flex flex-col gap-3">
-                    {(tasksLoading || clientsLoading) && (
-                      <div className="flex min-h-[20vh] items-center justify-center">
-                        <Spinner size={24} />
-                      </div>
-                    )}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="surface-inset flex flex-col gap-2 px-4 py-3">
+                      <span className="setting-subhead-title">汇率接口</span>
+                      <input
+                        type="url"
+                        value={draft.costRateApiUrl}
+                        onChange={(event) => patch("costRateApiUrl", event.target.value)}
+                        placeholder="https://open.er-api.com/v6/latest/CNY"
+                        className="surface-inset px-3 py-2 text-[13px] outline-none"
+                      />
+                      <span className="setting-hint">留空使用默认公共汇率接口。</span>
+                    </label>
 
-                    {noTasksYet && (
-                      <div className="theme-manage-empty-state">
-                        <span>没有可用的探测线路。</span>
-                      </div>
-                    )}
+                    <div className="surface-inset flex flex-col gap-2 px-4 py-3">
+                      <span className="setting-subhead-title">排除机器</span>
+                      <textarea
+                        rows={3}
+                        value={draft.costIgnoredText}
+                        onChange={(event) => patch("costIgnoredText", event.target.value)}
+                        placeholder="测试机&#10;node-uuid"
+                        className="surface-inset min-h-24 w-full resize-y p-2.5 text-[13px] outline-none font-mono"
+                      />
+                      <span className="setting-hint">填入的机器不计入资产总值与续费成本。</span>
+                    </div>
+                  </div>
+                </div>
+              </InstancePanel>
 
-                    {noFilteredTaskMatch && (
-                      <div className="px-1 py-3 text-[13px] text-[var(--text-secondary)]">
-                        没有匹配的线路。
-                      </div>
-                    )}
-
-                    {!tasksLoading &&
-                      !clientsLoading &&
-                      !noTasksYet &&
-                      filteredTasks.map((task) => {
-                        const expanded = expandedTaskId === task.id;
-                        return (
-                          <TaskBindingSection
-                            key={task.id}
-                            task={task}
-                            defaultTaskId={draft.homepageDefaultPingTaskId}
-                            assigned={
-                              draft.homepagePingBindings[String(task.id)] ??
-                              EMPTY_ASSIGNED_CLIENTS
-                            }
-                            expanded={expanded}
-                            clientsById={clientsById}
-                            // 收起的卡片收到稳定空值:节点搜索的每次击键只重渲展开的那一张。
-                            visibleClients={expanded ? visibleClients : EMPTY_ADMIN_CLIENTS}
-                            assignedTaskByClientUuid={assignedTaskByClientUuid}
-                            nodeSearch={expanded ? nodeSearch : ""}
-                            onNodeSearch={setNodeSearch}
-                            onToggleExpand={toggleTaskExpanded}
-                            onPatchBindings={patchBindings}
-                          />
-                        );
-                      })}
+              {/* 面板 2: 买入溢价 */}
+              <InstancePanel
+                id="set-premiums"
+                kicker="溢价"
+                title="买入溢价"
+                description="记录收机实际花费，系统自动平摊折溢价。"
+                aside={<CircleDollarSign size={16} />}
+              >
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <input
+                      value={premiumSearch}
+                      onChange={(event) => setPremiumSearch(event.target.value)}
+                      placeholder="搜索服务器…"
+                      className="surface-inset px-3 py-1.5 text-[13px] outline-none max-w-xs"
+                    />
+                    <span className="setting-hint">已记录 {premiumConfiguredCount} 台溢价</span>
                   </div>
 
+                  <PremiumList
+                    clients={filteredPremiumClients}
+                    costPremiums={draft.costPremiums}
+                    detailByUuid={premiumDetailByUuid}
+                    rateLoading={premiumRateQuery.isLoading}
+                    acquiredAtMax={acquiredAtMax}
+                    onPatchPaid={patchPremiumPaid}
+                    onPatchAcquiredAt={patchPremiumAcquiredAt}
+                  />
                 </div>
               </InstancePanel>
             </>

@@ -1,4 +1,4 @@
-import { memo, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   Cpu,
@@ -22,6 +22,7 @@ import { useMetricColorsVersion } from "@/hooks/useMetricColors";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { formatBytes } from "@/utils/format";
 import {
+  buildTrafficQuotaSegmentColors,
   speedRateColor,
   trafficQuotaSegmentColor,
 } from "@/utils/metricTone";
@@ -60,6 +61,10 @@ export const NodeCard = memo(function NodeCard({
   const colorsVersion = useMetricColorsVersion();
   const redrawKey = `${resolvedAppearance}:${colorsVersion}`;
   const themeSettings = useThemeSettings();
+  const trafficSegmentColors = useMemo(
+    () => buildTrafficQuotaSegmentColors(themeSettings.trafficSpectrumColors),
+    [themeSettings.trafficSpectrumColors],
+  );
   const model = useNodeCardModel(uuid, { includeMultiPing: true });
 
   if (!model.node) {
@@ -86,6 +91,7 @@ export const NodeCard = memo(function NodeCard({
     uptime,
     renewalPrice: metaRenewalPrice,
     showCardPrice,
+    isPriceVisible,
     latencyColor,
     lossColor,
     loadFraction,
@@ -99,12 +105,13 @@ export const NodeCard = memo(function NodeCard({
     isOffline,
     osName,
   } = model;
-  // 「卡片显示价格」关掉后不渲染价格 chip。
-  const renewalPrice = showCardPrice ? metaRenewalPrice : null;
+  const renewalPrice = showCardPrice && Boolean(isPriceVisible) ? metaRenewalPrice : null;
   const showConnections = themeSettings.isReady && themeSettings.showConnections;
+
 
   return (
     <article
+      id={`node-card-${uuid}`}
       className={clsx("server-card", isOffline && "is-offline")}
     >
       <div className="server-card-content">
@@ -135,6 +142,7 @@ export const NodeCard = memo(function NodeCard({
             remainingLabel={traffic.remainingLabel}
             detail={traffic.detail}
             typeLabel={traffic.typeLabel}
+            segmentColors={trafficSegmentColors}
           />
 
           {showConnections && (
@@ -375,12 +383,15 @@ const NodeTrafficQuota = memo(function NodeTrafficQuota({
   remainingLabel,
   detail,
   typeLabel,
+  segmentColors,
 }: {
   litCount: number;
   remainingLabel: string;
   detail: string;
   typeLabel: string;
+  segmentColors?: string[];
 }) {
+  const colors = segmentColors ?? TRAFFIC_QUOTA_SEGMENT_COLORS;
   return (
     <div
       className="card-metric-section traffic-quota"
@@ -395,7 +406,7 @@ const NodeTrafficQuota = memo(function NodeTrafficQuota({
         <span className="traffic-quota-usage">{detail}</span>
       </div>
       <div className="traffic-quota-track" aria-hidden>
-        {TRAFFIC_QUOTA_SEGMENT_COLORS.map((color, i) => {
+        {colors.map((color, i) => {
           // litCount === -1:哨兵值,第 0 段画成段内一道细边(细边宽度 = TRAFFIC_SLIVER_RATIO),
           // 而不是点亮/熄灭一整段。见 trafficQuotaLitCount 顶部注释。
           const background =
@@ -839,13 +850,13 @@ function GlobeArrow({
         <ArrowDown
           size={9}
           strokeWidth={2.4}
-          className="absolute -right-[2px] bottom-[-1px]"
+          className="absolute -right-0.5 -bottom-px"
         />
       ) : (
         <ArrowUp
           size={9}
           strokeWidth={2.4}
-          className="absolute -right-[2px] bottom-[-1px]"
+          className="absolute -right-0.5 -bottom-px"
         />
       )}
     </span>

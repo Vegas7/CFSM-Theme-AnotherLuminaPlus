@@ -2,10 +2,11 @@
 
 [CF-Server-Monitor](https://github.com/huilang-me/CF-Server-Monitor) 的第三方主题，
 由 [Komari-Theme-LuminaPlus](https://github.com/shanyang242/Komari-Theme-LuminaPlus) 移植而来，
-基于 [CFSM-Theme-LuminaPlus](https://github.com/volcano-1025/CFSM-Theme-LuminaPlus) 二次修改。
+基于 [CFSM-Theme-LuminaPlus](https://github.com/volcano-1025/CFSM-Theme-LuminaPlus) 二次修改，
+界面样式、配色与动效整合自 [CFSM-SAO](https://github.com/WAOR/CFSM-SAO)（WAOR）。
 
-界面与交互沿用 LuminaPlus（本主题名 AnotherLuminaPlus）：大 / 小 / 迷你 / 列表四种卡片、首页总览与分组筛选、
-资产统计、实例详情的负载与延迟图表（延迟图叠加丢包率）；数据层全部改为
+功能沿用 LuminaPlus（本主题名 AnotherLuminaPlus）：大 / 小 / 迷你 / 列表四种卡片、首页总览与分组筛选、
+资产统计、实例详情的负载与延迟图表（延迟图叠加丢包率）；外观换成 SAO 的那一套。数据层全部改为
 CF-Server-Monitor 的公开 API。
 
 ## 怎么用
@@ -331,4 +332,6 @@ npm run build       # 产物只含 index.html + assets/
 ## 致谢
 
 - 原主题：[Komari-Theme-LuminaPlus](https://github.com/shanyang242/Komari-Theme-LuminaPlus)（codex & shark & shanyang）
+- CF-Server-Monitor 移植：[CFSM-Theme-LuminaPlus](https://github.com/volcano-1025/CFSM-Theme-LuminaPlus)（volcano-1025）
+- 界面样式、配色与动效：[CFSM-SAO](https://github.com/WAOR/CFSM-SAO)（WAOR，MIT 许可，版权声明见 LICENSE）
 - 后端：[CF-Server-Monitor](https://github.com/huilang-me/CF-Server-Monitor)

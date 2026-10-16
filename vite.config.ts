@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import pkg from "./package.json" with { type: "json" };
@@ -5,8 +7,10 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 /**
- * 开发用占位图：旗帜和 OS 图标平时由后端默认皮肤提供，本地没有后端时会整屏碎图。
- * `<img>` 不走 fetch，拦不到，所以放在 dev server 中间件里；不进产物。
+ * 开发用图标静态代理：
+ * 旗帜和 OS 图标平时由后端默认皮肤提供（`/flags/` 和 `/os-icons/`）。
+ * 本地开发时优先读取本地主题内置的 `public/assets/flags` 与 `public/assets/os-icons` 真实高清图标；
+ * 仅在本地未收录对应图标时，以平滑的无碎图占位 SVG 兜底。仅在 dev server 生效，不进产物。
  */
 function devHostAssets(): Plugin {
   return {
@@ -14,12 +18,49 @@ function devHostAssets(): Plugin {
     apply: "serve",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        const path = (req.url ?? "").split("?")[0] ?? "";
-        if (!path.startsWith("/flags/") && !path.startsWith("/os-icons/")) {
+        const reqPath = (req.url ?? "").split("?")[0] ?? "";
+        if (!reqPath.startsWith("/flags/") && !reqPath.startsWith("/os-icons/")) {
           next();
           return;
         }
-        const label = (path.split("/").pop() ?? "").replace(/\.\w+$/, "").slice(0, 4);
+
+        const fileName = reqPath.split("/").pop() ?? "";
+        const ext = path.extname(fileName).toLowerCase();
+        const baseName = path.basename(fileName, ext);
+
+        const candidatePaths: string[] = [];
+        if (reqPath.startsWith("/flags/")) {
+          candidatePaths.push(
+            path.resolve(process.cwd(), "dev-resources/flags", `${baseName.toUpperCase()}${ext}`),
+            path.resolve(process.cwd(), "dev-resources/flags", `${baseName.toLowerCase()}${ext}`),
+            path.resolve(process.cwd(), "dev-resources/flags", fileName),
+          );
+        } else if (reqPath.startsWith("/os-icons/")) {
+          candidatePaths.push(
+            path.resolve(process.cwd(), "dev-resources/os-icons", fileName),
+            path.resolve(process.cwd(), "dev-resources/os-icons", `${baseName.toLowerCase()}${ext}`),
+          );
+        }
+
+        for (const candidate of candidatePaths) {
+          if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+            const mimeTypes: Record<string, string> = {
+              ".svg": "image/svg+xml",
+              ".png": "image/png",
+              ".webp": "image/webp",
+              ".jpg": "image/jpeg",
+              ".jpeg": "image/jpeg",
+              ".ico": "image/x-icon",
+            };
+            const contentType = mimeTypes[ext] ?? "application/octet-stream";
+            res.setHeader("Content-Type", contentType);
+            res.setHeader("Cache-Control", "no-cache");
+            fs.createReadStream(candidate).pipe(res);
+            return;
+          }
+        }
+
+        const label = baseName.slice(0, 4);
         res.setHeader("Content-Type", "image/svg+xml");
         res.end(
           `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 24">` +
@@ -34,10 +75,6 @@ function devHostAssets(): Plugin {
 
 /**
  * 把主题版本写进产物的 `<meta name="theme-version">`。
- *
- * 三个用处：出问题时能直接看页面源码确认线上跑的是哪一版（Workers 对分支地址有约一小时
- * 缓存，很容易看到旧包）；版本号一改产物就变，CI 才会把这一版连同更新日志发到产物分支；
- * 页脚的主题版本号与「有新版本」比对也读它（见 services/versionCheck）。dev 下同样写入，本地才看得到版本号。
  */
 function themeVersionMeta(version: string): Plugin {
   return {
@@ -53,13 +90,6 @@ function themeVersionMeta(version: string): Plugin {
 
 /**
  * 把 `.env` 里的 API_BASE 写进 dev server 服务的 `<meta name="apiBase">`。
- *
- * `npm run build:github-page` 是构建完再改 dist/index.html；dev 直接吃源文件 index.html，
- * 这里用 transformIndexHtml 在内存里替换 content，不落盘、不污染源文件。
- * 留空时（Workers 同源 / mock 场景）什么都不做，前端回落到 window.location.origin。
- * 注意后端要把 dev 地址加进跨域白名单，否则请求会被 CORS 挡掉。
- *
- * 来自 PR #1（@huilang-me）。
  */
 function devApiBaseMeta(apiBase: string): Plugin {
   const escaped = apiBase
@@ -81,7 +111,6 @@ function devApiBaseMeta(apiBase: string): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  // 前缀传空串才能读到没有 VITE_ 前缀的 API_BASE（与 scripts/build-static.mjs 的读法一致）。
   const env = loadEnv(mode, process.cwd(), "");
   const apiBase = (env.API_BASE ?? "").trim();
 
@@ -93,9 +122,7 @@ export default defineConfig(({ mode }) => {
       themeVersionMeta(pkg.version),
       devApiBaseMeta(apiBase),
     ],
-    // CF-Server-Monitor 的主题构建产物只能是 index.html + assets/，并且会被挂到站点根路径或
-    // GitHub Pages 的子路径下，因此资源引用必须是相对路径。Worker 会把 `./assets/` 重写成
-    // `/assets/` 再代理到主题仓库。
+    // CF-Server-Monitor 的主题构建产物只能是 index.html + assets/，相对路径引用
     base: "./",
     resolve: {
       alias: {
@@ -103,8 +130,6 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      // 与 CSS 实际基线对齐:全站大量 color-mix()/oklch(需 Chrome 111 / Safari 16.2+),
-      // JS 没必要为更老的引擎转译。
       target: ["es2022", "chrome111", "safari16.2", "firefox113"],
       assetsDir: "assets",
       rollupOptions: {

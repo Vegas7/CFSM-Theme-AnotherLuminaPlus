@@ -167,8 +167,6 @@ export function resolveHomepagePingTaskIdsByClient(
   for (const uuid of clientUuids) {
     if (!uuid) continue;
     selectedTaskIdsByClient.set(uuid, [
-      // 没单独绑过的节点走站点的「默认线路」—— 写死电信会让「全站都绑联通」的站点
-      // 每加一台新节点就冒出一条电信（站长得记得回来手动绑，v1.2.14 之前就是这样）。
       singleTaskByClient.get(uuid) ?? resolveDefaultHomepagePingTaskId(defaultTaskId),
     ]);
   }

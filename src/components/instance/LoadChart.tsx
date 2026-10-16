@@ -457,7 +457,7 @@ const ChartCard = memo(function ChartCard({
         </div>
         <div className="instance-series-stats">
           <span className="tabular">{value}</span>
-          {note != null && <span className="tabular text-[var(--text-tertiary)]">{note}</span>}
+          {note != null && <span className="tabular text-(--text-tertiary)">{note}</span>}
         </div>
       </header>
       {/* 最小高度 = 图表高度：换时间段 / 开关丢包叠加时图表会按新 key 整个重建，旧图先卸掉、新图要等

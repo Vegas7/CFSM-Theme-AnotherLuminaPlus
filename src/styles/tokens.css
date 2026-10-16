@@ -5,24 +5,25 @@
    重新声明 token、把写在 <html> 上的自定义配色覆盖给“盖住”（大卡文字/图标曾因此不生效）。 */
 :root,
 :root[data-appearance="light"] {
-  --bg-0: #f4f4f5;
+  --bg-0: #f4f5f7;
+  --surface-bg: #f4f5f7;
 
   --surface: #ffffff;
-  --surface-elev: #ffffff;
-  --surface-sunken: #f4f4f5;
+  --surface-elev: #eaecf0;
+  --surface-sunken: #f4f5f7;
 
   --border: rgba(24, 24, 27, 0.08);
-  --border-subtle: rgba(24, 24, 27, 0.06);
-  --border-strong: rgba(24, 24, 27, 0.13);
-  --hairline: rgba(24, 24, 27, 0.08);
+  --border-subtle: rgba(24, 24, 27, 0.05);
+  --border-strong: rgba(24, 24, 27, 0.14);
+  --hairline: rgba(24, 24, 27, 0.07);
 
   --text-primary: #18181b;
   --text-secondary: #52525b;
   --text-tertiary: #71717a;
   --text-on-strong: #ffffff;
 
-  --fill-secondary: rgba(24, 24, 27, 0.1);
-  --fill-tertiary: rgba(24, 24, 27, 0.05);
+  --fill-secondary: rgba(24, 24, 27, 0.08);
+  --fill-tertiary: rgba(24, 24, 27, 0.04);
 
   --hover-bg: #f4f4f5;
 
@@ -74,129 +75,229 @@
   --traffic-up: #3b82f6;
   --traffic-down: #2f9e65;
   --status-online: #2f9e65;
-  --status-offline: #dc2626;
+  --status-offline: #71717a;
 
-  --tag-red-bg: #fee2e2;
-  --tag-red-fg: #b91c1c;
-  --tag-gray-bg: #e5e5e5;
-  --tag-gray-fg: #3f3f46;
+  /* Radix UI Color Tokens - Light Mode */
+  --tag-tomato-bg: rgba(234, 88, 12, 0.12);
+  --tag-tomato-fg: #c2410c;
+  --tag-red-bg: rgba(220, 38, 38, 0.12);
+  --tag-red-fg: #dc2626;
+  --tag-ruby-bg: rgba(225, 29, 72, 0.12);
+  --tag-ruby-fg: #be123c;
+  --tag-crimson-bg: rgba(219, 39, 119, 0.12);
+  --tag-crimson-fg: #be185d;
+  --tag-pink-bg: rgba(236, 72, 153, 0.12);
+  --tag-pink-fg: #db2777;
+  --tag-plum-bg: rgba(168, 85, 247, 0.12);
+  --tag-plum-fg: #9333ea;
+  --tag-purple-bg: rgba(147, 51, 234, 0.12);
+  --tag-purple-fg: #7c3aed;
+  --tag-violet-bg: rgba(124, 58, 237, 0.12);
+  --tag-violet-fg: #6d28d9;
+  --tag-iris-bg: rgba(99, 102, 241, 0.12);
+  --tag-iris-fg: #4f46e5;
+  --tag-indigo-bg: rgba(79, 70, 229, 0.12);
+  --tag-indigo-fg: #4338ca;
+  --tag-blue-bg: rgba(37, 99, 235, 0.12);
+  --tag-blue-fg: #1d4ed8;
+  --tag-cyan-bg: rgba(8, 145, 178, 0.14);
+  --tag-cyan-fg: #0891b2;
+  --tag-teal-bg: rgba(13, 148, 136, 0.14);
+  --tag-teal-fg: #0f766e;
+  --tag-jade-bg: rgba(16, 185, 129, 0.14);
+  --tag-jade-fg: #059669;
+  --tag-green-bg: rgba(34, 197, 94, 0.14);
+  --tag-green-fg: #16a34a;
+  --tag-grass-bg: rgba(74, 222, 128, 0.14);
+  --tag-grass-fg: #15803d;
+  --tag-bronze-bg: rgba(161, 128, 114, 0.14);
+  --tag-bronze-fg: #854d0e;
+  --tag-gold-bg: rgba(202, 138, 4, 0.14);
+  --tag-gold-fg: #a16207;
+  --tag-brown-bg: rgba(146, 64, 14, 0.14);
+  --tag-brown-fg: #78350f;
+  --tag-orange-bg: rgba(249, 115, 22, 0.14);
+  --tag-orange-fg: #ea580c;
+  --tag-amber-bg: rgba(245, 158, 11, 0.16);
+  --tag-amber-fg: #d97706;
+  --tag-yellow-bg: rgba(234, 179, 8, 0.18);
+  --tag-yellow-fg: #ca8a04;
+  --tag-lime-bg: rgba(132, 204, 22, 0.18);
+  --tag-lime-fg: #65a30d;
+  --tag-mint-bg: rgba(45, 212, 191, 0.16);
+  --tag-mint-fg: #0d9488;
+  --tag-sky-bg: rgba(2, 132, 199, 0.12);
+  --tag-sky-fg: #0284c7;
+  --tag-gray-bg: rgba(107, 114, 128, 0.14);
+  --tag-gray-fg: #4b5563;
+  --tag-mauve-bg: rgba(142, 138, 153, 0.14);
+  --tag-mauve-fg: #65616f;
+  --tag-slate-bg: rgba(100, 116, 139, 0.14);
+  --tag-slate-fg: #475569;
+  --tag-sage-bg: rgba(112, 128, 120, 0.14);
+  --tag-sage-fg: #4f5f56;
+  --tag-olive-bg: rgba(120, 128, 105, 0.14);
+  --tag-olive-fg: #5c5f49;
+  --tag-sand-bg: rgba(128, 120, 105, 0.14);
+  --tag-sand-fg: #5f5b52;
 
   --ring: rgba(59, 130, 246, 0.35);
 
-  /* 画布氛围层(只在纯色模式可见——透明模式的 body::before 图片会盖住 <html> 背景)。
-     顶部一道极淡的品牌冷光,给平铺画布一点「顶光」的纵深;亮色下几乎不可察,仅去掉死板。 */
-  --canvas-glow: radial-gradient(
-    1100px 560px at 50% -8%,
-    color-mix(in srgb, var(--accent-500) 5%, transparent) 0%,
-    transparent 60%
-  );
+  --canvas-glow: none;
 }
 
 :root[data-appearance="dark"] {
-  /* --dark-depth 只加深画布，卡片与边框仍保留层级。 */
-  --bg-0: color-mix(in srgb, #212830, #000000 calc(var(--dark-depth, 0) * 1%));
+  --bg-0: #09090b;
+  --surface-bg: #09090b;
 
-  --surface: color-mix(in srgb, #262c36, #080a0d calc(var(--dark-depth, 0) * 1%));
-  --surface-elev: color-mix(in srgb, #2a313c, #101318 calc(var(--dark-depth, 0) * 1%));
-  --surface-sunken: color-mix(in srgb, #151b23, #030405 calc(var(--dark-depth, 0) * 1%));
+  --surface: #1c1c1f;
+  --surface-elev: #121214;
+  --surface-sunken: #09090b;
 
-  --border: color-mix(in srgb, #3d444d, #2d333b calc(var(--dark-depth, 0) * 1%));
-  --border-subtle: color-mix(in srgb, rgba(61, 68, 77, 0.7), rgba(45, 51, 59, 0.72) calc(var(--dark-depth, 0) * 1%));
-  --border-strong: color-mix(in srgb, #656c76, #555b64 calc(var(--dark-depth, 0) * 1%));
-  --hairline: color-mix(in srgb, rgba(61, 68, 77, 0.7), rgba(45, 51, 59, 0.72) calc(var(--dark-depth, 0) * 1%));
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --hairline: rgba(255, 255, 255, 0.08);
 
-  --text-primary: #d1d7e0;
-  --text-secondary: #b7bdc8;
-  --text-tertiary: #9198a1;
-  --text-on-strong: #151b23;
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --text-on-strong: #09090b;
 
-  --fill-secondary: rgba(101, 108, 118, 0.2);
-  --fill-tertiary: rgba(101, 108, 118, 0.12);
+  --fill-secondary: rgba(255, 255, 255, 0.08);
+  --fill-tertiary: rgba(255, 255, 255, 0.04);
 
-  --hover-bg: color-mix(in srgb, #2f3742, #171a1f calc(var(--dark-depth, 0) * 1%));
+  --hover-bg: #27272a;
 
-  --progress-bg: color-mix(in srgb, #343b45, #24282e calc(var(--dark-depth, 0) * 1%));
-  --progress-cpu: #539bf5;
-  --progress-memory: #b083f0;
-  --progress-swap: #986ee2;
-  --progress-disk: #e0823d;
-  --progress-network: #57ab5a;
-  --progress-load: #e275ad;
+  --progress-bg: #27272a;
+  --progress-cpu: #3b82f6;
+  --progress-memory: #8b5cf6;
+  --progress-swap: #6366f1;
+  --progress-disk: #f97316;
+  --progress-network: #10b981;
+  --progress-load: #ec4899;
   /* --traffic-heat-spectrum 不重定义,继承 :root 的 OKLCH heat 曲线(dark 轨道上同样清晰)。 */
 
-  --status-success: #57ab5a;
-  --status-warning: #daaa3f;
-  --status-error: #f47067;
-  --status-info: #539bf5;
-  --latency-excellent: #2fc66e;
-  --latency-good: #9fe339;
-  --latency-moderate: #cbd83a;
-  --latency-elevated: #e2a928;
-  --latency-critical: #f47067;
-  --accent-500: #539bf5;
-  --accent-strong: #4184e4;
-  --speed-idle: #57ab5a;
-  --speed-low: #daaa3f;
-  --speed-high: #e0823d;
-  --speed-max: #f47067;
+  --status-success: #10b981;
+  --status-warning: #f59e0b;
+  --status-error: #ef4444;
+  --status-info: #3b82f6;
+  --latency-excellent: #10b981;
+  --latency-good: #84cc16;
+  --latency-moderate: #eab308;
+  --latency-elevated: #f59e0b;
+  --latency-critical: #ef4444;
+  --accent-500: #3b82f6;
+  --accent-strong: #2563eb;
+  --speed-idle: #10b981;
+  --speed-low: #f59e0b;
+  --speed-high: #f97316;
+  --speed-max: #ef4444;
   /* 流量上/下行方向色（图标、出站/入站箭头） */
-  --traffic-up: #539bf5;
-  --traffic-down: #57ab5a;
-  --status-online: #57ab5a;
-  --status-offline: #f47067;
+  --traffic-up: #3b82f6;
+  --traffic-down: #10b981;
+  --status-online: #10b981;
+  --status-offline: #6b7280;
 
-  --tag-red-bg: rgba(244, 112, 103, 0.16);
-  --tag-red-fg: #ffb8b0;
+  /* Radix UI Color Tokens - Dark Mode */
+  --tag-tomato-bg: rgba(249, 115, 22, 0.18);
+  --tag-tomato-fg: #fb923c;
+  --tag-red-bg: rgba(239, 68, 68, 0.18);
+  --tag-red-fg: #f87171;
+  --tag-ruby-bg: rgba(244, 63, 94, 0.18);
+  --tag-ruby-fg: #fb7185;
+  --tag-crimson-bg: rgba(236, 72, 153, 0.18);
+  --tag-crimson-fg: #f472b6;
+  --tag-pink-bg: rgba(244, 114, 182, 0.18);
+  --tag-pink-fg: #f9a8d4;
+  --tag-plum-bg: rgba(192, 132, 252, 0.18);
+  --tag-plum-fg: #e879f9;
+  --tag-purple-bg: rgba(168, 85, 247, 0.18);
+  --tag-purple-fg: #c084fc;
+  --tag-violet-bg: rgba(139, 92, 246, 0.18);
+  --tag-violet-fg: #a78bfa;
+  --tag-iris-bg: rgba(129, 140, 248, 0.18);
+  --tag-iris-fg: #818cf8;
+  --tag-indigo-bg: rgba(99, 102, 241, 0.18);
+  --tag-indigo-fg: #a5b4fc;
+  --tag-blue-bg: rgba(59, 130, 246, 0.18);
+  --tag-blue-fg: #60a5fa;
+  --tag-cyan-bg: rgba(6, 182, 212, 0.18);
+  --tag-cyan-fg: #22d3ee;
+  --tag-teal-bg: rgba(20, 184, 166, 0.18);
+  --tag-teal-fg: #2dd4bf;
+  --tag-jade-bg: rgba(16, 185, 129, 0.18);
+  --tag-jade-fg: #34d399;
+  --tag-green-bg: rgba(34, 197, 94, 0.18);
+  --tag-green-fg: #4ade80;
+  --tag-grass-bg: rgba(74, 222, 128, 0.18);
+  --tag-grass-fg: #86efac;
+  --tag-bronze-bg: rgba(161, 128, 114, 0.18);
+  --tag-bronze-fg: #d4a373;
+  --tag-gold-bg: rgba(202, 138, 4, 0.18);
+  --tag-gold-fg: #facc15;
+  --tag-brown-bg: rgba(146, 64, 14, 0.18);
+  --tag-brown-fg: #fb923c;
+  --tag-orange-bg: rgba(249, 115, 22, 0.18);
+  --tag-orange-fg: #fb923c;
+  --tag-amber-bg: rgba(245, 158, 11, 0.18);
+  --tag-amber-fg: #fbbf24;
+  --tag-yellow-bg: rgba(234, 179, 8, 0.18);
+  --tag-yellow-fg: #fde047;
+  --tag-lime-bg: rgba(163, 230, 53, 0.18);
+  --tag-lime-fg: #a3e635;
+  --tag-mint-bg: rgba(45, 212, 191, 0.18);
+  --tag-mint-fg: #5eead4;
+  --tag-sky-bg: rgba(56, 189, 248, 0.16);
+  --tag-sky-fg: #38bdf8;
   --tag-gray-bg: rgba(145, 152, 161, 0.18);
   --tag-gray-fg: #d1d7e0;
+  --tag-mauve-bg: rgba(142, 138, 153, 0.18);
+  --tag-mauve-fg: #c4bfcf;
+  --tag-slate-bg: rgba(139, 143, 163, 0.18);
+  --tag-slate-fg: #94a3b8;
+  --tag-sage-bg: rgba(134, 143, 139, 0.18);
+  --tag-sage-fg: #bcc5bf;
+  --tag-olive-bg: rgba(138, 143, 134, 0.18);
+  --tag-olive-fg: #c0c5bb;
+  --tag-sand-bg: rgba(144, 141, 135, 0.18);
+  --tag-sand-fg: #c5c2bc;
 
   --ring: rgba(83, 155, 245, 0.5);
 
   --canvas-glow: none;
 }
 
-/* 标签配色 — DStatus 风格 pill,按标签颜色名取色 */
-[data-tag="ruby"],
-[data-tag="red"],
-[data-tag="tomato"],
-[data-tag="crimson"] {
-  --tag-bg: var(--tag-red-bg);
-  --tag-fg: var(--tag-red-fg);}
-[data-tag="gold"],
-[data-tag="amber"],
-[data-tag="yellow"] {
-  --tag-bg: rgba(233, 162, 59, 0.16);
-  --tag-fg: #e9a23b;}
-[data-tag="orange"],
-[data-tag="bronze"],
-[data-tag="brown"] {
-  --tag-bg: rgba(233, 123, 53, 0.16);
-  --tag-fg: #e97b35;}
-[data-tag="green"],
-[data-tag="grass"],
-[data-tag="mint"],
-[data-tag="jade"],
-[data-tag="lime"] {
-  --tag-bg: rgba(84, 180, 132, 0.16);
-  --tag-fg: #54b484;}
-[data-tag="blue"],
-[data-tag="sky"],
-[data-tag="cyan"],
-[data-tag="teal"] {
-  --tag-bg: rgba(78, 129, 238, 0.16);
-  --tag-fg: #4e81ee;}
-[data-tag="violet"],
-[data-tag="purple"],
-[data-tag="plum"],
-[data-tag="iris"],
-[data-tag="indigo"],
-[data-tag="pink"] {
-  --tag-bg: rgba(157, 90, 239, 0.16);
-  --tag-fg: #9d5aef;}
-[data-tag="slate"] {
-  --tag-bg: rgba(100, 116, 139, 0.16);
-  --tag-fg: #64748b;}
+/* 标签配色 — Radix UI Colors 官方 30 色系独立映射 */
+[data-tag="tomato"] { --tag-bg: var(--tag-tomato-bg); --tag-fg: var(--tag-tomato-fg); }
+[data-tag="red"] { --tag-bg: var(--tag-red-bg); --tag-fg: var(--tag-red-fg); }
+[data-tag="ruby"] { --tag-bg: var(--tag-ruby-bg); --tag-fg: var(--tag-ruby-fg); }
+[data-tag="crimson"] { --tag-bg: var(--tag-crimson-bg); --tag-fg: var(--tag-crimson-fg); }
+[data-tag="pink"] { --tag-bg: var(--tag-pink-bg); --tag-fg: var(--tag-pink-fg); }
+[data-tag="plum"] { --tag-bg: var(--tag-plum-bg); --tag-fg: var(--tag-plum-fg); }
+[data-tag="purple"] { --tag-bg: var(--tag-purple-bg); --tag-fg: var(--tag-purple-fg); }
+[data-tag="violet"] { --tag-bg: var(--tag-violet-bg); --tag-fg: var(--tag-violet-fg); }
+[data-tag="iris"] { --tag-bg: var(--tag-iris-bg); --tag-fg: var(--tag-iris-fg); }
+[data-tag="indigo"] { --tag-bg: var(--tag-indigo-bg); --tag-fg: var(--tag-indigo-fg); }
+[data-tag="blue"] { --tag-bg: var(--tag-blue-bg); --tag-fg: var(--tag-blue-fg); }
+[data-tag="cyan"] { --tag-bg: var(--tag-cyan-bg); --tag-fg: var(--tag-cyan-fg); }
+[data-tag="teal"] { --tag-bg: var(--tag-teal-bg); --tag-fg: var(--tag-teal-fg); }
+[data-tag="jade"] { --tag-bg: var(--tag-jade-bg); --tag-fg: var(--tag-jade-fg); }
+[data-tag="green"] { --tag-bg: var(--tag-green-bg); --tag-fg: var(--tag-green-fg); }
+[data-tag="grass"] { --tag-bg: var(--tag-grass-bg); --tag-fg: var(--tag-grass-fg); }
+[data-tag="bronze"] { --tag-bg: var(--tag-bronze-bg); --tag-fg: var(--tag-bronze-fg); }
+[data-tag="gold"] { --tag-bg: var(--tag-gold-bg); --tag-fg: var(--tag-gold-fg); }
+[data-tag="brown"] { --tag-bg: var(--tag-brown-bg); --tag-fg: var(--tag-brown-fg); }
+[data-tag="orange"] { --tag-bg: var(--tag-orange-bg); --tag-fg: var(--tag-orange-fg); }
+[data-tag="amber"] { --tag-bg: var(--tag-amber-bg); --tag-fg: var(--tag-amber-fg); }
+[data-tag="yellow"] { --tag-bg: var(--tag-yellow-bg); --tag-fg: var(--tag-yellow-fg); }
+[data-tag="lime"] { --tag-bg: var(--tag-lime-bg); --tag-fg: var(--tag-lime-fg); }
+[data-tag="mint"] { --tag-bg: var(--tag-mint-bg); --tag-fg: var(--tag-mint-fg); }
+[data-tag="sky"] { --tag-bg: var(--tag-sky-bg); --tag-fg: var(--tag-sky-fg); }
 [data-tag="gray"],
-[data-tag=""] {
-  --tag-bg: var(--tag-gray-bg);
-  --tag-fg: var(--tag-gray-fg);}
+[data-tag=""] { --tag-bg: var(--tag-gray-bg); --tag-fg: var(--tag-gray-fg); }
+[data-tag="mauve"] { --tag-bg: var(--tag-mauve-bg); --tag-fg: var(--tag-mauve-fg); }
+[data-tag="slate"] { --tag-bg: var(--tag-slate-bg); --tag-fg: var(--tag-slate-fg); }
+[data-tag="sage"] { --tag-bg: var(--tag-sage-bg); --tag-fg: var(--tag-sage-fg); }
+[data-tag="olive"] { --tag-bg: var(--tag-olive-bg); --tag-fg: var(--tag-olive-fg); }
+[data-tag="sand"] { --tag-bg: var(--tag-sand-bg); --tag-fg: var(--tag-sand-fg); }

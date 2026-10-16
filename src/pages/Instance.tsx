@@ -16,8 +16,9 @@ import { useNodeMeta, useNodeStoreStatus, useRealtimeFocus } from "@/hooks/useNo
 import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { ANONYMOUS_MAX_HISTORY_HOURS } from "@/services/api";
 
-// 1 小时：详情页每打开一次就是一趟 /api/history/all 全量行，默认档位越短后端读的行越少。
-const DEFAULT_PING_HOURS = 1;
+// 0.167（10 分钟）：官方规范铁律要求详情页默认 10 分钟历史曲线，大幅降低 D1 行读取。
+const DEFAULT_PING_HOURS = 0.167;
+const DEFAULT_LOAD_HOURS = 0.167;
 /** `/api/history/all` 的 hours 上限。 */
 const MAX_HISTORY_HOURS = 168;
 
@@ -61,7 +62,11 @@ export function Instance() {
 
   useEffect(() => {
     if (!loadRanges.some((range) => range.value === loadHours)) {
-      setLoadHours(loadRanges[0]?.value ?? 0);
+      setLoadHours(
+        loadRanges.find((range) => range.value === DEFAULT_LOAD_HOURS)?.value ??
+          loadRanges[0]?.value ??
+          DEFAULT_LOAD_HOURS,
+      );
     }
   }, [loadHours, loadRanges]);
 
@@ -92,10 +97,10 @@ export function Instance() {
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
           {message ? (
             <>
-              <div className="text-[15px] font-semibold text-[var(--text-primary)]">
+              <div className="text-[15px] font-semibold text-(--text-primary)">
                 {storeStatus.hydrated ? "实例不存在" : "暂时无法加载实例"}
               </div>
-              <p className="text-[13px] text-[var(--text-secondary)]">{message}</p>
+              <p className="text-[13px] text-(--text-secondary)">{message}</p>
             </>
           ) : (
             <Spinner size={24} label="正在加载实例" />

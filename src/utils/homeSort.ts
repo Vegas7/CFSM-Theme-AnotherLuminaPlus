@@ -65,7 +65,12 @@ function segmentOf(
   ctx: HomeSortContext,
 ): -1 | 0 | 1 | 2 {
   if (node.online === false) return ctx.offlineFirst ? -1 : 2;
-  if (field === "speed") return ctx.speedActive.has(node.uuid) ? 0 : 1;
+  if (field === "speed") {
+    // When no node has crossed the hysteresis threshold (e.g. on first load or
+    // low-traffic environments) treat all online nodes as segment 0 so they
+    // still get sorted by their raw speed value instead of falling back to weight.
+    return ctx.speedActive.size === 0 || ctx.speedActive.has(node.uuid) ? 0 : 1;
+  }
   if (field === "price") return ctx.priceByUuid.get(node.uuid) != null ? 0 : 1;
   return 0;
 }
