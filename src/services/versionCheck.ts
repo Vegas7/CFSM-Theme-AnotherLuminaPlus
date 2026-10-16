@@ -12,14 +12,14 @@ import { fetchWithTimeout } from "@/utils/abort";
  */
 
 export const THEME_RELEASE_INDEX_URL =
-  "https://raw.githubusercontent.com/volcano-1025/CFSM-Theme-LuminaPlus/dist/index.html";
+  "https://raw.githubusercontent.com/Vegas7/CFSM-Theme-AnotherLuminaPlus/dist/index.html";
 
 const LATEST_THEME_CACHE_KEY = "cfsm-luminaplus:theme-latest-version";
 const LATEST_THEME_TTL_MS = 12 * 60 * 60 * 1000;
 const LATEST_THEME_FAILURE_TTL_MS = 60 * 60 * 1000;
 const LATEST_THEME_TIMEOUT_MS = 8_000;
 
-/** `LuminaPlus v1.2.15` → `1.2.15`；读不出返回 null。 */
+/** `AnotherLuminaPlus v1.2.15`（老版本是 `LuminaPlus v1.2.15`）→ `1.2.15`；读不出返回 null。 */
 export function parseThemeVersionMeta(content: unknown): string | null {
   if (typeof content !== "string") return null;
   const match = content.trim().match(/v?(\d+(?:\.\d+)+)$/i);
@@ -43,6 +43,11 @@ interface CachedLatestVersion {
   checkedAt: number;
   version: string | null;
   ok: boolean;
+  /**
+   * 这份结果是从哪个地址查来的。换了检测地址（比如从原作者仓库换成自己的 fork、仓库改名）之后，
+   * 旧地址查到的版本号不能再用：不然要顶着上游的「新版 v1.2.21」等满 12 小时缓存才消失。
+   */
+  source?: string;
 }
 
 function readCachedLatest(): CachedLatestVersion | null {
@@ -51,10 +56,13 @@ function readCachedLatest(): CachedLatestVersion | null {
     if (!parsed || typeof parsed !== "object") return null;
     const entry = parsed as Record<string, unknown>;
     if (typeof entry.checkedAt !== "number") return null;
+    // 老缓存没有 source，一律当作别的地址查来的，重新查一次。
+    if (entry.source !== THEME_RELEASE_INDEX_URL) return null;
     return {
       checkedAt: entry.checkedAt,
       version: typeof entry.version === "string" ? entry.version : null,
       ok: entry.ok === true,
+      source: THEME_RELEASE_INDEX_URL,
     };
   } catch {
     return null;
@@ -90,7 +98,12 @@ export async function fetchLatestThemeVersion(now = Date.now()): Promise<string 
   }
 
   const ok = version != null;
-  const entry = { checkedAt: now, version: version ?? cached?.version ?? null, ok };
+  const entry = {
+    checkedAt: now,
+    version: version ?? cached?.version ?? null,
+    ok,
+    source: THEME_RELEASE_INDEX_URL,
+  };
   writeCachedLatest(entry);
   return entry.version;
 }

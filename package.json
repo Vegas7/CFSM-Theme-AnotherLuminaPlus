@@ -1,9 +1,9 @@
 {
-  "name": "cfsm-theme-luminaplus",
+  "name": "cfsm-theme-anotherluminaplus",
   "private": true,
   "version": "1.2.20",
   "type": "module",
-  "description": "CF-Server-Monitor theme, ported from Komari-Theme-LuminaPlus",
+  "description": "CFSM-Theme-AnotherLuminaPlus: a CF-Server-Monitor theme based on CFSM-Theme-LuminaPlus (ported from Komari-Theme-LuminaPlus)",
   "author": "codex&shark&shanyang",
   "scripts": {
     "dev": "vite",

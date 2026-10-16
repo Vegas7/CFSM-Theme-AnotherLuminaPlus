@@ -36,10 +36,42 @@ describe("theme version parsing", () => {
 
     document.head.innerHTML = '<meta name="theme-version" content="LuminaPlus v1.2.15" />';
     expect(readCurrentThemeVersion()).toBe("1.2.15");
+
+    // 改名后的写法照样读得出。
+    expect(parseThemeVersionMeta("AnotherLuminaPlus v1.2.21")).toBe("1.2.21");
   });
 });
 
 describe("fetchLatestThemeVersion", () => {
+  it("换了检测地址后不沿用旧地址查来的版本（否则要顶着上游的「新版」等满 12 小时）", async () => {
+    // 上一版主题查的是原作者仓库，缓存里记着上游的 1.2.21，没有 source 字段。
+    window.localStorage.setItem(
+      "cfsm-luminaplus:theme-latest-version",
+      JSON.stringify({ checkedAt: NOW - HOUR, version: "1.2.21", ok: true }),
+    );
+    const fetchMock = vi.fn(async () => reply(RELEASE_HTML));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const module = await loadModule();
+    expect(await module.fetchLatestThemeVersion(NOW)).toBe("1.2.16");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      module.THEME_RELEASE_INDEX_URL,
+      expect.anything(),
+    );
+  });
+
+  it("换了检测地址又查不到时，也不拿旧地址的版本顶上", async () => {
+    window.localStorage.setItem(
+      "cfsm-luminaplus:theme-latest-version",
+      JSON.stringify({ checkedAt: NOW - HOUR, version: "1.2.21", ok: true, source: "https://example.com/old" }),
+    );
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
+
+    const module = await loadModule();
+    expect(await module.fetchLatestThemeVersion(NOW)).toBeNull();
+  });
+
   it("asks GitHub once, then serves the answer from the local cache for 12 hours", async () => {
     const fetchMock = vi.fn(async () => reply(RELEASE_HTML));
     vi.stubGlobal("fetch", fetchMock);

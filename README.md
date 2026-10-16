@@ -1,10 +1,10 @@
-# CFSM-Theme-LuminaPlus
+# CFSM-Theme-AnotherLuminaPlus
 
 [CF-Server-Monitor](https://github.com/huilang-me/CF-Server-Monitor) 的第三方主题，
 由 [Komari-Theme-LuminaPlus](https://github.com/shanyang242/Komari-Theme-LuminaPlus) 移植而来，
 基于 [CFSM-Theme-LuminaPlus](https://github.com/volcano-1025/CFSM-Theme-LuminaPlus) 二次修改。
 
-界面与交互沿用 LuminaPlus：大 / 小 / 迷你 / 列表四种卡片、首页总览与分组筛选、
+界面与交互沿用 LuminaPlus（本主题名 AnotherLuminaPlus）：大 / 小 / 迷你 / 列表四种卡片、首页总览与分组筛选、
 资产统计、实例详情的负载与延迟图表（延迟图叠加丢包率）；数据层全部改为
 CF-Server-Monitor 的公开 API。
 
@@ -12,16 +12,16 @@ CF-Server-Monitor 的公开 API。
 
 不用自己构建，也不用另外找地方部署 —— 主题跟着你现有的 Workers 后端跑，二选一：
 
-**① 从主题商店切换（最省事）**
+**① 从主题商店切换**
 
-后台 `/admin#admin` → 主题商店 → 找到 **LuminaPlus** → 安装并切换。
+主题商店里的 **LuminaPlus** 是原作者的版本，不是本主题；要用本主题请走下面的 ②。
 
 **② 填自定义主题 URL**
 
 主题商店里没有、或者想装指定版本时，把下面这行地址填进后台的自定义主题 URL：
 
 ```
-https://github.com/Vegas7/CFSM-Theme-LuminaPlus/tree/dist
+https://github.com/Vegas7/CFSM-Theme-AnotherLuminaPlus/tree/dist
 ```
 
 `dist` 是构建产物分支（源码在 `main`，别填错）。想锁定某一版就把 `dist` 换成那一版产物提交的
@@ -41,9 +41,9 @@ https://github.com/Vegas7/CFSM-Theme-LuminaPlus/tree/dist
   过了缓存自然就是新版；等不及就把地址临时换成新版本的 40 位 SHA。地址本来就锁在 SHA 上的，
   必须手动改成新 SHA，否则永远停在旧版。
 
-线上到底跑的哪一版，看页面源码里的 `<meta name="theme-version" content="LuminaPlus v...">`。
+线上到底跑的哪一版，看页面源码里的 `<meta name="theme-version" content="AnotherLuminaPlus v...">`。
 
-把鼠标放到页脚的「CF-Server-Monitor」「LuminaPlus」上能看到各自的版本号；**登录后台之后**，有新版本时
+把鼠标放到页脚的「CF-Server-Monitor」「AnotherLuminaPlus」上能看到各自的版本号；**登录后台之后**，有新版本时
 名字后面会出现「新版 vX」标签（只在页脚提醒，不打扰别处）。主题的最新版本从本仓库 `dist` 分支读取，
 只在登录后检查、本机缓存 12 小时，访客不会发出这个请求。
 
@@ -128,7 +128,7 @@ build: <源码 commit>
 想单独补一条日志（产物没变化），在 Actions 里手动运行 workflow，填 `changelog`
 并勾上 `force` 即可。
 
-产物 `index.html` 里还会写入 `<meta name="theme-version" content="LuminaPlus v...">`，
+产物 `index.html` 里还会写入 `<meta name="theme-version" content="AnotherLuminaPlus v...">`，
 线上看页面源码就能确认跑的是哪一版 —— 排查缓存问题时很有用。
 
 产物分支保留历史：每次构建是在分支上**追加**提交，不重建也不强推，

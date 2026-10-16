@@ -78,7 +78,7 @@ function ErrorFallback({
     <div className="theme-error-shell">
       <section className="theme-error-card" role="alert">
         <div>
-          <p className="theme-error-kicker">LuminaPlus</p>
+          <p className="theme-error-kicker">AnotherLuminaPlus</p>
           <h1 className="theme-error-title">{title}</h1>
           <p className="theme-error-message">
             {message || "可以刷新页面，或返回首页重新进入。"}
