@@ -51,7 +51,7 @@ import type {
 } from "@/types/cfsm";
 import type { ByteRateDisplay } from "@/utils/format";
 import type { TrafficDisplay } from "@/utils/traffic";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
 const TRAFFIC_DOT_COUNT = 16;
 const HEALTH_BAR_COUNT = 18;
@@ -678,6 +678,7 @@ const CompactNodeHealth = memo(function CompactNodeHealth({
   pingLoading: boolean;
   pingError: boolean;
 }) {
+  useLang();
   // 已绑定但无样本时显示"无样本",未绑定时显示"未配置" —— 见 pingEmptyLabels。
   const { text: emptyText } = pingEmptyLabels(
     hasRealHomepagePingBinding,
@@ -721,6 +722,7 @@ export const CompactNodeCard = memo(function CompactNodeCard({
 }: {
   uuid: string;
 }) {
+  useLang();
   const model = useNodeCardModel(uuid, {
     pingBucketCount: HEALTH_BAR_COUNT,
     includeMultiPing: true,

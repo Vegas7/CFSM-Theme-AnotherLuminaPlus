@@ -37,7 +37,7 @@ import {
 import { usePreferences } from "@/hooks/usePreferences";
 import type { PingRecord, PingTaskStats } from "@/types/cfsm";
 import type { TimedMetricPoint } from "./chartData";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
 interface WeightedLatency {
   value: number;
@@ -169,6 +169,7 @@ export function PingChart({
   // 线路名以 `/api/config` 的自定义名为准：历史查询是按 uuid+hours 缓存的，站长改名
   // （或 config 晚于历史返回）不会让那份缓存重算，所以在这里按当前名字重新贴一遍。
   const carrierNames = useCarrierNames();
+  const lang = useLang();
   // API 顺序与后台任务权重一致，响应本身不一定包含可重排的权重。
   const tasks = useMemo(
     () =>
@@ -176,7 +177,8 @@ export function PingChart({
         ...task,
         name: carrierTaskName(task.id, carrierNames),
       })),
-    [carrierNames, data],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+    [carrierNames, data, lang],
   );
   const taskLabels = useMemo(() => {
     const counts = new Map<string, number>();
@@ -191,7 +193,8 @@ export function PingChart({
         return [task.id, label] as const;
       }),
     );
-  }, [tasks]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+  }, [tasks, lang]);
   const taskColors = useMemo(
     () => new Map(tasks.map((task, index) => [task.id, colorForSeries(index, tasks.length)] as const)),
     [tasks],

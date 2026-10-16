@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CircleDollarSign } from "lucide-react";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
 const STORAGE_KEY = "cfsm-sao:cost-ball-pos:v1";
 const BALL_SIZE = 36;
@@ -39,6 +39,7 @@ function getInitialPosition(): BallPosition | null {
 }
 
 export const DraggableCostBall = memo(function DraggableCostBall() {
+  useLang();
   const [position, setPosition] = useState<BallPosition | null>(getInitialPosition);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{

@@ -1937,13 +1937,6 @@
   transition: transform 160ms ease, background 160ms ease;
 }
 
-.instance-switch-state {
-  min-width: 24px;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 650;
-}
-
 .instance-segmented button[data-active="true"],
 .instance-toggle-button[data-active="true"],
 .instance-toggle-button:hover {
@@ -1960,17 +1953,36 @@
   background: color-mix(in srgb, white 84%, var(--progress-cpu) 16%);
 }
 
-.instance-toggle-button[data-active="true"] .instance-switch-state {
-  color: var(--text-primary);
+/* 开关的开 / 关看滑块就够了，打开时不再整块铺底色（铺了像一颗被按住的按钮，和旁边关着的那个对不齐） */
+.instance-switch-button[data-active="true"]:not(:hover) {
+  background: transparent;
 }
 
-/* 图表的开关、刷新并入标题行右侧，省掉单独一行工具栏（负载图、Ping 图同一套） */
+/* 图表的开关、刷新并入标题行右侧，省掉单独一行工具栏（负载图、Ping 图同一套）。
+   宽屏下排成一行不换行：右栏按内容宽度撑开（见下面的 grid 列），挤不下时选择条会换到第二行。 */
 .instance-chart-headmeta {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
+}
+
+.instance-chart-panel .instance-panel-header.has-controls {
+  grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr);
+}
+
+@media (max-width: 1100px) {
+  .instance-chart-panel .instance-panel-header.has-controls {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+/* 手机上右侧那组独占一行，太窄时允许折行 */
+@media (max-width: 720px) {
+  .instance-chart-headmeta {
+    flex-wrap: wrap;
+  }
 }
 
 .instance-chart-panel .instance-panel-header {

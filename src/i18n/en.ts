@@ -397,8 +397,6 @@ export const EN: Record<string, string> = {
   "线路 #{id}": "Route #{id}",
 
   // —— 详情页 ——
-  "10 分钟": "10 min",
-  "30 分钟": "30 min",
   "1 小时": "1 h",
   "6 小时": "6 h",
   "12 小时": "12 h",

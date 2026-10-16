@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -48,6 +48,8 @@ import { getDisplayRegionCode } from "@/utils/geo";
 import { useHomeSort } from "@/hooks/useHomeSort";
 import { useHomeNodeOrder } from "@/hooks/useHomeNodeOrder";
 import { useHourlyClock } from "@/hooks/useClock";
+import { useSlidingIndicator } from "@/hooks/useSlidingIndicator";
+import { clsx } from "clsx";
 import { preloadAssetsPage } from "@/services/assetsPageLoader";
 import { HomeSortControl } from "./HomeSortControl";
 import {
@@ -64,7 +66,7 @@ import { RenewalReminder } from "./RenewalReminder";
 import type { NodeViewMode, ClusterOverviewMode, MatrixColorTheme, MatrixBootEffect } from "@/utils/themeSettings";
 import { getRenewalReminders, type RenewalReminderSource } from "@/utils/renewalReminder";
 import { DiaTextReveal } from "@/components/ui/DiaTextReveal";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
 // 卡片视图网格密度；列表档由独立组件布局。
 const GRID_LAYOUT: Record<NodeViewMode, { className: string; minColumnWidth: number }> = {
@@ -708,8 +710,25 @@ function GroupTabs({
   selectedGroup: string;
   onSelectGroup: (group: string) => void;
 }) {
+  // 选中高亮滑过去，和详情页的时间段选择条一致。
+  const { rootRef, animated, indicatorStyle } = useSlidingIndicator<HTMLDivElement>([
+    groups,
+    selectedGroup,
+  ]);
   return (
-    <div className="home-group-tabs" role="group" aria-label={t("服务器分组")}>
+    <div
+      ref={rootRef}
+      className="home-group-tabs has-indicator"
+      role="group"
+      aria-label={t("服务器分组")}
+    >
+      {indicatorStyle && (
+        <span
+          className={clsx("home-group-tabs-indicator", animated && "is-animated")}
+          style={indicatorStyle}
+          aria-hidden
+        />
+      )}
       <button
         type="button"
         aria-pressed={selectedGroup === HOME_ALL_GROUP}
@@ -904,6 +923,7 @@ export function NodeGrid() {
     enabled: (costNeeded || sortField === "price") && hasNodes,
     retry: 1,
   });
+  const lang = useLang();
   const costSummary = useMemo(
     () =>
       rateQuery.data
@@ -915,7 +935,8 @@ export function NodeGrid() {
           now,
         )
         : null,
-    [now, visibleMeta, themeSettings.costIgnoredNodes, themeSettings.costPremiums, rateQuery.data],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+    [now, visibleMeta, themeSettings.costIgnoredNodes, themeSettings.costPremiums, rateQuery.data, lang],
   );
   // 「价格」排序键:月化价格(CNY);免费/忽略/汇率缺失的节点 null,排到默认序之后。
   const priceByUuid = useMemo(() => {
@@ -947,12 +968,14 @@ export function NodeGrid() {
     if (preset && groupOptions.includes(preset)) setSelectedGroup(preset);
   }, [groupOptions, themeSettings.homeDefaultGroup, themeSettings.isReady]);
 
+  // 列表按延后的分组重排：点分组时标签的滑动高亮先动起来，几十张卡片的重排随后再做，不卡住那一下。
+  const deferredGroup = useDeferredValue(selectedGroup);
   const groupFilteredNodes = useMemo(
     () =>
-      selectedGroup === HOME_ALL_GROUP
+      deferredGroup === HOME_ALL_GROUP
         ? visibleNodes
-        : visibleNodes.filter((node) => getHomeGroupLabel(node.group) === selectedGroup),
-    [visibleNodes, selectedGroup],
+        : visibleNodes.filter((node) => getHomeGroupLabel(node.group) === deferredGroup),
+    [visibleNodes, deferredGroup],
   );
   // 地区选项在分组筛选之后统计,让国旗计数反映当前分组内的分布。
   const homeRegionOrder = themeSettings.isReady ? themeSettings.homeRegionOrder : EMPTY_REGION_ORDER;

@@ -22,7 +22,7 @@ import {
   inferIntervalSeconds,
 } from "@/services/cfsm/mappers";
 import { CARRIER_KEYS, CARRIER_LOSS_KEYS } from "@/types/cfsm";
-import { getLang } from "@/i18n";
+import { getLang, useLang } from "@/i18n";
 import type {
   CarrierNames,
   CarrierPingSnapshot,
@@ -345,12 +345,14 @@ export function useNodePingOverviewLines(
   const samples = usePingSamples(uuid, enabled);
   const taskIds = useNodeMultiPingTaskIds(uuid);
   const carrierNames = useCarrierNames();
+  const lang = useLang();
   return useMemo(
     () =>
       enabled
         ? getCachedLines(uuid, taskIds, samples, undefined, carrierNames)
         : EMPTY_PING_LINES,
-    [carrierNames, enabled, samples, taskIds, uuid],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+    [carrierNames, enabled, samples, taskIds, uuid, lang],
   );
 }
 

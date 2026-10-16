@@ -21,7 +21,7 @@ import { getExpireDaysRemaining, LONG_TERM_EXPIRE_DAYS } from "@/utils/format";
 import {
   getRenewalReminders,
 } from "@/utils/renewalReminder";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
 type AssetDetail = ReturnType<typeof calculateCostSummary>["details"][number];
 type AssetsSortField =
@@ -118,6 +118,7 @@ function HeroMoney({ value }: { value: number | null }) {
 }
 
 export function Assets() {
+  const lang = useLang();
   const [sortField, setSortField] = useState<AssetsSortField>("weight");
   const [sortDirection, setSortDirection] = useState<AssetsSortDirection>("asc");
   const isMobileLayout = useMediaQuery(ASSETS_MOBILE_QUERY);
@@ -126,7 +127,8 @@ export function Assets() {
   const forceRateRefresh = useRef(false);
   const nodes = useVisibleNodes();
   // 资产详情页是风险核对入口：这里始终按真实到期数据展示，不读取首页的关闭/稍后偏好。
-  const renewalReminders = useMemo(() => getRenewalReminders(nodes, now), [nodes, now]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+  const renewalReminders = useMemo(() => getRenewalReminders(nodes, now), [nodes, now, lang]);
   const renewalByUuid = useMemo(
     () => new Map(renewalReminders.map((item) => [item.uuid, item])),
     [renewalReminders],
@@ -153,7 +155,8 @@ export function Assets() {
             now,
           )
         : null,
-    [nodes, now, themeSettings.costIgnoredNodes, themeSettings.costPremiums, rateQuery.data],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+    [nodes, now, themeSettings.costIgnoredNodes, themeSettings.costPremiums, rateQuery.data, lang],
   );
   const detailRows = useMemo(() => {
     const direction = sortDirection === "asc" ? 1 : -1;

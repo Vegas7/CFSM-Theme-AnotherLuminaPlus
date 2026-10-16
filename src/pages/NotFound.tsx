@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
 export function NotFound() {
+  useLang();
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
       <div className="text-7xl font-semibold tracking-tight text-(--text-primary)">

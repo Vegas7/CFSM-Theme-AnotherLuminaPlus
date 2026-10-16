@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useLang } from "@/i18n";
 import { useHourlyClock, useMinuteClock } from "@/hooks/useClock";
 import { useNodeCardSnapshots, useShowThreeNetDetails } from "@/hooks/useNode";
 import {
@@ -56,6 +57,8 @@ export function useNodeCardModel(
     includeMultiPing = false,
   }: NodeCardModelOptions = {},
 ) {
+  // 下面几处 useMemo 里有按界面语言生成的文案（线路名、到期、Ping 空态），切语言要重算。
+  const lang = useLang();
   const { meta, metrics, trafficTrend } = useNodeCardSnapshots(uuid);
   const {
     showCardGroup,
@@ -168,9 +171,11 @@ export function useNodeCardModel(
         ),
       };
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
   }, [
     bucketNow,
     carrierNames,
+    lang,
     latencyWindowMs,
     multiPingActive,
     nodeMultiPingTaskIds,
@@ -213,7 +218,8 @@ export function useNodeCardModel(
       osName: resolveOsInfo(meta.os).name,
       loadBaseline: meta.cpu_cores > 0 ? meta.cpu_cores : 4,
     };
-  }, [meta, now, showCardGroup, showCardPrice, isPriceVisible]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+  }, [meta, now, showCardGroup, showCardPrice, isPriceVisible, lang]);
 
   // ping 派生的颜色只在 ping item 变化时才变。
   const pingModel = useMemo(
@@ -235,8 +241,10 @@ export function useNodeCardModel(
       pingLoading,
       pingError,
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
     [
       hasRealHomepagePingBinding,
+      lang,
       ping,
       pingError,
       pingLatencyColors,

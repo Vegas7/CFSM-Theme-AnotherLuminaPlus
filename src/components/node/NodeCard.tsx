@@ -46,7 +46,7 @@ import { formatHealthBucketTooltip } from "./pingBucketText";
 import { clsx } from "clsx";
 import type { NodeInfo, NodeMetrics, PingOverviewBucket, PingOverviewItem, TrafficTrendSample } from "@/types/cfsm";
 import type { ByteRateDisplay } from "@/utils/format";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
 type NodeCardNode = NodeInfo & NodeMetrics;
 type DisplayStat = { value: string; unit: string };
@@ -57,6 +57,7 @@ export const NodeCard = memo(function NodeCard({
 }: {
   uuid: string;
 }) {
+  useLang();
   const { resolvedAppearance } = usePreferences();
   // 自定义配色改动时 version 自增，拼进 redrawKey 让 canvas 进度条即时重画（含离线静态卡）。
   const colorsVersion = useMetricColorsVersion();
@@ -392,6 +393,7 @@ const NodeTrafficQuota = memo(function NodeTrafficQuota({
   typeLabel: string;
   segmentColors?: string[];
 }) {
+  useLang();
   const colors = segmentColors ?? TRAFFIC_QUOTA_SEGMENT_COLORS;
   return (
     <div
@@ -447,6 +449,7 @@ const NodeHealthSection = memo(function NodeHealthSection({
   latencyColor: string;
   lossColor: string;
 }) {
+  useLang();
   const [hoveredLatencyIndex, setHoveredLatencyIndex] = useState<number | null>(null);
   const [hoveredLossIndex, setHoveredLossIndex] = useState<number | null>(null);
   const onLatencyHover = useCallback((index: number | null) => {

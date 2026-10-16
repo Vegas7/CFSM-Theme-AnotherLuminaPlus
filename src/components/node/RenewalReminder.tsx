@@ -13,7 +13,7 @@ import {
   type RenewalReminderPreferences,
   type RenewalReminderSource,
 } from "@/utils/renewalReminder";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
 const STORAGE_KEY = "lumina-renewal-reminders-v1";
 const MAX_VISIBLE_ROWS = 4;
@@ -67,9 +67,11 @@ export function RenewalReminder({
   const closeTimerRef = useRef<number | null>(null);
   const panelId = useId();
   const titleId = useId();
+  const lang = useLang();
   const reminders = useMemo(
     () => getRenewalReminders(nodes, clock, { requireOnlineForExpired: true, warningDays }),
-    [clock, nodes, warningDays],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+    [clock, nodes, warningDays, lang],
   );
   const visibleReminders = useMemo(
     () => getVisibleRenewalReminders(reminders, preferences, clock),

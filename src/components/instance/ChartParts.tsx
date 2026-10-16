@@ -1,5 +1,4 @@
 import type { ChartTooltipState } from "./chartShared";
-import { t } from "@/i18n";
 
 export function ChartTooltip({ tooltip }: { tooltip: ChartTooltipState }) {
   if (!tooltip.show) return null;
@@ -45,11 +44,11 @@ export function SwitchToggle({
       aria-pressed={active}
       title={title}
     >
+      {/* 开关本身就表示开 / 关，不再另写「开启 / 关闭」，标题行右侧一组控件才排得进一行；读屏靠 aria-pressed。 */}
       <span className="instance-switch-copy">{label}</span>
       <span className="instance-switch-track" aria-hidden>
         <span className="instance-switch-thumb" />
       </span>
-      <span className="instance-switch-state">{active ? t("开启", undefined, "switch") : t("关闭", undefined, "switch")}</span>
     </button>
   );
 }

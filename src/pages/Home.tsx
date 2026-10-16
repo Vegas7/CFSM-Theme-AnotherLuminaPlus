@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useNodeStoreStatus } from "@/hooks/useNode";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { safeLazy } from "@/utils/safeLazy";
+import { useLang } from "@/i18n";
 
 const ThemeManage = safeLazy(() =>
   import("@/pages/ThemeManage").then((module) => ({ default: module.ThemeManage })),
@@ -37,6 +38,7 @@ function HomeDashboard() {
 }
 
 export function Home() {
+  useLang();
   const [searchParams, setSearchParams] = useSearchParams();
   const windowView = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("view") : null;
   const isThemeManageView = searchParams.get("view") === "theme-manage" || windowView === "theme-manage";

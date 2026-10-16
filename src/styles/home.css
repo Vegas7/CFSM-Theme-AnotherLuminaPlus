@@ -3317,6 +3317,48 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
+/* 滑动高亮（useSlidingIndicator）：选中底色是单独一块，切分组时滑过去；按钮自己的选中底色让出来。
+   容器要定位，按钮的 offsetLeft 才相对它算；isolation 让 z-index:-1 的高亮压在按钮下、又不掉到容器背景后面。 */
+.home-group-tabs.has-indicator {
+  position: relative;
+  isolation: isolate;
+}
+
+.home-group-tabs-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  border-radius: 9px;
+  background: #f3f4f6;
+  pointer-events: none;
+}
+
+:root[data-appearance="dark"] .home-group-tabs-indicator {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.home-group-tabs-indicator.is-animated {
+  transition:
+    transform 280ms cubic-bezier(0.32, 0.72, 0, 1),
+    width 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.home-group-tabs.has-indicator button[data-active="true"],
+.home-group-tabs.has-indicator button[data-active="true"]:hover,
+:root[data-appearance="dark"] .home-group-tabs.has-indicator button[data-active="true"],
+:root[data-appearance="dark"] .home-group-tabs.has-indicator button[data-active="true"]:hover {
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-group-tabs-indicator.is-animated {
+    transition: none;
+  }
+}
+
 @media (max-width: 680px) {
   .overview-card {
     min-height: 100px;

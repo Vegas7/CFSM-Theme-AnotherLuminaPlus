@@ -10,7 +10,7 @@ import { LatencyBars } from "./LatencyBars";
 import { PingLineSwitcher } from "./PingLineSwitcher";
 import { QualityBars } from "./QualityBars";
 import { formatHealthBucketTooltip } from "./pingBucketText";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
 type MultiPingStatusDensity = "large" | "compact";
 type MultiPingMetric = "latency" | "loss";
@@ -30,6 +30,7 @@ const MultiPingMetricRow = memo(function MultiPingMetricRow({
   density: MultiPingStatusDensity;
   redrawKey: string;
 }) {
+  useLang();
   const themeSettings = useThemeSettings();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const latencyColor = resolveCustomLatencyColor(
@@ -147,6 +148,7 @@ const MultiPingMetricColumn = memo(function MultiPingMetricColumn({
   density: MultiPingStatusDensity;
   redrawKey: string;
 }) {
+  useLang();
   return (
     <div
       className="multi-ping-metric-column"
@@ -180,6 +182,7 @@ export const MultiPingStatus = memo(function MultiPingStatus({
   density: MultiPingStatusDensity;
   className?: string;
 }) {
+  useLang();
   const { resolvedAppearance } = usePreferences();
   const colorsVersion = useMetricColorsVersion();
   const redrawKey = `${resolvedAppearance}:${colorsVersion}`;

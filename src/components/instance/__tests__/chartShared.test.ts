@@ -5,8 +5,6 @@ import {
 } from "@/components/instance/chartShared";
 
 const ALL_STEPS = [
-  { label: "10 分钟", value: 0.167 },
-  { label: "30 分钟", value: 0.5 },
   { label: "1 小时", value: 1 },
   { label: "6 小时", value: 6 },
   { label: "12 小时", value: 12 },
@@ -18,7 +16,7 @@ const ALL_STEPS = [
 
 describe("detail chart time ranges", () => {
   it("offers every backend-supported step to a logged-in admin", () => {
-    // 后端 /api/history/all 最长支持 7 天，共 9 个档位。
+    // 后端 /api/history/all 最长支持 7 天；10 / 30 分钟两档不放出来。
     expect(buildPingTimeRangeOptions(168)).toEqual(ALL_STEPS);
     expect(buildLoadTimeRangeOptions(168)).toEqual([
       { label: "实时", value: 0 },
@@ -29,8 +27,6 @@ describe("detail chart time ranges", () => {
   it("caps anonymous visitors at 24 hours", () => {
     // 未登录时 hours > 24 会被后端拒绝，因此更长的档位不显示。
     expect(buildPingTimeRangeOptions(24)).toEqual([
-      { label: "10 分钟", value: 0.167 },
-      { label: "30 分钟", value: 0.5 },
       { label: "1 小时", value: 1 },
       { label: "6 小时", value: 6 },
       { label: "12 小时", value: 12 },
@@ -38,8 +34,6 @@ describe("detail chart time ranges", () => {
     ]);
     expect(buildLoadTimeRangeOptions(24)).toEqual([
       { label: "实时", value: 0 },
-      { label: "10 分钟", value: 0.167 },
-      { label: "30 分钟", value: 0.5 },
       { label: "1 小时", value: 1 },
       { label: "6 小时", value: 6 },
       { label: "12 小时", value: 12 },

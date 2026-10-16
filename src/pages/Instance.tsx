@@ -15,15 +15,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNodeMeta, useNodeStoreStatus, useRealtimeFocus } from "@/hooks/useNode";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { ANONYMOUS_MAX_HISTORY_HOURS } from "@/services/api";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
-// 0.167（10 分钟）：官方规范铁律要求详情页默认 10 分钟历史曲线，大幅降低 D1 行读取。
-const DEFAULT_PING_HOURS = 0.167;
-const DEFAULT_LOAD_HOURS = 0.167;
+// 档位里不再有 10 / 30 分钟：负载默认「实时」（底下只拉最近 10 分钟打底），Ping 默认最短的 1 小时。
+const DEFAULT_PING_HOURS = 1;
+const DEFAULT_LOAD_HOURS = 0;
 /** `/api/history/all` 的 hours 上限。 */
 const MAX_HISTORY_HOURS = 168;
 
 export function Instance() {
+  const lang = useLang();
   const { uuid } = useParams<{ uuid: string }>();
   const { data: me } = useAuth();
   const themeSettings = useThemeSettings();
@@ -42,11 +43,13 @@ export function Instance() {
 
   const loadRanges = useMemo(
     () => buildLoadTimeRangeOptions(maxHistoryHours),
-    [maxHistoryHours],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+    [maxHistoryHours, lang],
   );
   const pingRanges = useMemo(
     () => buildPingTimeRangeOptions(maxHistoryHours),
-    [maxHistoryHours],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+    [maxHistoryHours, lang],
   );
   const showPingChart = themeSettings.isReady && themeSettings.showPingChart;
 

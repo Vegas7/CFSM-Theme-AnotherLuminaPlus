@@ -36,7 +36,7 @@ import { historyChartRangeSeconds } from "@/utils/historyRange";
 import { resolveLoadRecordTotals } from "@/utils/loadMetrics";
 import { usePreferences } from "@/hooks/usePreferences";
 import type { LoadRecord, NodeMetrics } from "@/types/cfsm";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
 const LOAD_HISTORY_SAMPLE_LIMIT = 360;
 const LOAD_HISTORY_RENDER_LIMIT = 720;
@@ -363,6 +363,7 @@ const ChartCard = memo(function ChartCard({
   /** 卡片边框/图标的主色。默认跟随第一条线，指标本身有固定色时用它覆盖。 */
   accent?: string;
 }) {
+  useLang();
   const { w, h, ref: chartSizeRef } = useResponsiveChartSize("grid");
   const dataRef = useRef<uPlot.AlignedData>([[]]);
   const [tooltip, setTooltip] = useState<ChartTooltipState>({

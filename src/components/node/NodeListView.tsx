@@ -16,7 +16,7 @@ import { formatOsLabel, joinTagTitle, nodeDetailLinkLabels } from "./nodeCardSha
 import { formatHealthBucketTooltip } from "./pingBucketText";
 import type { PingOverviewTaskLoadState } from "@/types/cfsm";
 import { HOMEPAGE_PING_BUCKET_COUNT } from "@/hooks/usePingOverview";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
 const GAUGE_SEGMENTS = 14;
 
@@ -226,6 +226,7 @@ function ListLatency({
 }
 
 const NodeRow = memo(function NodeRow({ uuid }: { uuid: string }) {
+  useLang();
   const { resolvedAppearance } = usePreferences();
   const colorsVersion = useMetricColorsVersion();
   const redrawKey = `${resolvedAppearance}:${colorsVersion}`;

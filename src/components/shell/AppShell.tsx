@@ -14,8 +14,9 @@ import { useMetricColorsSync } from "@/hooks/useMetricColors";
 import { useNodeStoreStatus } from "@/hooks/useNode";
 import { getAdminUrl } from "@/services/cfsm/config";
 import { HomeSkeleton } from "./HomeSkeleton";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 export function AppShell() {
+  useLang();
   useAppearance();
   useSiteMetadata();
   useMetricColorsSync();

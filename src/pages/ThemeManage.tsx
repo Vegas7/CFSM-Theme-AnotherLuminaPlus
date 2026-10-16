@@ -137,7 +137,7 @@ import {
   getDefaultOverviewRatingLabelText,
 } from "@/utils/overviewRating";
 import { HOME_SORT_FIELDS, HOME_SORT_FIELD_LABELS } from "@/utils/homeSort";
-import { t } from "@/i18n";
+import { t, useLang } from "@/i18n";
 
 const OVERVIEW_RATING_LABEL_FIELDS: Array<{
   key: Extract<OverviewRatingKind, "bandwidth" | "asset">;
@@ -520,6 +520,7 @@ const ToggleRow = memo(function ToggleRow({
   checked: boolean;
   onPatch: (key: BooleanDraftKey, value: boolean) => void;
 }) {
+  useLang();
   return (
     <label className="surface-inset flex items-center justify-between gap-3 px-4 py-3">
       <span className="min-w-0">
@@ -588,6 +589,7 @@ const TaskBindingSection = memo(function TaskBindingSection({
     updater: (prev: HomepagePingTaskBindings) => HomepagePingTaskBindings,
   ) => void;
 }) {
+  useLang();
   // 绑定里存的是节点 ID，节点删了 ID 还留着（站长 2026-09-19：5 台节点显示「11 台」，多出来的 6 个
   // 全是删掉的节点、还只能显示成 ID）。台数和名单只算节点表里还在的；节点表没加载出来时先照存的显示。
   // 存的数据不动：访客的节点表里没有隐藏节点，按它删会把隐藏节点的绑定一起删掉。
@@ -759,6 +761,7 @@ const PremiumList = memo(function PremiumList({
   onPatchPaid: (uuid: string, rawValue: string) => void;
   onPatchAcquiredAt: (uuid: string, rawValue: string) => void;
 }) {
+  useLang();
   return (
     <div className="surface-inset max-h-80 overflow-y-auto">
       {clients.map((client) => {
@@ -1003,6 +1006,7 @@ function SiteSyncIndicator({
 }
 
 export function ThemeManage() {
+  useLang();
   const now = useHourlyClock();
   const {
     data: config,
