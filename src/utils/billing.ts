@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 const INT_PRICE_FORMATTER = new Intl.NumberFormat("zh-CN", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2,
@@ -121,17 +122,17 @@ export function formatBillingCycle(value: string | number | null | undefined) {
   const cycle = normalizeBillingCycle(value);
   switch (cycle.kind) {
     case "lifetime":
-      return "永久";
+      return t("永久");
     case "month":
-      return "月";
+      return t("月");
     case "quarter":
-      return "季";
+      return t("季");
     case "halfYear":
-      return "半年";
+      return t("半年");
     case "year":
-      return (cycle.years ?? 1) === 1 ? "年" : `${cycle.years}年`;
+      return (cycle.years ?? 1) === 1 ? t("年") : t("{n}年", { n: cycle.years ?? 1 });
     case "days":
-      return `${cycle.days}天`;
+      return t("{n}天", { n: cycle.days });
   }
 }
 
@@ -146,7 +147,7 @@ export function formatRenewalPrice({
   expired_at?: string | number | null;
 }) {
   if (price === null || price === undefined || !Number.isFinite(price)) return null;
-  if (price === -1 || price === 0) return "免费";
+  if (price === -1 || price === 0) return t("免费");
   if (price < 0) return null;
 
   const symbol = currency?.trim() || "¥";

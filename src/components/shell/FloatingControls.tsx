@@ -6,6 +6,7 @@ import {
   Eye,
   EyeOff,
   Grid3x3,
+  Languages,
   LayoutGrid,
   List,
   Monitor,
@@ -24,8 +25,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { usePriceVisibility } from "@/hooks/usePriceVisibility";
 import { getAdminUrl } from "@/services/cfsm/config";
+import { setLang, useLang } from "@/i18n";
 import type { NodeViewMode, Appearance } from "@/utils/themeSettings";
 import { clsx } from "clsx";
+import { t } from "@/i18n";
 
 const MetricColorPicker = lazy(() =>
   import("./MetricColorPicker").then((module) => ({ default: module.MetricColorPicker })),
@@ -66,6 +69,7 @@ export function FloatingControls({
   const themeSettings = useThemeSettings();
   const { isPriceVisible, togglePriceVisibility } = usePriceVisibility();
   const { failureStreak } = useNodeStoreStatus();
+  const lang = useLang();
   const [collapsed, setCollapsed] = useState(true);
   const [colorsOpen, setColorsOpen] = useState(false);
   const [colorsMounted, setColorsMounted] = useState(false);
@@ -140,8 +144,11 @@ export function FloatingControls({
                 <button
                   type="button"
                   onClick={cycleAppearance}
-                  aria-label="切换外观风格"
-                  title={`外观：${currentAppearance.label} → ${currentAppearance.nextLabel}`}
+                  aria-label={t("切换外观风格")}
+                  title={t("外观：{from} → {to}", {
+                    from: t(currentAppearance.label),
+                    to: t(currentAppearance.nextLabel),
+                  })}
                   tabIndex={hiddenTabIndex}
                   className={clsx(
                     "control-button grid h-9 w-9 place-items-center",
@@ -153,9 +160,9 @@ export function FloatingControls({
                 <button
                   type="button"
                   onClick={toggleMode}
-                  aria-label="切换卡片视图"
+                  aria-label={t("切换卡片视图")}
                   aria-pressed={isReducedView}
-                  title={`临时切换到${VIEW_MODE_META[nextMode].label}`}
+                  title={t("临时切换到{view}", { view: t(VIEW_MODE_META[nextMode].label) })}
                   tabIndex={hiddenTabIndex}
                   className={clsx(
                     "control-button grid h-9 w-9 place-items-center",
@@ -168,9 +175,9 @@ export function FloatingControls({
                   <button
                     type="button"
                     onClick={togglePriceVisibility}
-                    aria-label={isPriceVisible ? "隐藏价格与资产" : "显示价格与资产"}
+                    aria-label={isPriceVisible ? t("隐藏价格与资产") : t("显示价格与资产")}
                     aria-pressed={!isPriceVisible}
-                    title={isPriceVisible ? "临时隐藏价格与资产" : "临时显示价格与资产"}
+                    title={isPriceVisible ? t("临时隐藏价格与资产") : t("临时显示价格与资产")}
                     tabIndex={hiddenTabIndex}
                     className={clsx(
                       "control-button grid h-9 w-9 place-items-center",
@@ -187,9 +194,9 @@ export function FloatingControls({
                       setColorsMounted(true);
                       setColorsOpen((value) => !value);
                     }}
-                    aria-label="卡片配色"
+                    aria-label={t("卡片配色")}
                     aria-pressed={colorsOpen}
-                    title="卡片配色"
+                    title={t("卡片配色")}
                     tabIndex={hiddenTabIndex}
                     className={clsx(
                       "control-button grid h-9 w-9 place-items-center",
@@ -201,11 +208,22 @@ export function FloatingControls({
                 )}
               </>
             )}
+            {/* 语言切换对所有访客开放，不依赖主题设置是否就绪。 */}
+            <button
+              type="button"
+              onClick={() => setLang(lang === "zh" ? "en" : "zh")}
+              aria-label={lang === "zh" ? "切换语言 / Switch language" : "Switch language / 切换语言"}
+              title={lang === "zh" ? "语言：中文 → English" : "Language: English → 中文"}
+              tabIndex={hiddenTabIndex}
+              className="control-button grid h-9 w-9 place-items-center"
+            >
+              <Languages size={16} />
+            </button>
             {showThemeManage && (
               <Link
                 to="/?view=theme-manage"
-                aria-label="主题设置"
-                title="主题设置"
+                aria-label={t("主题设置")}
+                title={t("主题设置")}
                 tabIndex={hiddenTabIndex}
                 className="control-button grid h-9 w-9 place-items-center"
               >
@@ -215,8 +233,8 @@ export function FloatingControls({
             {showAdmin && (
               <a
                 href={getAdminUrl()}
-                aria-label={me?.logged_in ? "管理" : "后台登录"}
-                title={me?.logged_in ? "管理" : "后台登录"}
+                aria-label={me?.logged_in ? t("管理") : t("后台登录")}
+                title={me?.logged_in ? t("管理") : t("后台登录")}
                 tabIndex={hiddenTabIndex}
                 className="control-button grid h-9 w-9 place-items-center"
               >
@@ -227,10 +245,10 @@ export function FloatingControls({
           <button
             type="button"
             className="control-button floating-controls-trigger grid h-9 w-9 place-items-center"
-            aria-label={collapsed ? "展开快捷按钮" : "收起快捷按钮"}
+            aria-label={collapsed ? t("展开快捷按钮") : t("收起快捷按钮")}
             aria-expanded={!collapsed}
             onClick={toggleControls}
-            title={collapsed ? "展开快捷按钮" : "收起快捷按钮"}
+            title={collapsed ? t("展开快捷按钮") : t("收起快捷按钮")}
           >
             <ToggleIcon size={16} />
             {showSyncWarning && collapsed && (
@@ -246,7 +264,7 @@ export function FloatingControls({
         {showSyncWarning && !collapsed && !colorsOpen && (
           <div className="floating-controls-sync-warning pointer-events-none flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--status-offline)_32%,transparent)] bg-[color-mix(in_srgb,var(--surface-a)_90%,transparent)] px-3 py-1 text-[11px] font-medium text-(--status-offline) shadow-[0_10px_25px_-18px_rgba(0,0,0,0.8)] backdrop-blur">
             <AlertTriangle size={12} />
-            <span>实时状态同步异常，当前展示的是最近缓存</span>
+            <span>{t("实时状态同步异常，当前展示的是最近缓存")}</span>
           </div>
         )}
       </div>

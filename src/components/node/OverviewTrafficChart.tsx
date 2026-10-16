@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatByteRate, formatByteRateLabel } from "@/utils/format";
+import { t } from "@/i18n";
 
 interface SingleTrafficPoint {
   time: number;
@@ -400,7 +401,7 @@ function SingleTrafficCard({
             <div className="mao-chart-tooltip-row">
               <span className="mao-chart-tooltip-label">
                 <i style={{ background: color }} />
-                {direction === "up" ? "上传" : "下载"}
+                {direction === "up" ? t("上传") : t("下载")}
               </span>
               <span className="mao-chart-tooltip-val" style={{ color }}>
                 {formatByteRateLabel(hoverInfo.rate)}
@@ -430,14 +431,14 @@ export function OverviewTrafficChart({
             {totalRate.value}
           </span>
           <span className="mao-progress-unit-label">
-            {totalRate.unit} 实时总带宽
+            {totalRate.unit} {t("实时总带宽")}
           </span>
         </div>
       </div>
 
       <div className="mao-realtime-charts-grid">
         <SingleTrafficCard
-          title="上行网络"
+          title={t("上行网络")}
           direction="up"
           rate={netUp}
           color="#3b82f6"
@@ -446,7 +447,7 @@ export function OverviewTrafficChart({
           haloRgba="rgba(59, 130, 246, 0.25)"
         />
         <SingleTrafficCard
-          title="下行网络"
+          title={t("下行网络")}
           direction="down"
           rate={netDown}
           color="#2f9e65"

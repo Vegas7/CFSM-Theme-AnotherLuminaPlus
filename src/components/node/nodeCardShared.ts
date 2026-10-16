@@ -3,6 +3,7 @@
 import { formatUptimeDays, trimFixed } from "@/utils/format";
 import { latencyHeatColor, lossHeatColor } from "@/utils/metricTone";
 import type { PingOverviewBucket } from "@/types/cfsm";
+import { t } from "@/i18n";
 
 /** 卡片标签行的完整 tag 列表 tooltip(几种卡片布局共用同一文案)。 */
 export function joinTagTitle(tags: { label: string }[]) {
@@ -18,8 +19,8 @@ export function formatCompactPercent(value: number) {
 
 /** 卡片到期文案:"余 X天";没填到期日期按「永久」显示。 */
 export function formatCompactExpire({ value, unit }: { value: string; unit: string }) {
-  if (value === "—") return "永久";
-  return unit ? `余 ${value}${unit}` : value;
+  if (value === "—") return t("永久");
+  return unit ? t("余 {value}", { value: `${value}${unit}` }) : value;
 }
 
 import { normalizeBillingCycle } from "@/utils/billing";
@@ -29,23 +30,23 @@ export function formatCompactBillingCycle(
   billingCycle: string | number | null | undefined,
   price?: number | null,
 ): string {
-  if (price === -1 || price === 0) return "免费";
+  if (price === -1 || price === 0) return t("免费");
   const cycle = normalizeBillingCycle(billingCycle);
   switch (cycle.kind) {
     case "lifetime":
-      return "永久";
+      return t("永久");
     case "month":
-      return "月付";
+      return t("月付");
     case "quarter":
-      return "季付";
+      return t("季付");
     case "halfYear":
-      return "半年付";
+      return t("半年付");
     case "year":
-      return (cycle.years ?? 1) === 1 ? "年付" : `${cycle.years}年付`;
+      return (cycle.years ?? 1) === 1 ? t("年付") : t("{n}年付", { n: cycle.years ?? 1 });
     case "days":
-      return `${cycle.days}天`;
+      return t("{n}天", { n: cycle.days ?? 0 });
     default:
-      return "年付";
+      return t("年付");
   }
 }
 
@@ -53,7 +54,7 @@ export function formatCompactBillingCycle(
 export function formatCompactUptime(seconds: number) {
   if (!Number.isFinite(seconds) || seconds <= 0) return "";
   const uptime = formatUptimeDays(seconds);
-  return `在线：${uptime.value}${uptime.unit}`;
+  return t("在线：{value}", { value: `${uptime.value}${uptime.unit}` });
 }
 
 /** 区分已绑定但无样本与未配置 Ping。 */
@@ -63,14 +64,14 @@ export function pingEmptyLabels(
   pingError = false,
 ): { title: string; text: string } {
   if (hasHomepagePingBinding && pingLoading) {
-    return { title: "正在加载首页 Ping", text: "加载中" };
+    return { title: t("正在加载首页 Ping"), text: t("加载中") };
   }
   if (hasHomepagePingBinding && pingError) {
-    return { title: "首页 Ping 加载失败", text: "加载失败" };
+    return { title: t("首页 Ping 加载失败"), text: t("加载失败") };
   }
   return hasHomepagePingBinding
-    ? { title: "暂无有效样本", text: "无样本" }
-    : { title: "未配置首页 Ping", text: "未配置" };
+    ? { title: t("暂无有效样本"), text: t("无样本") }
+    : { title: t("未配置首页 Ping"), text: t("未配置") };
 }
 
 /** 生成“Debian 12”这类简短系统标签。 */
@@ -88,8 +89,8 @@ export function formatOsLabel(osName: string, rawOs?: string | null): string {
  */
 export function nodeDetailLinkLabels(name: string, osName: string) {
   return {
-    title: `${osName} · 点击查看详情`,
-    ariaLabel: `${name}，系统 ${osName}`,
+    title: t("{os} · 点击查看详情", { os: osName }),
+    ariaLabel: t("{name}，系统 {os}", { name, os: osName }),
   };
 }
 

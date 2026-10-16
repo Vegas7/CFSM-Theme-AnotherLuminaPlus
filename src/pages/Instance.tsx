@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNodeMeta, useNodeStoreStatus, useRealtimeFocus } from "@/hooks/useNode";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { ANONYMOUS_MAX_HISTORY_HOURS } from "@/services/api";
+import { t } from "@/i18n";
 
 // 0.167（10 分钟）：官方规范铁律要求详情页默认 10 分钟历史曲线，大幅降低 D1 行读取。
 const DEFAULT_PING_HOURS = 0.167;
@@ -84,26 +85,26 @@ export function Instance() {
 
   if (!meta) {
     const message = storeStatus.hydrated
-      ? "找不到这个实例，它可能已被删除或链接无效。"
+      ? t("找不到这个实例，它可能已被删除或链接无效。")
       : storeStatus.nodeInfoError
-        ? "节点列表加载失败，系统正在自动重试。"
+        ? t("节点列表加载失败，系统正在自动重试。")
         : null;
     return (
       <div className="flex flex-col gap-5 py-2">
         <Link to="/" className="instance-page-back">
           <ChevronLeft size={14} />
-          返回
+          {t("返回")}
         </Link>
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
           {message ? (
             <>
               <div className="text-[15px] font-semibold text-(--text-primary)">
-                {storeStatus.hydrated ? "实例不存在" : "暂时无法加载实例"}
+                {storeStatus.hydrated ? t("实例不存在") : t("暂时无法加载实例")}
               </div>
               <p className="text-[13px] text-(--text-secondary)">{message}</p>
             </>
           ) : (
-            <Spinner size={24} label="正在加载实例" />
+            <Spinner size={24} label={t("正在加载实例")} />
           )}
         </div>
       </div>
@@ -117,7 +118,7 @@ export function Instance() {
         className="instance-page-back"
       >
         <ChevronLeft size={14} />
-        返回
+        {t("返回")}
       </Link>
       <InstanceDetails uuid={uuid} onNodeReady={alignCharts} />
       {/* 负载在上、Ping 在下，同一页直接看，不再分标签切换。各自的时间段选择条放在各自面板的标题区中间，
@@ -128,7 +129,7 @@ export function Instance() {
           hours={loadHours}
           controls={
             <RangeSelector
-              label="负载图表时间段"
+              label={t("负载图表时间段")}
               ranges={loadRanges}
               value={loadHours}
               onChange={(value) => startTransition(() => setLoadHours(value))}
@@ -141,7 +142,7 @@ export function Instance() {
             hours={pingHours}
             controls={
               <RangeSelector
-                label="Ping 图表时间段"
+                label={t("Ping 图表时间段")}
                 ranges={pingRanges}
                 value={pingHours}
                 onChange={(value) => startTransition(() => setPingHours(value))}

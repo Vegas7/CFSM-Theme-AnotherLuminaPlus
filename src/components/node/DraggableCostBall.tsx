@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CircleDollarSign } from "lucide-react";
+import { t } from "@/i18n";
 
 const STORAGE_KEY = "cfsm-sao:cost-ball-pos:v1";
 const BALL_SIZE = 36;
@@ -163,8 +164,8 @@ export const DraggableCostBall = memo(function DraggableCostBall() {
     <Link
       to="/assets"
       className="cost-summary-ball show"
-      aria-label="打开资产统计页（可拖动）"
-      title="资产统计（可拖动）"
+      aria-label={t("打开资产统计页（可拖动）")}
+      title={t("资产统计（可拖动）")}
       style={style}
       onPointerDown={handlePointerDown}
       onClick={handleClick}

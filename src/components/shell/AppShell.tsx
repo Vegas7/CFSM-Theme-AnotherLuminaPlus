@@ -14,6 +14,7 @@ import { useMetricColorsSync } from "@/hooks/useMetricColors";
 import { useNodeStoreStatus } from "@/hooks/useNode";
 import { getAdminUrl } from "@/services/cfsm/config";
 import { HomeSkeleton } from "./HomeSkeleton";
+import { t } from "@/i18n";
 export function AppShell() {
   useAppearance();
   useSiteMetadata();
@@ -78,22 +79,7 @@ export function AppShell() {
       <header className="mao-top-nav-bar">
         <div className="mx-auto flex h-14 w-full max-w-430 items-center justify-between px-3 sm:px-5 md:px-6 lg:px-8">
           <div className="mao-nav-brand-left flex items-center gap-2.5">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-(--text-primary)"
-            >
-              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-              <path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
-              <path d="M16.924 11.132a5 5 0 1 0 -4.056 5.792" />
-              <path d="M3 12a9 9 0 1 0 9 -9" />
-            </svg>
+            <SiteLogo />
             <span className="mao-nav-title" title={siteName}>
               {siteName}
             </span>
@@ -129,6 +115,54 @@ export function AppShell() {
   );
 }
 
+/**
+ * 页头站点图标：和浏览器标签页同一个图标 —— 后端把后台「外观设置」里的站点图标写进页面的
+ * `<link rel="icon">`（见后端 injectFavicon），这里直接读它。没配图标时那条链接指向后端默认的
+ * /favicon.ico，同样是站点自己的图标。读不到或图片加载失败才退回 SAO 的螺旋图形。
+ */
+function readSiteIconHref(): string | null {
+  if (typeof document === "undefined") return null;
+  const link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+  const href = link?.getAttribute("href")?.trim();
+  return href ? link!.href : null;
+}
+
+function SiteLogo() {
+  const [src] = useState(readSiteIconHref);
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt=""
+        width={20}
+        height={20}
+        className="size-5 shrink-0 rounded-[4px] object-contain"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-(--text-primary)"
+      aria-hidden
+    >
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+      <path d="M16.924 11.132a5 5 0 1 0 -4.056 5.792" />
+      <path d="M3 12a9 9 0 1 0 9 -9" />
+    </svg>
+  );
+}
+
 function AccessError({ onRetry }: { onRetry: () => void }) {
   const [refreshing, setRefreshing] = useState(false);
 
@@ -157,9 +191,9 @@ function AccessError({ onRetry }: { onRetry: () => void }) {
           <WifiOff size={22} strokeWidth={2} />
         </div>
         <div className="space-y-1.5">
-          <h2 className="access-error-title">无法读取站点配置</h2>
+          <h2 className="access-error-title">{t("无法读取站点配置")}</h2>
           <p className="access-error-desc">
-            与监控服务通信失败或接口未响应，请检查网络连接后重试。
+            {t("与监控服务通信失败或接口未响应，请检查网络连接后重试。")}
           </p>
         </div>
         <div className="access-error-actions">
@@ -174,7 +208,7 @@ function AccessError({ onRetry }: { onRetry: () => void }) {
               className={refreshing ? "animate-spin" : ""}
               aria-hidden="true"
             />
-            <span>{refreshing ? "正在刷新…" : "刷新页面"}</span>
+            <span>{refreshing ? t("正在刷新…") : t("刷新页面")}</span>
           </button>
         </div>
       </section>
@@ -190,9 +224,9 @@ function PrivateSiteGate() {
           <Lock size={22} strokeWidth={2} />
         </div>
         <div className="space-y-1.5">
-          <h2 className="access-error-title">站点已设为私有</h2>
+          <h2 className="access-error-title">{t("站点已设为私有")}</h2>
           <p className="access-error-desc">
-            该探针已被站长设为私有访问，登录后即可查看节点实时状态。
+            {t("该探针已被站长设为私有访问，登录后即可查看节点实时状态。")}
           </p>
         </div>
         <div className="access-error-actions">
@@ -202,7 +236,7 @@ function PrivateSiteGate() {
             rel="noopener noreferrer"
             className="access-error-refresh-btn"
           >
-            <span>前往登录</span>
+            <span>{t("前往登录")}</span>
             <ArrowRight size={14} aria-hidden="true" />
           </a>
         </div>

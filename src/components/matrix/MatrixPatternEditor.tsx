@@ -14,6 +14,7 @@ import {
   MATRIX_RAIN_TOTAL_STEPS,
 } from "@/utils/matrixPatterns";
 import type { MatrixColorTheme, MatrixBootEffect } from "@/utils/themeSettings";
+import { t } from "@/i18n";
 
 export interface MatrixPatternEditorProps {
   /** 全站当前生效的点阵图案 */
@@ -127,11 +128,11 @@ export function MatrixPatternEditor({
   // 保存当前画布设计为用户预设（触发 1 次云端同步）
   const handleSaveUserPreset = () => {
     if (activePresets.length >= MAX_USER_PRESETS) {
-      window.alert(`最多保存 ${MAX_USER_PRESETS} 个自定义预设，请先删除不需要的预设。`);
+      window.alert(t("最多保存 {n} 个自定义预设，请先删除不需要的预设。", { n: MAX_USER_PRESETS }));
       return;
     }
-    const defaultName = `预设 ${activePresets.length + 1}`;
-    const inputName = window.prompt("请输入用户预设名称：", defaultName);
+    const defaultName = t("预设 {n}", { n: activePresets.length + 1 });
+    const inputName = window.prompt(t("请输入用户预设名称："), defaultName);
     if (inputName === null) return;
     const finalName = inputName.trim() || defaultName;
 
@@ -150,7 +151,7 @@ export function MatrixPatternEditor({
 
   // 删除指定的自定义预设（触发 1 次云端同步）
   const handleDeleteUserPreset = (id: string, name: string) => {
-    if (!window.confirm(`确定删除用户预设「${name}」吗？`)) return;
+    if (!window.confirm(t("确定删除用户预设「{name}」吗？", { name }))) return;
     const nextPresets = activePresets.filter((p) => p.id !== id);
     setLocalPresets(nextPresets);
     saveUserMatrixPresets(nextPresets);
@@ -261,10 +262,10 @@ export function MatrixPatternEditor({
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold text-(--text-secondary) flex items-center gap-1">
             <Sparkles size={13} className="text-(--accent-500)" />
-            绘制画布 (20 × 5)
+            {t("绘制画布 (20 × 5)")}
           </span>
           <span className="text-[10px] text-(--text-muted) px-1.5 py-0.5 rounded bg-(--bg-card) border border-(--hairline)">
-            已点亮 {pixels.size} / {TOTAL_PIXELS} 格
+            {t("已点亮 {n} / {total} 格", { n: pixels.size, total: TOTAL_PIXELS })}
           </span>
         </div>
 
@@ -274,20 +275,20 @@ export function MatrixPatternEditor({
             onClick={startPreview}
             disabled={isPreviewing}
             className="mao-pattern-action-btn is-play"
-            title="播放开屏扫描与呼吸预览"
+            title={t("播放开屏扫描与呼吸预览")}
           >
             <Play size={12} className={isPreviewing ? "animate-pulse" : ""} />
-            <span>{isPreviewing ? "预览中..." : "动效预览"}</span>
+            <span>{isPreviewing ? t("预览中...") : t("动效预览")}</span>
           </button>
           <button
             type="button"
             onClick={handleClear}
             disabled={isPreviewing || pixels.size === 0}
             className="mao-pattern-action-btn"
-            title="清空当前画布"
+            title={t("清空当前画布")}
           >
             <Trash2 size={12} />
-            <span>清空</span>
+            <span>{t("清空")}</span>
           </button>
 
           <div className="h-3.5 w-px bg-(--hairline) mx-0.5" />
@@ -302,12 +303,12 @@ export function MatrixPatternEditor({
             }`}
             title={
               hasUnappliedChanges
-                ? "当前画板有未应用的改动，点击应用到首页并同步云端"
-                : "当前画板设计与首页一致"
+                ? t("当前画板有未应用的改动，点击应用到首页并同步云端")
+                : t("当前画板设计与首页一致")
             }
           >
             <Send size={11} />
-            <span>应用到首页</span>
+            <span>{t("应用到首页")}</span>
           </button>
         </div>
       </div>
@@ -317,7 +318,7 @@ export function MatrixPatternEditor({
         className={`mao-pattern-canvas ${colorTheme === "eva" ? "is-eva" : ""}`}
         data-palette={colorTheme}
         role="grid"
-        aria-label="点阵开屏图案绘制画布"
+        aria-label={t("点阵开屏图案绘制画布")}
       >
         {Array.from({ length: TOTAL_PIXELS }, (_, idx) => {
           const previewClass = getCellPreviewClass(idx);
@@ -331,9 +332,11 @@ export function MatrixPatternEditor({
               data-pixel-index={idx}
               className={`mao-pattern-cell ${previewClass}`}
               onClick={() => toggleCell(idx)}
-              aria-label={`第 ${Math.floor(idx / GRID_COLUMNS) + 1} 行，第 ${(idx % GRID_COLUMNS) + 1} 列: ${
-                isLit ? "已点亮" : "未点亮"
-              }`}
+              aria-label={t("第 {row} 行，第 {col} 列: {state}", {
+                row: Math.floor(idx / GRID_COLUMNS) + 1,
+                col: (idx % GRID_COLUMNS) + 1,
+                state: isLit ? t("已点亮") : t("未点亮"),
+              })}
             />
           );
         })}
@@ -341,7 +344,7 @@ export function MatrixPatternEditor({
 
       {/* 底部常用预设快捷选用 */}
       <div className="mt-2.5 pt-2 border-t border-(--hairline)/60 flex flex-wrap items-center gap-1.5">
-        <span className="text-[10px] text-(--text-muted) mr-0.5">常用预设:</span>
+        <span className="text-[10px] text-(--text-muted) mr-0.5">{t("常用预设:")}</span>
         {Object.values(PATTERN_PRESETS).map((preset) => {
           const isCurrent =
             pixels.size === preset.indices.length &&
@@ -354,9 +357,9 @@ export function MatrixPatternEditor({
               onClick={() => applyPresetToCanvas(preset.indices)}
               disabled={isPreviewing}
               className={`mao-preset-chip ${isCurrent ? "is-active" : ""}`}
-              title="载入画布预览（不自动提交）"
+              title={t("载入画布预览（不自动提交）")}
             >
-              {preset.name}
+              {t(preset.name)}
             </button>
           );
         })}
@@ -364,21 +367,21 @@ export function MatrixPatternEditor({
 
       {/* 用户自定义预设快捷选用（云端漫游，跨设备不丢） */}
       <div className="mt-2 pt-2 border-t border-(--hairline)/40 flex flex-wrap items-center gap-1.5">
-        <span className="text-[10px] text-(--text-muted) mr-0.5">用户预设:</span>
+        <span className="text-[10px] text-(--text-muted) mr-0.5">{t("用户预设:")}</span>
         <button
           type="button"
           onClick={handleSaveUserPreset}
           disabled={isPreviewing}
           className="mao-preset-chip is-add flex items-center gap-0.5"
-          title="将当前画布设计保存为用户预设（保存至云端，跨设备不丢）"
+          title={t("将当前画布设计保存为用户预设（保存至云端，跨设备不丢）")}
         >
           <Plus size={11} />
-          <span>存为预设</span>
+          <span>{t("存为预设")}</span>
         </button>
 
         {activePresets.length === 0 ? (
           <span className="text-[10px] text-(--text-muted)/70 italic ml-0.5">
-            (暂无保存的预设，绘制后点击「存为预设」)
+            {t("(暂无保存的预设，绘制后点击「存为预设」)")}
           </span>
         ) : (
           activePresets.map((preset) => {
@@ -395,7 +398,7 @@ export function MatrixPatternEditor({
                   className={`mao-preset-chip flex items-center gap-1.5 ${
                     isCurrent ? "is-active" : ""
                   }`}
-                  title={`载入此预设到画布（点亮 ${preset.indices.length} 格）`}
+                  title={t("载入此预设到画布（点亮 {n} 格）", { n: preset.indices.length })}
                 >
                   <span>{preset.name}</span>
                   <span
@@ -412,7 +415,7 @@ export function MatrixPatternEditor({
                       }
                     }}
                     className="inline-flex items-center justify-center w-3 h-3 rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors text-[10px] leading-none"
-                    title="从云端删除此预设"
+                    title={t("从云端删除此预设")}
                   >
                     <X size={9} />
                   </span>

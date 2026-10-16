@@ -7,6 +7,7 @@ import {
   setRealtimeSessionLimitMinutes,
   subscribeStoreStatus,
 } from "@/services/wsStore";
+import { t } from "@/i18n";
 
 /**
  * 「实时连接已达到时限」提示（后台「前端实时连接超时」`frontend_ws_timeout_minutes`）。
@@ -42,9 +43,10 @@ export function RealtimeSessionPrompt() {
     <section className="realtime-session-prompt" aria-labelledby={titleId} aria-live="polite">
       <Unplug size={16} strokeWidth={2} className="realtime-session-prompt-icon" aria-hidden />
       <div className="realtime-session-prompt-body">
-        <strong id={titleId}>实时连接已达到时限并断开</strong>
+        <strong id={titleId}>{t("实时连接已达到时限并断开")}</strong>
         <p>
-          {minutes > 0 ? `站点限制单次实时连接 ${minutes} 分钟，` : ""}页面停在断开前的数据。
+          {minutes > 0 ? t("站点限制单次实时连接 {minutes} 分钟，", { minutes }) : ""}
+          {t("页面停在断开前的数据。")}
         </p>
       </div>
       <div className="realtime-session-prompt-actions">
@@ -53,14 +55,14 @@ export function RealtimeSessionPrompt() {
           className="control-button realtime-session-prompt-button"
           onClick={() => setDismissed(true)}
         >
-          关闭
+          {t("关闭")}
         </button>
         <button
           type="button"
           className="control-button realtime-session-prompt-button is-primary"
           onClick={resumeRealtimeSession}
         >
-          继续接收
+          {t("继续接收")}
         </button>
       </div>
     </section>

@@ -8,6 +8,7 @@ import {
 } from "@/utils/format";
 import { resolveTrafficUsage } from "@/utils/traffic";
 import { InstancePanel } from "./InstancePanel";
+import { t } from "@/i18n";
 
 // Intl.DateTimeFormat 构造开销大，复用一个实例，别每次 metrics 更新都重建
 const TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
@@ -47,7 +48,7 @@ export function InstanceDetails({
   const lastUpdated =
     metrics.updatedAt > 0 ? TIME_FORMATTER.format(metrics.updatedAt) : "—";
   const trimmedName = meta.name?.trim();
-  const panelTitle = trimmedName ? `${trimmedName} 信息` : "实例信息";
+  const panelTitle = trimmedName ? t("{name} 信息", { name: trimmedName }) : t("实例信息");
 
   return (
     <InstancePanel
@@ -55,60 +56,60 @@ export function InstanceDetails({
       titleIcon={<Flag region={meta.region} size={15} />}
       titleAction={<InstanceSwitcher currentUuid={uuid} />}
       description={
-        isOnline ? undefined : "节点当前离线，以下展示最近一次上报的缓存数据。"
+        isOnline ? undefined : t("节点当前离线，以下展示最近一次上报的缓存数据。")
       }
     >
       <div className="instance-info-groups">
         <div className="instance-info-group">
-          <div className="instance-info-group-title">系统</div>
-          <InfoRow label="状态" value={isOnline ? "在线" : "离线"} />
+          <div className="instance-info-group-title">{t("系统")}</div>
+          <InfoRow label={t("状态")} value={isOnline ? t("在线") : t("离线")} />
           <InfoRow
             label="CPU"
             value={`${meta.cpu_name || "—"}${meta.cpu_cores > 0 ? ` (x${meta.cpu_cores})` : ""}`}
           />
-          <InfoRow label="架构" value={meta.arch || "—"} />
-          <InfoRow label="显卡" value={meta.gpu_name || "—"} />
-          <InfoRow label="操作系统" value={meta.os || "—"} />
+          <InfoRow label={t("架构")} value={meta.arch || "—"} />
+          <InfoRow label={t("显卡")} value={meta.gpu_name || "—"} />
+          <InfoRow label={t("操作系统")} value={meta.os || "—"} />
           {/* 原来这里是「虚拟化」，但 CF-Server-Monitor 不上报该字段(见 toNodeInfo)，
               永远显示「—」。换成后端确实下发、之前一直没用上的内核版本。 */}
-          <InfoRow label="内核版本" value={meta.kernel_version || "—"} />
+          <InfoRow label={t("内核版本")} value={meta.kernel_version || "—"} />
         </div>
 
         <div className="instance-info-group">
-          <div className="instance-info-group-title">资源</div>
-          <InfoRow label="内存" value={`${formatBytes(metrics.ramUsed)} / ${formatBytes(metrics.ramTotal)}`} />
+          <div className="instance-info-group-title">{t("资源")}</div>
+          <InfoRow label={t("内存")} value={`${formatBytes(metrics.ramUsed)} / ${formatBytes(metrics.ramTotal)}`} />
           <InfoRow
             label="Swap"
             value={
               metrics.swapTotal > 0
                 ? `${formatBytes(metrics.swapUsed)} / ${formatBytes(metrics.swapTotal)}`
-                : "无"
+                : t("无")
             }
           />
-          <InfoRow label="磁盘" value={`${formatBytes(metrics.diskUsed)} / ${formatBytes(metrics.diskTotal)}`} />
+          <InfoRow label={t("磁盘")} value={`${formatBytes(metrics.diskUsed)} / ${formatBytes(metrics.diskTotal)}`} />
           <InfoRow
-            label="负载"
+            label={t("负载")}
             value={`${metrics.load1.toFixed(2)} | ${metrics.load5.toFixed(2)} | ${metrics.load15.toFixed(2)}`}
           />
           <InfoRow
-            label="运行时长"
+            label={t("运行时长")}
             value={uptime.unit ? `${uptime.value} ${uptime.unit}` : uptime.value}
           />
         </div>
 
         <div className="instance-info-group">
-          <div className="instance-info-group-title">网络</div>
+          <div className="instance-info-group-title">{t("网络")}</div>
           <InfoRow
-            label={isOnline ? "实时网络" : "缓存网络"}
+            label={isOnline ? t("实时网络") : t("缓存网络")}
             value={`↑ ${formatBytes(metrics.netUp)}/s · ↓ ${formatBytes(metrics.netDown)}/s`}
           />
-          <InfoRow label={isOnline ? "最近更新" : "最后上报"} value={lastUpdated} />
+          <InfoRow label={isOnline ? t("最近更新") : t("最后上报")} value={lastUpdated} />
           {/* 「今日流量」「峰值速度」已移除：后端没有今日累计字节字段，两者只能由历史瞬时速率
               积分/取极值得出，而历史接口每次固定只返回约 120 个点（区间越长采样越粗），
               数值会随返回的采样点大幅漂移，误导性大于参考价值。 */}
           <div className="instance-info-item is-stack">
             {/* 本计费周期的上下行（按重置日清零），和下面的进度条、首页卡片同一口径，不是开机以来的累计。 */}
-            <span className="instance-info-label">本期流量</span>
+            <span className="instance-info-label">{t("本期流量")}</span>
             <div className="instance-info-traffic">
               <span className="instance-info-value">{`↑ ${formatBytes(metrics.trafficUpMonthly)} · ↓ ${formatBytes(metrics.trafficDownMonthly)}`}</span>
               {meta.traffic_limit > 0 && (

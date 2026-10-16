@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { clsx } from "clsx";
+import { t } from "@/i18n";
 
 export interface TimeRangeOption {
   value: number;
@@ -102,7 +103,7 @@ export function RangeSelector({
           aria-pressed={value === range.value}
           onClick={() => onChange(range.value)}
         >
-          {range.label}
+          {t(range.label)}
         </button>
       ))}
     </div>

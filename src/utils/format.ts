@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 const UNITS = ["B", "KB", "MB", "GB", "TB", "PB"] as const;
 const CLOCK_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
@@ -111,12 +112,12 @@ export function formatByteRateLabel(bytesPerSec: number | undefined | null): str
 export function formatUptimeDays(seconds: number): { value: string; unit: string } {
   if (!Number.isFinite(seconds) || seconds <= 0) return { value: "—", unit: "" };
   const days = seconds / 86400;
-  if (days >= 1) return { value: Math.floor(days).toString(), unit: "天" };
+  if (days >= 1) return { value: Math.floor(days).toString(), unit: t("天") };
   const hours = seconds / 3600;
-  if (hours >= 1) return { value: Math.floor(hours).toString(), unit: "小时" };
+  if (hours >= 1) return { value: Math.floor(hours).toString(), unit: t("小时") };
   // 不足 1 分钟向上取整,避免刚上线显示成「0 分钟」而 <=0 又显示「—」的口径分裂。
   const minutes = Math.max(1, Math.floor(seconds / 60));
-  return { value: minutes.toString(), unit: "分钟" };
+  return { value: minutes.toString(), unit: t("分钟") };
 }
 
 // 将 `expired_at` 解析为毫秒；空值、Go 零时和 0/-1 哨兵均表示无到期。
@@ -160,10 +161,10 @@ export function formatExpireDays(
   const days = getExpireDaysRemaining(iso, now);
   const tone = resolveExpireTone(days);
   if (days == null) return { value: "—", unit: "", tone };
-  if (tone === "long") return { value: "长期", unit: "", tone };
-  if (days > 0) return { value: days.toString(), unit: "天", tone };
-  if (days === 0) return { value: "今日", unit: "", tone };
-  return { value: "已过期", unit: "", tone };
+  if (tone === "long") return { value: t("长期"), unit: "", tone };
+  if (days > 0) return { value: days.toString(), unit: t("天"), tone };
+  if (days === 0) return { value: t("今日"), unit: "", tone };
+  return { value: t("已过期"), unit: "", tone };
 }
 
 function inferPlainTagColor(label: string): string {

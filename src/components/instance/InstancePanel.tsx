@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { clsx } from "clsx";
 import { Spinner } from "@/components/ui/Spinner";
+import { t } from "@/i18n";
 
 export function InstancePanel({
   id,
@@ -56,7 +57,7 @@ export function InstanceChartLoadingBody() {
   return (
     <div className="instance-chart-loading" aria-busy>
       <Spinner size={26} label="" />
-      <span>加载中…</span>
+      <span>{t("加载中…")}</span>
     </div>
   );
 }

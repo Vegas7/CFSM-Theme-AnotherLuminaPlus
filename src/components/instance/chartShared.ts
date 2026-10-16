@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type uPlot from "uplot";
+import { t } from "@/i18n";
 
 // 共享的图表配色。LoadChart 按指标 (cpu/memory/…) 取色，PingChart 按 task 循环取色；
 // 两者都取自这一处单一来源，避免 hex 值在两个图表间漂移。
@@ -90,14 +91,14 @@ const TIME_RANGE_OPTIONS: TimeRangeOption[] = [
 const PING_TIME_RANGE_OPTIONS: TimeRangeOption[] = [...TIME_RANGE_OPTIONS];
 
 function formatRangeLabel(hours: number) {
-  if (hours === 0.167) return "10 分钟";
-  if (hours === 0.5) return "30 分钟";
+  if (hours === 0.167) return t("10 分钟");
+  if (hours === 0.5) return t("30 分钟");
   if (hours % 24 === 0) {
     const days = hours / 24;
-    return `${days} 天`;
+    return t("{n} 天", { n: days });
   }
 
-  return `${hours} 小时`;
+  return t("{n} 小时", { n: hours });
 }
 
 function buildHistoryRangeOptions(

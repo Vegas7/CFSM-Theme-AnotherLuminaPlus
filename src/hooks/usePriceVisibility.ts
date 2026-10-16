@@ -16,10 +16,10 @@ export function resolvePriceVisibility(
   if (override === "hidden") return false;
   if (override === "visible") return loggedIn || showPriceForGuests;
 
-  // 默认状态（未设置临时覆盖）：严格以「向访客公开价格与资产」为准。
-  // 未勾选向访客公开时，默认全部隐藏价格与资产脱敏，彻底杜绝未登录访客默认泄露价格标签。
-  // 管理员可随时通过右上角快捷按钮一键临时展开查看。
-  return showPriceForGuests;
+  // 默认状态（未设置临时覆盖）：登录站长始终看得到；访客按「公开资产」开关。
+  // SAO 原本对站长也默认隐藏、要在快捷栏里临时展开 —— 站长登录了还看到「保密」很别扭，改成默认可见；
+  // 快捷栏的按钮留着，用来临时隐藏（比如截图前）。
+  return loggedIn || showPriceForGuests;
 }
 
 function readStoredOverride(): PriceVisibilityOverride {

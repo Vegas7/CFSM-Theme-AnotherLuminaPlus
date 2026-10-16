@@ -23,7 +23,8 @@ import {
   insertMetricGapSentinels,
   smoothByCount,
 } from "./chartData";
-import { latencyHeatColor, lossHeatColor } from "@/utils/metricTone";
+import { resolveCustomLatencyColor, resolveCustomLossColor } from "@/utils/metricTone";
+import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { trimFixed } from "@/utils/format";
 import { historyChartRangeSeconds } from "@/utils/historyRange";
 import {
@@ -36,6 +37,7 @@ import {
 import { usePreferences } from "@/hooks/usePreferences";
 import type { PingRecord, PingTaskStats } from "@/types/cfsm";
 import type { TimedMetricPoint } from "./chartData";
+import { t } from "@/i18n";
 
 interface WeightedLatency {
   value: number;
@@ -142,6 +144,9 @@ export function PingChart({
   // stats 随 records 同一次请求返回(getPingRecords includeStats),不再单独发起查询。
   const pingStats = data?.stats ?? EMPTY_PING_STATS;
   const { resolvedAppearance } = usePreferences();
+  // 线路按钮上的延迟 / 丢包数字按主题设置里的「延迟光柱」「丢包光柱」门槛上色，和首页卡片同一套颜色。
+  const { pingLatencyThresholds, pingLatencyColors, pingLossThresholds, pingLossColors } =
+    useThemeSettings();
   const { w, h, ref: chartSizeRef } = useResponsiveChartSize("wide");
   /**
    * 选中的线路（和哪吒探针一个用法）：空 = 全部显示；点某条线路 = 只看它，再点别的线路是叠加上去，
@@ -176,12 +181,12 @@ export function PingChart({
   const taskLabels = useMemo(() => {
     const counts = new Map<string, number>();
     for (const task of tasks) {
-      const label = task.name || `任务 #${task.id}`;
+      const label = task.name || t("任务 #{id}", { id: task.id });
       counts.set(label, (counts.get(label) ?? 0) + 1);
     }
     return new Map(
       tasks.map((task) => {
-        const baseLabel = task.name || `任务 #${task.id}`;
+        const baseLabel = task.name || t("任务 #{id}", { id: task.id });
         const label = (counts.get(baseLabel) ?? 0) > 1 ? `${baseLabel} #${task.id}` : baseLabel;
         return [task.id, label] as const;
       }),
@@ -374,7 +379,7 @@ export function PingChart({
             const raw = chartRef.current[taskIndex + 1]?.[idx] as number | null | undefined;
             const loss = lossRef.current[taskIndex]?.[idx] ?? null;
             return {
-              label: taskLabels.get(task.id) ?? `任务 #${task.id}`,
+              label: taskLabels.get(task.id) ?? t("任务 #{id}", { id: task.id }),
               raw: typeof raw === "number" && Number.isFinite(raw) ? raw : null,
               loss,
               color: taskColors.get(task.id) ?? colorForSeries(taskIndex, tasks.length),
@@ -436,7 +441,7 @@ export function PingChart({
       series: [
         { label: "time" },
         ...tasks.map((task, index) => ({
-          label: taskLabels.get(task.id) ?? `任务 #${task.id}`,
+          label: taskLabels.get(task.id) ?? t("任务 #{id}", { id: task.id }),
           stroke: taskColors.get(task.id) ?? colorForSeries(index, tasks.length),
           width: 1.7,
           // 断点如实画出来（掉线、整段丢包看得见）；偶尔漏一两次采样的小空缺已由
@@ -451,7 +456,7 @@ export function PingChart({
           ? tasks.map((task, index) => {
               const color = taskColors.get(task.id) ?? colorForSeries(index, tasks.length);
               return {
-                label: `${taskLabels.get(task.id) ?? `任务 #${task.id}`} 丢包`,
+                label: t("{name} 丢包", { name: taskLabels.get(task.id) ?? t("任务 #{id}", { id: task.id }) }),
                 scale: "loss",
                 class: "ping-loss-area",
                 stroke: color,
@@ -469,7 +474,7 @@ export function PingChart({
         init: [
           (u) => {
             u.root.setAttribute("role", "img");
-            u.root.setAttribute("aria-label", `Ping 延迟历史图表，共 ${tasks.length} 条线路`);
+            u.root.setAttribute("aria-label", t("Ping 延迟历史图表，共 {n} 条线路", { n: tasks.length }));
           },
           tooltipHooks.onInit,
         ],
@@ -558,7 +563,7 @@ export function PingChart({
 
   if (isLoading) {
     return (
-      <InstancePanel title="Ping 图表" controls={controls}>
+      <InstancePanel title={t("Ping 图表")} controls={controls}>
         <InstanceChartLoadingBody />
       </InstancePanel>
     );
@@ -566,9 +571,9 @@ export function PingChart({
 
   if (isError && !data?.records.length) {
     return (
-      <InstancePanel title="Ping 图表" controls={controls}>
+      <InstancePanel title={t("Ping 图表")} controls={controls}>
         <div className="instance-empty">
-          <span>延迟历史加载失败</span>
+          <span>{t("延迟历史加载失败")}</span>
           <button
             type="button"
             className="instance-toggle-button"
@@ -576,7 +581,7 @@ export function PingChart({
             disabled={isFetching}
             aria-busy={isFetching}
           >
-            {isFetching ? "重试中" : "重试"}
+            {isFetching ? t("重试中") : t("重试")}
           </button>
         </div>
       </InstancePanel>
@@ -585,15 +590,15 @@ export function PingChart({
 
   if (!data?.records.length) {
     return (
-      <InstancePanel title="Ping 图表" controls={controls}>
-        <div className="instance-empty">暂无延迟记录</div>
+      <InstancePanel title={t("Ping 图表")} controls={controls}>
+        <div className="instance-empty">{t("暂无延迟记录")}</div>
       </InstancePanel>
     );
   }
 
   return (
     <InstancePanel
-      title="Ping 图表"
+      title={t("Ping 图表")}
       controls={controls}
       // 换档后新数据回来之前显示的是上一档的图（见 keepPreviousRangeData），压暗一点表示正在换。
       className={isPlaceholderData ? "instance-chart-panel is-switching" : "instance-chart-panel"}
@@ -606,23 +611,23 @@ export function PingChart({
               type="button"
               className="instance-toggle-button instance-ping-clear"
               onClick={clearSelection}
-              title="取消选择，恢复显示全部线路"
+              title={t("取消选择，恢复显示全部线路")}
             >
               <Eye size={14} aria-hidden />
-              清除 ({selectedTasks.size})
+              {t("清除 ({n})", { n: selectedTasks.size })}
             </button>
           )}
           <SwitchToggle
-            label="丢包叠加"
+            label={t("丢包叠加")}
             active={showLossArea}
             onToggle={() => setShowLossArea((value) => !value)}
-            title="把各线路的丢包率画成同色半透明面积，叠在延迟图里，对应右侧的百分比纵轴（和哪吒探针一个画法）。不受削峰平滑影响。注意：查询超过 1 小时时，后端按后台设置的采样点数返回（可选 60/120/180/240），点数固定而区间不固定，所以区间越长采样越粗；持续一两分钟的短促丢包可能整段没被采到 —— 同一次丢包在 1 小时图里看得见、在 1 天图里消失就是这个原因，调大后台的采样点数可缓解。"
+            title={t("把各线路的丢包率画成同色半透明面积，叠在延迟图里，对应右侧的百分比纵轴（和哪吒探针一个画法）。不受削峰平滑影响。注意：查询超过 1 小时时，后端按后台设置的采样点数返回（可选 60/120/180/240），点数固定而区间不固定，所以区间越长采样越粗；持续一两分钟的短促丢包可能整段没被采到 —— 同一次丢包在 1 小时图里看得见、在 1 天图里消失就是这个原因，调大后台的采样点数可缓解。")}
           />
           <SwitchToggle
-            label="削峰平滑"
+            label={t("削峰平滑")}
             active={cutPeak}
             onToggle={() => setCutPeak((value) => !value)}
-            title="对尖峰值做轻度平滑，仅影响图线显示"
+            title={t("对尖峰值做轻度平滑，仅影响图线显示")}
           />
           <button
             type="button"
@@ -632,7 +637,7 @@ export function PingChart({
             aria-busy={isFetching}
           >
             <RefreshCw size={14} aria-hidden />
-            {isFetching ? "刷新中" : isError ? "刷新失败，重试" : "刷新"}
+            {isFetching ? t("刷新中") : isError ? t("刷新失败，重试") : t("刷新")}
           </button>
         </div>
       }
@@ -650,25 +655,37 @@ export function PingChart({
               onClick={() => toggleTask(task.id)}
               style={{ borderColor: visible ? task.color : "var(--border-subtle)" }}
               title={[
-                taskLabels.get(task.id) ?? `任务 #${task.id}`,
-                `当前 ${task.latest != null ? `${task.latest.toFixed(1)} ms` : "—"} | 均值 ${task.avg != null ? `${task.avg.toFixed(1)} ms` : "—"} | 丢包 ${task.loss.toFixed(1)}%`,
-                `p99 ${task.p99 != null ? `${task.p99.toFixed(0)} ms` : "—"} | 抖动 ${task.volatility != null ? task.volatility.toFixed(2) : "—"}`,
-                `min ${task.min != null ? `${task.min.toFixed(0)} ms` : "—"} | max ${task.max != null ? `${task.max.toFixed(0)} ms` : "—"} | 样本 ${task.total ?? 0} | 间隔 ${task.interval}s`,
+                taskLabels.get(task.id) ?? t("任务 #{id}", { id: task.id }),
+                t("当前 {latest} | 均值 {avg} | 丢包 {loss}%", {
+                  latest: task.latest != null ? `${task.latest.toFixed(1)} ms` : "—",
+                  avg: task.avg != null ? `${task.avg.toFixed(1)} ms` : "—",
+                  loss: task.loss.toFixed(1),
+                }),
+                t("p99 {p99} | 抖动 {jitter}", {
+                  p99: task.p99 != null ? `${task.p99.toFixed(0)} ms` : "—",
+                  jitter: task.volatility != null ? task.volatility.toFixed(2) : "—",
+                }),
+                t("min {min} | max {max} | 样本 {total} | 间隔 {interval}s", {
+                  min: task.min != null ? `${task.min.toFixed(0)} ms` : "—",
+                  max: task.max != null ? `${task.max.toFixed(0)} ms` : "—",
+                  total: task.total ?? 0,
+                  interval: task.interval,
+                }),
                 selectedTasks.size === 0
-                  ? "点击只看这条线路，再点其他线路可叠加"
+                  ? t("点击只看这条线路，再点其他线路可叠加")
                   : selectedTasks.has(task.id)
-                    ? "点击取消选择"
-                    : "点击叠加显示这条线路",
+                    ? t("点击取消选择")
+                    : t("点击叠加显示这条线路"),
               ].join("\n")}
             >
               <span className="instance-ping-task-dot" style={{ background: task.color }} aria-hidden />
-              <span className="instance-ping-task-name">{taskLabels.get(task.id) ?? `任务 #${task.id}`}</span>
+              <span className="instance-ping-task-name">{taskLabels.get(task.id) ?? t("任务 #{id}", { id: task.id })}</span>
               <span
                 className="instance-ping-task-primary"
                 style={{
                   color:
                     task.latest != null
-                      ? latencyHeatColor(task.latest)
+                      ? resolveCustomLatencyColor(task.latest, pingLatencyThresholds, pingLatencyColors)
                       : "var(--text-tertiary)",
                 }}
               >
@@ -676,7 +693,7 @@ export function PingChart({
               </span>
               <span
                 className="instance-ping-task-loss"
-                style={{ color: lossHeatColor(task.loss) }}
+                style={{ color: resolveCustomLossColor(task.loss, pingLossThresholds, pingLossColors) }}
               >
                 {task.loss.toFixed(1)}%
               </span>
@@ -699,7 +716,7 @@ export function PingChart({
             <ChartTooltip tooltip={tooltip} />
           </>
         ) : (
-          <div className="instance-empty">当前已隐藏全部线路，点击上方按钮可恢复显示</div>
+          <div className="instance-empty">{t("当前已隐藏全部线路，点击上方按钮可恢复显示")}</div>
         )}
       </div>
     </InstancePanel>

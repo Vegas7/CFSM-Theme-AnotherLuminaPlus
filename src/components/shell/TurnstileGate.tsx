@@ -13,6 +13,7 @@ import {
   setTurnstileToken,
   subscribeTurnstileCredentialsCleared,
 } from "@/services/cfsm/config";
+import { t } from "@/i18n";
 
 /**
  * Turnstile 人机验证。
@@ -66,12 +67,12 @@ export function TurnstileGate() {
         const newConfig = await getSiteConfig();
         // 优先认接口返回的实际 verified 状态，辅以凭证判定（兼容无痕模式 localStorage 受限）
         if (!newConfig.verified && !getTurnstileVerified()) {
-          throw new Error("验证未通过，请重试");
+          throw new Error(t("验证未通过，请重试"));
         }
         await queryClient.invalidateQueries();
       } catch (submitError) {
         clearTurnstileToken();
-        setError(submitError instanceof Error ? submitError.message : "验证失败");
+        setError(submitError instanceof Error ? submitError.message : t("验证失败"));
         try {
           turnstileRef.current?.reset();
         } catch {
@@ -91,10 +92,10 @@ export function TurnstileGate() {
       <div className="surface-inset flex w-[min(22rem,90vw)] flex-col items-center gap-4 px-6 py-7 text-center">
         <div className="space-y-1.5">
           <div className="text-[15px] font-semibold text-(--text-primary)">
-            请完成人机验证
+            {t("请完成人机验证")}
           </div>
           <p className="text-[13px] text-(--text-secondary)">
-            本站开启了 Cloudflare Turnstile 验证，通过后即可查看节点数据。
+            {t("本站开启了 Cloudflare Turnstile 验证，通过后即可查看节点数据。")}
           </p>
         </div>
 
@@ -113,11 +114,11 @@ export function TurnstileGate() {
             }}
             onError={() => {
               clearTurnstileToken();
-              setError("人机验证异常，正在尝试自动恢复或请点击重试");
+              setError(t("人机验证异常，正在尝试自动恢复或请点击重试"));
             }}
             onExpire={() => {
               clearTurnstileToken();
-              setError("验证已过期，请重新完成验证");
+              setError(t("验证已过期，请重新完成验证"));
             }}
           />
         </div>
@@ -125,7 +126,7 @@ export function TurnstileGate() {
         {verifying && (
           <div className="flex items-center gap-2 text-[12px] text-(--text-secondary)">
             <Spinner size={16} />
-            <span>正在校验凭证...</span>
+            <span>{t("正在校验凭证...")}</span>
           </div>
         )}
 
@@ -140,7 +141,7 @@ export function TurnstileGate() {
               className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors cursor-pointer"
             >
               <RefreshCw size={13} />
-              重新验证
+              {t("重新验证")}
             </button>
           </div>
         )}

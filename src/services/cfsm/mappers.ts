@@ -18,6 +18,7 @@ import {
   type PingRecord,
   type PingTask,
 } from "@/types/cfsm";
+import { t } from "@/i18n";
 
 /** 后端内存/磁盘字段的单位是 MiB，流量配额是 GB。 */
 const MIB = 1024 * 1024;
@@ -97,7 +98,9 @@ export function carrierTaskName(
   names: CarrierNames = DEFAULT_CARRIER_NAMES,
 ): string {
   const key = CARRIER_TASK_BY_ID.get(taskId)?.key;
-  return key ? names[key] : `线路 #${taskId}`;
+  if (!key) return t("线路 #{id}", { id: taskId });
+  // 只翻译默认名；站长在后端自己起的名字原样显示。
+  return names[key] === DEFAULT_CARRIER_NAMES[key] ? t(names[key]) : names[key];
 }
 
 export function carrierPingTasks(names: CarrierNames = DEFAULT_CARRIER_NAMES): PingTask[] {

@@ -4,6 +4,7 @@ import { usePublicConfig } from "@/hooks/usePublicConfig";
 import { useVersionInfo } from "@/hooks/useVersionInfo";
 import { formatVersionLabel } from "@/utils/versionCompare";
 import pkg from "../../../package.json" with { type: "json" };
+import { t } from "@/i18n";
 
 /**
  * 站点底部署名胶囊（样式来自 SAO）：后端 CFSM 及版本 · 主题名 · 主题版本 · GitHub。
@@ -49,7 +50,7 @@ export function SiteFooter() {
   const themeVersion = `v${pkg.version}`;
 
   return (
-    <footer className="home-site-footer site-footer" aria-label="站点与主题版本信息">
+    <footer className="home-site-footer site-footer" aria-label={t("站点与主题版本信息")}>
       <div className="home-footer-capsule">
         {/* 左侧呼吸点与 CFSM 探针标识及版本 */}
         <div className="home-footer-brand">
@@ -81,7 +82,7 @@ export function SiteFooter() {
         <span className="home-footer-divider" aria-hidden="true" />
 
         {/* 主题版本芯片 */}
-        <span className="home-footer-version" title={`主题版本 ${themeVersion}`}>
+        <span className="home-footer-version" title={t("主题版本 {version}", { version: themeVersion })}>
           <GitBranch size={10} className="home-footer-branch-icon" aria-hidden="true" />
           <span>{themeVersion}</span>
         </span>
@@ -97,7 +98,7 @@ export function SiteFooter() {
           target="_blank"
           rel="noopener noreferrer"
           className="home-footer-github"
-          title="前往 GitHub 仓库"
+          title={t("前往 GitHub 仓库")}
         >
           <svg
             className="home-footer-github-icon"
@@ -136,7 +137,7 @@ function UpdateBadge({
       rel="noopener noreferrer"
       title={current ? `${formatVersionLabel(current)} → ${next}` : next}
     >
-      新版 {next}
+      {t("新版 {version}", { version: next })}
     </a>
   );
 }

@@ -46,6 +46,7 @@ import { formatHealthBucketTooltip } from "./pingBucketText";
 import { clsx } from "clsx";
 import type { NodeInfo, NodeMetrics, PingOverviewBucket, PingOverviewItem, TrafficTrendSample } from "@/types/cfsm";
 import type { ByteRateDisplay } from "@/utils/format";
+import { t } from "@/i18n";
 
 type NodeCardNode = NodeInfo & NodeMetrics;
 type DisplayStat = { value: string; unit: string };
@@ -149,13 +150,13 @@ export const NodeCard = memo(function NodeCard({
             <div className="card-metric-section server-card-meta-grid">
               <FooterStat
                 icon={<Network size={13} strokeWidth={2} />}
-                label="TCP 连接"
+                label={t("TCP 连接")}
                 value={node.connectionsTcp.toLocaleString()}
                 color="var(--progress-network)"
               />
               <FooterStat
                 icon={<Network size={13} strokeWidth={2} />}
-                label="UDP 连接"
+                label={t("UDP 连接")}
                 value={node.connectionsUdp.toLocaleString()}
                 color="var(--progress-network)"
               />
@@ -262,14 +263,14 @@ function NodeMetricSection({
         label="CPU"
         valueText={node.cpuPct.toFixed(2)}
         unit="%"
-        detailText={`${node.cpu_cores || 0} 核`}
+        detailText={t("{n} 核", { n: node.cpu_cores || 0 })}
         fraction={node.cpuPct / 100}
         redrawKey={redrawKey}
         paint="var(--progress-cpu)"
       />
       <MetricBar
         icon={<MemoryStick size={13} strokeWidth={2} />}
-        label="内存"
+        label={t("内存")}
         valueText={node.ramPct.toFixed(2)}
         unit="%"
         detailText={`${formatBytes(node.ramUsed)} / ${formatBytes(node.ramTotal)}`}
@@ -279,7 +280,7 @@ function NodeMetricSection({
       />
       <MetricBar
         icon={<HardDrive size={13} strokeWidth={2} />}
-        label="磁盘"
+        label={t("磁盘")}
         valueText={node.diskPct.toFixed(1)}
         unit="%"
         detailText={`${formatBytes(node.diskUsed)} / ${formatBytes(node.diskTotal)}`}
@@ -289,7 +290,7 @@ function NodeMetricSection({
       />
       <MetricBar
         icon={<Gauge size={13} strokeWidth={2} />}
-        label="负载"
+        label={t("负载")}
         valueText={node.load1.toFixed(2)}
         // 1 / 5 / 15 分钟负载，和小卡 / 迷你卡气泡里同一个写法；原来这一行空着，和左边磁盘的「已用 / 总量」对不齐。
         detailText={`${node.load1.toFixed(2)} / ${node.load5.toFixed(2)} / ${node.load15.toFixed(2)}`}
@@ -395,12 +396,12 @@ const NodeTrafficQuota = memo(function NodeTrafficQuota({
   return (
     <div
       className="card-metric-section traffic-quota"
-      title={`流量阈值 · ${typeLabel}`}
+      title={t("流量阈值 · {type}", { type: typeLabel })}
     >
       <div className="traffic-quota-head">
         <span className="traffic-quota-label">
           <Database size={13} strokeWidth={2} />
-          <span>剩余流量</span>
+          <span>{t("剩余流量")}</span>
           <strong className="traffic-quota-remain">{remainingLabel}</strong>
         </span>
         <span className="traffic-quota-usage">{detail}</span>
@@ -478,14 +479,14 @@ const NodeHealthSection = memo(function NodeHealthSection({
         <div className="server-health-head">
           <div className="server-health-label">
             <Clock3 size={13} strokeWidth={2} />
-            <span>延迟</span>
+            <span>{t("延迟")}</span>
           </div>
           <span
             className="server-health-value tabular"
             style={{ color: latencyColor }}
             title={
               pingError && ping.lastValue != null
-                ? "首页 Ping 刷新失败，显示上次数据"
+                ? t("首页 Ping 刷新失败，显示上次数据")
                 : undefined
             }
           >
@@ -509,7 +510,7 @@ const NodeHealthSection = memo(function NodeHealthSection({
               onHoverIndex={onLatencyHover}
             />
           ) : (
-            <div className="server-health-placeholder">未配置首页 Ping</div>
+            <div className="server-health-placeholder">{t("未配置首页 Ping")}</div>
           )}
           <HealthBucketTooltip
             text={latencyTooltip}
@@ -522,14 +523,14 @@ const NodeHealthSection = memo(function NodeHealthSection({
         <div className="server-health-head">
           <div className="server-health-label">
             <Unplug size={13} strokeWidth={2} />
-            <span>丢包率</span>
+            <span>{t("丢包率")}</span>
           </div>
           <span
             className="server-health-value tabular"
             style={{ color: lossColor }}
             title={
               pingError && ping.loss != null
-                ? "首页 Ping 刷新失败，显示上次数据"
+                ? t("首页 Ping 刷新失败，显示上次数据")
                 : undefined
             }
           >
@@ -553,7 +554,7 @@ const NodeHealthSection = memo(function NodeHealthSection({
               onHoverIndex={onLossHover}
             />
           ) : (
-            <div className="server-health-placeholder">未配置首页 Ping</div>
+            <div className="server-health-placeholder">{t("未配置首页 Ping")}</div>
           )}
           <HealthBucketTooltip
             text={lossTooltip}
@@ -585,7 +586,7 @@ function FooterPriceChip({ renewalPrice, titled }: { renewalPrice: string; title
   return (
     <span
       className="dstatus-price-chip"
-      title={titled ? `续费价格 ${renewalPrice}` : undefined}
+      title={titled ? t("续费价格 {price}", { price: renewalPrice }) : undefined}
     >
       <CircleDollarSign size={12} strokeWidth={2.2} />
       {renewalPrice}
@@ -675,14 +676,14 @@ function NodeCardFooter({
       <div className="server-card-meta-grid">
         <FooterStat
           icon={<RefreshCw size={13} strokeWidth={2} />}
-          label="在线"
+          label={t("在线")}
           value={uptime.value}
           unit={uptime.unit}
           color="var(--progress-cpu)"
         />
         <FooterStat
           icon={<Calendar size={13} strokeWidth={2} />}
-          label="到期"
+          label={t("到期")}
           value={expire.value}
           unit={expire.unit}
           color={expireColor}
@@ -738,7 +739,7 @@ function TrafficStat({
       <div className="traffic-stat-head">
         <div className="traffic-stat-label">
           <span style={{ color }}>{icon}</span>
-          <span style={{ color: speedColor }}>{direction}</span>
+          <span style={{ color: speedColor }}>{t(direction)}</span>
         </div>
         <span className="traffic-stat-value tabular" style={{ color: speedColor }}>
           {rate.value}
@@ -750,8 +751,8 @@ function TrafficStat({
         <span
           className="traffic-stat-live"
           data-live={live ? "true" : "false"}
-          title={live ? (active ? "实时" : "空闲") : "离线"}
-          aria-label={live ? (active ? "实时" : "空闲") : "离线"}
+          title={live ? (active ? t("实时") : t("空闲")) : t("离线")}
+          aria-label={live ? (active ? t("实时") : t("空闲")) : t("离线")}
         >
           <span
             className="traffic-stat-live-dot"
@@ -759,13 +760,13 @@ function TrafficStat({
               background: speedColor,
             }}
           />
-          {live && <span>{active ? "实时" : "空闲"}</span>}
+          {live && <span>{active ? t("实时") : t("空闲")}</span>}
         </span>
       </div>
-      <div className="traffic-stat-foot" title={`本周期${totalLabel}（按重置日清零）`}>
+      <div className="traffic-stat-foot" title={t("本周期{label}（按重置日清零）", { label: t(totalLabel) })}>
         <div className="traffic-stat-total-label">
           <GlobeArrow direction={totalLabel} color={color} />
-          <span>本期{totalLabel}</span>
+          <span>{totalLabel === "入站" ? t("本期入站") : t("本期出站")}</span>
         </div>
         <span className="tabular">{total}</span>
       </div>

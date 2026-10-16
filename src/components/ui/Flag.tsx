@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getDisplayRegionCode } from "@/utils/geo";
 import { hostAssetUrl } from "@/services/cfsm/config";
+import { t } from "@/i18n";
 
 interface FlagProps {
   region?: string | null;
@@ -26,7 +27,7 @@ export function Flag({ region, size = 14 }: FlagProps) {
   }
 
   const flagCode = getDisplayRegionCode(value);
-  const alt = `地区旗帜: ${flagCode}`;
+  const alt = t("地区旗帜: {code}", { code: flagCode });
 
   if (failStage >= 2) {
     return (

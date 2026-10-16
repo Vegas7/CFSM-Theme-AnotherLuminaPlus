@@ -270,7 +270,8 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: dia-text-reveal-sweep var(--dia-duration, 3.5s) cubic-bezier(0.35, 0, 0.25, 1) var(--dia-delay, 0s) infinite;
+  /* 性能：只扫三遍。背景位置动画浏览器只能在主线程逐帧重绘，无限循环时首页放着不动也每秒吃掉上百毫秒 CPU。 */
+  animation: dia-text-reveal-sweep var(--dia-duration, 3.5s) cubic-bezier(0.35, 0, 0.25, 1) var(--dia-delay, 0s) 3;
 }
 
 .aurora-text-layer-animated {
@@ -282,7 +283,8 @@
   opacity: 0;
   animation:
     aurora-fade-in 1.0s ease-in-out calc(var(--dia-delay, 0.2s) + var(--dia-duration, 2.5s) - 0.8s) 1 forwards,
-    aurora-text-flow var(--aurora-speed, 8s) ease-in-out infinite;
+    /* 性能：只流动三遍（约 24 秒）就停在渐变上，理由同上。 */
+    aurora-text-flow var(--aurora-speed, 8s) ease-in-out 3;
 }
 
 .aurora-text-layer-only {
@@ -291,7 +293,8 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: aurora-text-flow var(--aurora-speed, 8s) ease-in-out infinite;
+  /* 性能：只流动三遍（约 24 秒）就停在渐变上，理由同上。 */
+  animation: aurora-text-flow var(--aurora-speed, 8s) ease-in-out 3;
 }
 
 .mao-hero-subtitle {
@@ -1513,17 +1516,17 @@
   opacity: 0.95;
 }
 
+/* 性能：离线格子只闪不缩。原来还带 transform: scale，无限循环的 transform 动画会拖慢整页滚动时的分层
+   （见 site-footer.css 的涟漪注释）；只动 opacity 交给合成线程，代价可以忽略。 */
 @keyframes mao-pulse-offline {
 
   0%,
   100% {
     opacity: 1;
-    transform: scale(1);
   }
 
   50% {
-    opacity: 0.65;
-    transform: scale(0.9);
+    opacity: 0.55;
   }
 }
 
@@ -3910,4 +3913,57 @@
   color: var(--accent-500, #f59e0b);
   border-color: var(--accent-500, #f59e0b);
   background: color-mix(in srgb, var(--accent-500, #f59e0b) 14%, transparent);
+}
+/*
+ * 性能：带宽状态灯的呼吸改走 GPU 合成。
+ *
+ * 原来的 bandwidth-pulse-*（各档位、各配色方案）同时动 opacity 和 box-shadow。box-shadow 只能在主线程
+ * 逐帧重算样式、重绘，首页放着不动时它一个就让每秒样式计算 144 次、CPU 约 180ms/s（10k 节点的页面，
+ * 每帧都贵）。这里统一换成：圆点本身只动 opacity，光晕挪到 ::after 上、阴影写死、只动 opacity ——
+ * 两者都能交给合成线程，主线程不再参与。节奏（各档位的 animation-duration）原样保留。
+ */
+.overview-card-rating.is-bandwidth-badge .mao-status-dot {
+  animation-name: bandwidth-dot-pulse-gpu !important;
+  will-change: opacity;
+}
+
+.overview-card-rating.is-bandwidth-badge .mao-status-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 5px 1.5px currentColor;
+  opacity: 0;
+  animation: inherit;
+  animation-name: bandwidth-glow-pulse-gpu !important;
+  will-change: opacity;
+}
+
+@keyframes bandwidth-dot-pulse-gpu {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.28;
+  }
+}
+
+@keyframes bandwidth-glow-pulse-gpu {
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overview-card-rating.is-bandwidth-badge .mao-status-dot,
+  .overview-card-rating.is-bandwidth-badge .mao-status-dot::after {
+    animation: none !important;
+  }
 }

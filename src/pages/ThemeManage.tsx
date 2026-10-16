@@ -137,6 +137,7 @@ import {
   getDefaultOverviewRatingLabelText,
 } from "@/utils/overviewRating";
 import { HOME_SORT_FIELDS, HOME_SORT_FIELD_LABELS } from "@/utils/homeSort";
+import { t } from "@/i18n";
 
 const OVERVIEW_RATING_LABEL_FIELDS: Array<{
   key: Extract<OverviewRatingKind, "bandwidth" | "asset">;
@@ -320,9 +321,9 @@ function summarizeNodes(
   uuids: string[],
   clientsById: Map<string, NodeInfo>,
 ) {
-  if (uuids.length === 0) return "点右侧「编辑节点」把节点加进来";
+  if (uuids.length === 0) return t("点右侧「编辑节点」把节点加进来");
   const names = uuids.map((uuid) => clientsById.get(uuid)?.name || uuid);
-  const summary = names.join("、");
+  const summary = names.join(t("、"));
   return summary.length > 92 ? `${summary.slice(0, 92)}...` : summary;
 }
 
@@ -609,24 +610,24 @@ const TaskBindingSection = memo(function TaskBindingSection({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-[15px] font-semibold text-(--text-primary)">
-              {task.name || `任务 #${task.id}`}
+              {task.name || t("任务 #{id}", { id: task.id })}
             </h3>
             {isDefaultTask && (
               <span className="rounded-full border border-(--hairline) px-2 py-0.5 text-[10px] font-medium text-(--text-tertiary)">
-                默认线路
+                {t("默认线路")}
               </span>
             )}
           </div>
           <div className="mt-2 text-[12px] text-(--text-secondary)">
             <span className="font-medium text-(--text-primary)">
               {existingAssigned.length > 0
-                ? `${existingAssigned.length} 台节点在首页显示这条线路的延迟`
-                : "还没有节点选这条线路"}
+                ? t("{n} 台节点在首页显示这条线路的延迟", { n: existingAssigned.length })
+                : t("还没有节点选这条线路")}
             </span>
             {isDefaultTask && (
               <>
                 <span className="mx-2 text-(--text-tertiary)">·</span>
-                <span>没单独指定线路的节点都走这条</span>
+                <span>{t("没单独指定线路的节点都走这条")}</span>
               </>
             )}
           </div>
@@ -651,7 +652,7 @@ const TaskBindingSection = memo(function TaskBindingSection({
               }}
               className="theme-manage-button is-compact"
             >
-              {allVisibleSelectableAssigned ? "已全选可用" : "全选可用"}
+              {allVisibleSelectableAssigned ? t("已全选可用") : t("全选可用")}
             </button>
           )}
           {assigned.length > 0 && (
@@ -666,7 +667,7 @@ const TaskBindingSection = memo(function TaskBindingSection({
               }}
               className="theme-manage-button is-compact is-danger"
             >
-              清空节点
+              {t("清空节点")}
             </button>
           )}
           <button
@@ -675,7 +676,7 @@ const TaskBindingSection = memo(function TaskBindingSection({
             onClick={() => onToggleExpand(task.id)}
             className="theme-manage-button is-compact"
           >
-            {expanded ? "收起节点" : "编辑节点"}
+            {expanded ? t("收起节点") : t("编辑节点")}
           </button>
         </div>
       </div>
@@ -687,8 +688,8 @@ const TaskBindingSection = memo(function TaskBindingSection({
             <input
               value={nodeSearch}
               onChange={(event) => onNodeSearch(event.target.value)}
-              placeholder="搜索节点名称 / UUID / 分组 / 地区"
-              aria-label="搜索节点"
+              placeholder={t("搜索节点名称 / UUID / 分组 / 地区")}
+              aria-label={t("搜索节点")}
               className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-(--text-tertiary)"
             />
           </label>
@@ -726,7 +727,7 @@ const TaskBindingSection = memo(function TaskBindingSection({
                       </span>
                     </div>
                     <div className="mt-1 setting-hint">
-                      {subtitle || client.region || "未设置分组"}
+                      {subtitle || client.region || t("未设置分组")}
                     </div>
                   </div>
                 </label>
@@ -764,11 +765,11 @@ const PremiumList = memo(function PremiumList({
         const entry = costPremiums[client.uuid];
         const detail = detailByUuid.get(client.uuid);
         const referenceLabel = rateLoading
-          ? "计算中"
+          ? t("计算中")
           : detail
             ? detail.counted
               ? formatCnyMoney(detail.remainingCny)
-              : detail.note || "--"
+              : t(detail.note) || "--"
             : "--";
         const canCompute = detail != null && (detail.counted || detail.note === "免费");
         return (
@@ -786,7 +787,7 @@ const PremiumList = memo(function PremiumList({
               </span>
               <span
                 className="shrink-0 setting-hint"
-                title="该节点当前剩余价值（按账单周期折算，不含溢价）"
+                title={t("该节点当前剩余价值（按账单周期折算，不含溢价）")}
               >
                 {referenceLabel}
               </span>
@@ -803,11 +804,11 @@ const PremiumList = memo(function PremiumList({
                   }}
                   title={
                     entry.paidCny != null
-                      ? "溢价 = 收购价 − 收购日剩余价值；该折算基准已经固化"
-                      : "旧格式：直接记录的溢价，填写收购价后自动升级"
+                      ? t("溢价 = 收购价 − 收购日剩余价值；该折算基准已经固化")
+                      : t("旧格式：直接记录的溢价，填写收购价后自动升级")
                   }
                 >
-                  溢价 {formatSignedCny(entry.amount)}
+                  {t("溢价 {value}", { value: formatSignedCny(entry.amount) })}
                 </span>
               )}
             </div>
@@ -822,13 +823,13 @@ const PremiumList = memo(function PremiumList({
                   if (event.target.validity.badInput) return;
                   onPatchPaid(client.uuid, event.target.value);
                 }}
-                placeholder="收购价"
+                placeholder={t("收购价")}
                 disabled={!canCompute}
-                aria-label={`${client.name} 的收购价`}
+                aria-label={t("{name} 的收购价", { name: client.name })}
                 title={
                   canCompute
-                    ? "实际收购价（人民币），留空即清除记录"
-                    : "该节点已忽略或汇率缺失，无法折算剩余价值"
+                    ? t("实际收购价（人民币），留空即清除记录")
+                    : t("该节点已忽略或汇率缺失，无法折算剩余价值")
                 }
                 className="surface-inset w-24 px-2 py-1 text-right text-[13px] outline-none disabled:opacity-45 max-sm:flex-1"
               />
@@ -838,11 +839,11 @@ const PremiumList = memo(function PremiumList({
                 value={entry?.acquiredAt ?? ""}
                 onChange={(event) => onPatchAcquiredAt(client.uuid, event.target.value)}
                 disabled={!entry || !canCompute}
-                aria-label={`${client.name} 的收购日期`}
+                aria-label={t("{name} 的收购日期", { name: client.name })}
                 title={
                   canCompute
-                    ? "收购日期：修改后会按当前价格、周期、到期日和汇率回算该日剩余价值，重新计算并固化溢价"
-                    : "该节点已忽略或汇率缺失，无法折算剩余价值"
+                    ? t("收购日期：修改后会按当前价格、周期、到期日和汇率回算该日剩余价值，重新计算并固化溢价")
+                    : t("该节点已忽略或汇率缺失，无法折算剩余价值")
                 }
                 className="surface-inset w-35 px-2 py-1 text-[12px] outline-none disabled:opacity-45 max-sm:flex-1"
               />
@@ -973,20 +974,20 @@ function SiteSyncIndicator({
   const [icon, text] = invalid
     ? [
         <CloudOff key="off" size={14} />,
-        toSite ? "有设置填得不对，暂未同步" : "有设置填得不对，暂未保存",
+        toSite ? t("有设置填得不对，暂未同步") : t("有设置填得不对，暂未保存"),
       ]
     : !toSite
       ? [
           <Sparkles key="local" size={14} />,
-          savedLocally ? "已保存到本机" : "改动会自动保存到本机",
+          savedLocally ? t("已保存到本机") : t("改动会自动保存到本机"),
         ]
       : phase === "saving" || phase === "pending" || waiting
-        ? [<Cloud key="syncing" size={14} className="is-spinning" />, "正在同步到后端…"]
+        ? [<Cloud key="syncing" size={14} className="is-spinning" />, t("正在同步到后端…")]
         : phase === "synced"
-          ? [<Cloud key="synced" size={14} />, "已同步到后端"]
+          ? [<Cloud key="synced" size={14} />, t("已同步到后端")]
           : phase === "error"
-            ? [<CloudAlert key="error" size={14} />, "同步失败，正在重试…"]
-            : [<Cloud key="idle" size={14} />, "改动会自动同步到后端"];
+            ? [<CloudAlert key="error" size={14} />, t("同步失败，正在重试…")]
+            : [<Cloud key="idle" size={14} />, t("改动会自动同步到后端")];
 
   return (
     <span
@@ -1571,12 +1572,12 @@ export function ThemeManage() {
     setError(null);
     if (await copyText(siteDefaultsJson)) {
       setCopied(true);
-      setMessage("配置 JSON 已复制，粘贴到后台「外观设置 → 主题自定义配置」保存即可成为所有设备的默认值");
+      setMessage(t("配置 JSON 已复制，粘贴到后台「外观设置 → 主题自定义配置」保存即可成为所有设备的默认值"));
       window.setTimeout(() => setCopied(false), 2000);
       return;
     }
     setMessage(null);
-    setError("复制失败，请检查浏览器的剪贴板权限");
+    setError(t("复制失败，请检查浏览器的剪贴板权限"));
   };
 
   const handleRestoreSiteDefaults = () => {
@@ -1588,7 +1589,7 @@ export function ThemeManage() {
         withPreferredAppearance(config?.preferredAppearance, config?.theme_settings ?? {}),
       ),
     );
-    setMessage("已丢弃本机设置，改用后端当前的配置");
+    setMessage(t("已丢弃本机设置，改用后端当前的配置"));
     setError(null);
   };
 
@@ -1612,10 +1613,10 @@ export function ThemeManage() {
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
         <div role="alert" className="space-y-2">
           <div className="text-[15px] font-semibold text-(--text-primary)">
-            无法读取主题配置
+            {t("无法读取主题配置")}
           </div>
           <p className="max-w-lg text-[13px] text-(--text-secondary)">
-            {configError instanceof Error ? configError.message : "请稍后重试。"}
+            {configError instanceof Error ? configError.message : t("请稍后重试。")}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-2">
@@ -1624,10 +1625,10 @@ export function ThemeManage() {
             onClick={() => void refetchConfig()}
             className="theme-manage-button px-4 py-2 text-[13px] font-medium"
           >
-            重试
+            {t("重试")}
           </button>
           <Link to="/" className="theme-manage-button px-4 py-2 text-[13px] font-medium">
-            返回首页
+            {t("返回首页")}
           </Link>
         </div>
       </div>
@@ -1655,7 +1656,7 @@ export function ThemeManage() {
             type="button"
             onClick={() => setToastMessage(null)}
             className="ml-1 text-(--text-muted) hover:text-(--text-primary) transition-colors text-xs leading-none"
-            title="关闭通知"
+            title={t("关闭通知")}
           >
             ✕
           </button>
@@ -1665,9 +1666,9 @@ export function ThemeManage() {
       <header className="theme-topbar">
         <Link to="/" className="instance-page-back theme-topbar-back">
           <ArrowLeft size={14} />
-          <span>返回首页</span>
+          <span>{t("返回首页")}</span>
         </Link>
-        <h1 className="theme-topbar-title">主题设置</h1>
+        <h1 className="theme-topbar-title">{t("主题设置")}</h1>
         <div className="theme-manage-toolbar-actions">
           {(!canSaveToSite || siteHasUnsyncedChanges) && (
             <button
@@ -1676,12 +1677,12 @@ export function ThemeManage() {
               className="theme-manage-button"
               title={
                 canSaveToSite
-                  ? "放弃这台设备上还没同步到后端的改动，改用后端当前的配置"
-                  : "放弃本机存过的设置，改用后端当前的配置"
+                  ? t("放弃这台设备上还没同步到后端的改动，改用后端当前的配置")
+                  : t("放弃本机存过的设置，改用后端当前的配置")
               }
             >
               <CloudDownload size={14} />
-              <span>改用后端配置</span>
+              <span>{t("改用后端配置")}</span>
             </button>
           )}
           {!canSaveToSite && (
@@ -1689,10 +1690,10 @@ export function ThemeManage() {
               type="button"
               onClick={() => void handleCopySiteDefaults()}
               className="theme-manage-button"
-              title="复制当前设置的 JSON；粘贴到后台「外观设置 → 主题自定义配置」即可让所有设备用同一套配置"
+              title={t("复制当前设置的 JSON；粘贴到后台「外观设置 → 主题自定义配置」即可让所有设备用同一套配置")}
             >
               {copied ? <ClipboardCheck size={14} /> : <ClipboardCopy size={14} />}
-              <span>{copied ? "已复制" : "复制配置 JSON"}</span>
+              <span>{copied ? t("已复制") : t("复制配置 JSON")}</span>
             </button>
           )}
           <SiteSyncIndicator
@@ -1729,14 +1730,14 @@ export function ThemeManage() {
               role="alert"
               className="rounded-xl border border-[color-mix(in_srgb,var(--status-offline)_28%,transparent)] bg-[color-mix(in_srgb,var(--status-offline)_11%,var(--surface))] px-4 py-3 text-[13px] text-(--status-offline)"
             >
-              无法读取后台节点列表: {adminError}
+              {t("无法读取后台节点列表: {error}", { error: String(adminError) })}
             </div>
           )}
         </div>
       )}
 
       <div className="theme-manage-body" ref={bodyRef}>
-        <nav className="theme-tab-rail" aria-label="设置分组">
+        <nav className="theme-tab-rail" aria-label={t("设置分组")}>
           {THEME_TABS.map(({ id, label, hint, icon: Icon }) => (
             <button
               key={id}
@@ -1747,8 +1748,8 @@ export function ThemeManage() {
               className="theme-tab"
             >
               <Icon size={14} className="theme-tab-icon" />
-              <span className="theme-tab-label">{label}</span>
-              <span className="theme-tab-hint">{hint}</span>
+              <span className="theme-tab-label">{t(label)}</span>
+              <span className="theme-tab-hint">{t(hint)}</span>
             </button>
           ))}
         </nav>
@@ -1758,8 +1759,8 @@ export function ThemeManage() {
             <>
               <InstancePanel
                 id="set-appearance"
-                kicker="外观"
-                title="显示外观"
+                kicker={t("外观")}
+                title={t("显示外观")}
                 aside={<LayoutTemplate size={16} />}
               >
                 <div className="instance-segmented is-prominent is-even">
@@ -1773,29 +1774,29 @@ export function ThemeManage() {
                       className="inline-flex items-center justify-center gap-2"
                     >
                       <Icon size={14} />
-                      <span>{label}</span>
+                      <span>{t(label)}</span>
                     </button>
                   ))}
                 </div>
               </InstancePanel>
 
               <InstancePanel
-                kicker="总览"
-                title="监控总览"
+                kicker={t("总览")}
+                title={t("监控总览")}
                 aside={<Layers size={16} />}
               >
                 <div className="grid gap-3 md:grid-cols-2">
                   <ToggleRow
                     field="showHomeOverview"
-                    title="监控总览"
-                    desc="在首页顶部展示监控总览模块。"
+                    title={t("监控总览")}
+                    desc={t("在首页顶部展示监控总览模块。")}
                     checked={draft.showHomeOverview}
                     onPatch={patch}
                   />
                   <ToggleRow
                     field="showAssetOverview"
-                    title="资产总值卡"
-                    desc="总览里写着资产总值的那张卡。不想展示开销就关掉，其余指标卡不受影响。"
+                    title={t("资产总值卡")}
+                    desc={t("总览里写着资产总值的那张卡。不想展示开销就关掉，其余指标卡不受影响。")}
                     checked={draft.showAssetOverview}
                     onPatch={patch}
                   />
@@ -1803,25 +1804,25 @@ export function ThemeManage() {
               </InstancePanel>
 
               <InstancePanel
-                kicker="权限"
-                title="访客权限"
+                kicker={t("权限")}
+                title={t("访客权限")}
                 aside={<Compass size={16} />}
               >
                 <div className="flex flex-col gap-4">
                   <div>
-                    <span className="setting-subhead-title block mb-2">卡片操作入口</span>
+                    <span className="setting-subhead-title block mb-2">{t("卡片操作入口")}</span>
                     <div className="grid gap-3 md:grid-cols-2">
                       <ToggleRow
                         field="showCostSummary"
-                        title="资产入口"
-                        desc="在资产卡片显示进入按钮；未公开时仅管理员可见。"
+                        title={t("资产入口")}
+                        desc={t("在资产卡片显示进入按钮；未公开时仅管理员可见。")}
                         checked={draft.showCostSummary}
                         onPatch={patch}
                       />
                       <ToggleRow
                         field="showCostSummaryFloatingButton"
-                        title="悬浮入口"
-                        desc="在右下角悬浮显示资产入口，未显示卡片时生效。"
+                        title={t("悬浮入口")}
+                        desc={t("在右下角悬浮显示资产入口，未显示卡片时生效。")}
                         checked={draft.showCostSummaryFloatingButton}
                         onPatch={patch}
                       />
@@ -1829,12 +1830,12 @@ export function ThemeManage() {
                   </div>
 
                   <div className="border-t border-(--border-subtle) pt-3">
-                    <span className="setting-subhead-title block mb-2">访客公开与可见性权限</span>
+                    <span className="setting-subhead-title block mb-2">{t("访客公开与可见性权限")}</span>
                     <div className="grid gap-3">
                       <ToggleRow
                         field="showPriceForGuests"
-                        title="公开资产"
-                        desc="允许访客查看机器价格与资产总额，关闭则保密。"
+                        title={t("公开资产")}
+                        desc={t("允许访客查看机器价格与资产总额，关闭则保密。")}
                         checked={draft.showPriceForGuests}
                         onPatch={patch}
                       />
@@ -1848,8 +1849,8 @@ export function ThemeManage() {
               {draft.clusterOverviewMode === "nodes" && (
                 <InstancePanel
                   id="set-matrix-settings"
-                  kicker="矩阵"
-                  title="矩阵定制"
+                  kicker={t("矩阵")}
+                  title={t("矩阵定制")}
                   aside={<LayoutGrid size={16} />}
                 >
                   {/* 1. 矩阵配色风格切换 */}
@@ -1857,7 +1858,7 @@ export function ThemeManage() {
                     <div className="flex items-center justify-between gap-3 mb-2.5">
                       <div className="min-w-0">
                         <div className="text-xs font-semibold text-(--text-primary) flex items-center gap-1.5">
-                          <span>配色风格</span>
+                          <span>{t("配色风格")}</span>
                           {(() => {
                             const currentOpt = COLOR_THEME_OPTIONS.find(
                               (opt) => opt.id === (draft.matrixColorTheme ?? "default"),
@@ -1872,7 +1873,7 @@ export function ThemeManage() {
                           })()}
                         </div>
                         <p className="text-[11px] text-(--text-muted) mt-0.5">
-                          定制方格矩阵与指标卡片的高光配色风格。
+                          {t("定制方格矩阵与指标卡片的高光配色风格。")}
                         </p>
                       </div>
                     </div>
@@ -1901,10 +1902,10 @@ export function ThemeManage() {
                               </div>
                               <div className="min-w-0">
                                 <span className="text-xs font-medium text-(--text-primary) block truncate">
-                                  {opt.label}
+                                  {t(opt.label)}
                                 </span>
                                 <span className="text-[10px] text-(--text-muted) block truncate">
-                                  {opt.desc}
+                                  {t(opt.desc)}
                                 </span>
                               </div>
                             </div>
@@ -1924,13 +1925,13 @@ export function ThemeManage() {
                     <label className="flex items-center justify-between gap-3 cursor-pointer">
                       <div className="min-w-0">
                         <div className="text-xs font-semibold text-(--text-primary) flex items-center gap-1.5">
-                          <span>开屏动画</span>
+                          <span>{t("开屏动画")}</span>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30">
                             BOOT INTRO
                           </span>
                         </div>
                         <p className="text-[11px] text-(--text-muted) mt-0.5">
-                          进入首页时播放光效开屏动画，随后载入数据。
+                          {t("进入首页时播放光效开屏动画，随后载入数据。")}
                         </p>
                       </div>
                       <input
@@ -1949,7 +1950,7 @@ export function ThemeManage() {
                           <div className="flex items-center justify-between gap-2 mb-2.5">
                             <div>
                               <div className="text-xs font-semibold text-(--text-primary) flex items-center gap-1.5">
-                                <span>动效样式</span>
+                                <span>{t("动效样式")}</span>
                                 {(() => {
                                   const currentEffect =
                                     BOOT_EFFECT_OPTIONS.find(
@@ -1965,7 +1966,7 @@ export function ThemeManage() {
                                 })()}
                               </div>
                               <p className="text-[11px] text-(--text-muted) mt-0.5">
-                                选择开屏画面的入场动效样式。
+                                {t("选择开屏画面的入场动效样式。")}
                               </p>
                             </div>
                           </div>
@@ -1986,11 +1987,11 @@ export function ThemeManage() {
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-1.5">
                                         <span className="text-xs font-medium text-(--text-primary) truncate">
-                                          {opt.label}
+                                          {t(opt.label)}
                                         </span>
                                       </div>
                                       <span className="text-[10px] text-(--text-muted) block truncate mt-0.5">
-                                        {opt.desc}
+                                        {t(opt.desc)}
                                       </span>
                                     </div>
                                   </div>
@@ -2013,11 +2014,11 @@ export function ThemeManage() {
                         bootEffect={draft.matrixBootEffect ?? "laser-scan"}
                         onApply={(pattern) => {
                           patch("matrixCustomPattern", pattern);
-                          showToast("已将点阵图案应用到首页并同步云端");
+                          showToast(t("已将点阵图案应用到首页并同步云端"));
                         }}
                         onSaveUserPresets={(presets) => {
                           patch("matrixUserPresets", presets);
-                          showToast("用户预设已更新并同步云端");
+                          showToast(t("用户预设已更新并同步云端"));
                         }}
                       />
                     </div>
@@ -2029,13 +2030,13 @@ export function ThemeManage() {
                     <label className="flex items-center justify-between gap-3 cursor-pointer">
                       <div className="min-w-0">
                         <div className="text-xs font-semibold text-(--text-primary) flex items-center gap-1.5">
-                          <span>模拟数据填充空闲机位插槽</span>
+                          <span>{t("模拟数据填充空闲机位插槽")}</span>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-600 dark:text-blue-300 border border-blue-500/30">
                             MOCK FILL
                           </span>
                         </div>
                         <p className="text-[11px] text-(--text-muted) mt-0.5">
-                          开启后，机架方格矩阵中未接入服务器的闲置插槽将使用模拟数据填满，并在运行期间周期性随机变幻「空闲待机」、「活跃传输」与「高吞吐」状态及吞吐速率，令机架方格更显生机灵动。
+                          {t("开启后，机架方格矩阵中未接入服务器的闲置插槽将使用模拟数据填满，并在运行期间周期性随机变幻「空闲待机」、「活跃传输」与「高吞吐」状态及吞吐速率，令机架方格更显生机灵动。")}
                         </p>
                       </div>
                       <input
@@ -2051,8 +2052,8 @@ export function ThemeManage() {
 
               <InstancePanel
                 id="set-overview-ratings"
-                kicker="评级"
-                title="状态评级"
+                kicker={t("评级")}
+                title={t("状态评级")}
                 aside={<ListFilter size={16} />}
               >
                 <div className="grid gap-3 md:grid-cols-2">
@@ -2069,7 +2070,7 @@ export function ThemeManage() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="setting-subhead-title">{field.title}</span>
+                              <span className="setting-subhead-title">{t(field.title)}</span>
                               <span
                                 className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded ${
                                   field.isBadge
@@ -2078,11 +2079,11 @@ export function ThemeManage() {
                                 }`}
                               >
                                 {field.isBadge && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-pulse" />}
-                                {field.scopeBadge}
+                                {t(field.scopeBadge)}
                               </span>
                             </div>
                             <p className="mt-1 text-[11px] text-(--text-tertiary) leading-normal">
-                              {field.description}
+                              {t(field.description)}
                             </p>
                           </div>
                           <input
@@ -2090,25 +2091,25 @@ export function ThemeManage() {
                             checked={draft[field.toggleKey]}
                             onChange={(event) => patch(field.toggleKey, event.target.checked)}
                             className="h-4 w-4 shrink-0 mt-0.5 accent-(--accent-500)"
-                            title={`开启/关闭${field.title}`}
+                            title={t("开启/关闭{name}", { name: t(field.title) })}
                           />
                         </div>
 
                         <div className="flex flex-col gap-1.5 mt-auto pt-1">
                           <div className="flex items-center justify-between text-[11px] text-(--text-muted)">
-                            <span>自定义分级词</span>
-                            {!ratingEnabled && <span className="opacity-70">(已停用)</span>}
+                            <span>{t("自定义分级词")}</span>
+                            {!ratingEnabled && <span className="opacity-70">{t("(已停用)")}</span>}
                           </div>
                           <input
                             value={draft.ratingLabels[field.key]}
                             disabled={!ratingEnabled}
                             onChange={(event) => setRatingLabelDraft(field.key, event.target.value)}
                             placeholder={defaultLabel}
-                            aria-label={`${field.title}评级名称`}
+                            aria-label={t("{name}评级名称", { name: t(field.title) })}
                             className="surface-inset w-full px-3 py-1.5 text-[12px] outline-none disabled:opacity-60 font-mono"
                           />
                           <span className="setting-hint">
-                            {field.tierHint}
+                            {t(field.tierHint)}
                           </span>
                         </div>
                       </div>
@@ -2124,18 +2125,18 @@ export function ThemeManage() {
               {/* 面板 1: 默认视图 */}
               <InstancePanel
                 id="set-view"
-                kicker="视图"
-                title="默认视图"
+                kicker={t("视图")}
+                title={t("默认视图")}
                 aside={<LayoutGrid size={16} />}
               >
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="surface-inset setting-segment-slot flex flex-col gap-3 px-4 py-4">
                     <div>
                       <div className="setting-subhead-title">
-                        桌面端
+                        {t("桌面端")}
                       </div>
                       <div className="mt-1 setting-hint">
-                        适用于宽度大于 720px 的浏览器窗口。
+                        {t("适用于宽度大于 720px 的浏览器窗口。")}
                       </div>
                     </div>
                     <div className="instance-segmented is-prominent is-even">
@@ -2149,7 +2150,7 @@ export function ThemeManage() {
                           className="inline-flex items-center justify-center gap-2"
                         >
                           <Icon size={14} />
-                          <span>{label}</span>
+                          <span>{t(label)}</span>
                         </button>
                       ))}
                     </div>
@@ -2157,10 +2158,10 @@ export function ThemeManage() {
                   <div className="surface-inset setting-segment-slot flex flex-col gap-3 px-4 py-4">
                     <div>
                       <div className="setting-subhead-title">
-                        移动端
+                        {t("移动端")}
                       </div>
                       <div className="mt-1 setting-hint">
-                        适用于宽度小于等于 720px 的手机或窄屏窗口。
+                        {t("适用于宽度小于等于 720px 的手机或窄屏窗口。")}
                       </div>
                     </div>
                     <div className="instance-segmented is-prominent is-even">
@@ -2174,7 +2175,7 @@ export function ThemeManage() {
                           className="inline-flex items-center justify-center gap-2"
                         >
                           <Icon size={14} />
-                          <span>{label}</span>
+                          <span>{t(label)}</span>
                         </button>
                       ))}
                     </div>
@@ -2185,65 +2186,65 @@ export function ThemeManage() {
               {/* 面板 2: 卡片指标 */}
               <InstancePanel
               id="set-card-content"
-              kicker="指标"
-              title="卡片指标"
-              description="自选各视图卡片上呈现的具体参数与开关。"
+              kicker={t("指标")}
+              title={t("卡片指标")}
+              description={t("自选各视图卡片上呈现的具体参数与开关。")}
               aside={<Rows3 size={16} />}
             >
               <div className="grid gap-3 md:grid-cols-2">
                 <ToggleRow
                   field="showGroupTabs"
-                  title="分组标签"
-                  desc="在服务器列表上方显示分组切换标签。"
+                  title={t("分组标签")}
+                  desc={t("在服务器列表上方显示分组切换标签。")}
                   checked={draft.showGroupTabs}
                   onPatch={patch}
                 />
                 <ToggleRow
                   field="showRegionBar"
-                  title="地区标签"
-                  desc="在服务器列表上方显示国旗地区筛选。"
+                  title={t("地区标签")}
+                  desc={t("在服务器列表上方显示国旗地区筛选。")}
                   checked={draft.showRegionBar}
                   onPatch={patch}
                 />
                 <ToggleRow
                   field="showCardGroup"
-                  title="分组名称"
-                  desc="在服务器卡片副标题标注所属分组。"
+                  title={t("分组名称")}
+                  desc={t("在服务器卡片副标题标注所属分组。")}
                   checked={draft.showCardGroup}
                   onPatch={patch}
                 />
                 <ToggleRow
                   field="showCardPrice"
-                  title="价格到期"
-                  desc="在卡片中显示续费周期、费用和到期日。"
+                  title={t("价格到期")}
+                  desc={t("在卡片中显示续费周期、费用和到期日。")}
                   checked={draft.showCardPrice}
                   onPatch={patch}
                 />
                 <ToggleRow
                   field="compactShowTrafficTotal"
-                  title="本期流量"
-                  desc="在紧凑卡片中展示本计费周期（按重置日清零）的上下行用量。"
+                  title={t("本期流量")}
+                  desc={t("在紧凑卡片中展示本计费周期（按重置日清零）的上下行用量。")}
                   checked={draft.compactShowTrafficTotal}
                   onPatch={patch}
                 />
                 <ToggleRow
                   field="compactShowBilling"
-                  title="计费周期"
-                  desc="在紧凑卡片中标注续费计费周期。"
+                  title={t("计费周期")}
+                  desc={t("在紧凑卡片中标注续费计费周期。")}
                   checked={draft.compactShowBilling}
                   onPatch={patch}
                 />
                 <ToggleRow
                   field="compactShowUptime"
-                  title="在线时长"
-                  desc="在紧凑卡片中展示系统持续运行时间。"
+                  title={t("在线时长")}
+                  desc={t("在紧凑卡片中展示系统持续运行时间。")}
                   checked={draft.compactShowUptime}
                   onPatch={patch}
                 />
                 <ToggleRow
                   field="showConnections"
-                  title="连接数量"
-                  desc="在卡片网络区域标注实时网络连接数。"
+                  title={t("连接数量")}
+                  desc={t("在卡片网络区域标注实时网络连接数。")}
                   checked={draft.showConnections}
                   onPatch={patch}
                 />
@@ -2253,23 +2254,23 @@ export function ThemeManage() {
               {/* 面板 3: 列表排序 */}
               <InstancePanel
                 id="set-home-sort"
-                kicker="排序"
-                title="列表排序"
+                kicker={t("排序")}
+                title={t("列表排序")}
                 aside={<Rows3 size={16} />}
               >
                 <div className="flex flex-col gap-4">
                   <div className="grid gap-3 md:grid-cols-2">
                     <ToggleRow
                       field="enableHomeSort"
-                      title="允许访客切换排序"
-                      desc="在首页提供排序下拉切换功能。"
+                      title={t("允许访客切换排序")}
+                      desc={t("在首页提供排序下拉切换功能。")}
                       checked={draft.enableHomeSort}
                       onPatch={patch}
                     />
                     <ToggleRow
                       field="offlineNodesFirst"
-                      title="离线节点优先置顶"
-                      desc="开启后失联服务器将排在最上方方便巡检，默认关闭（置底）。"
+                      title={t("离线节点优先置顶")}
+                      desc={t("开启后失联服务器将排在最上方方便巡检，默认关闭（置底）。")}
                       checked={draft.offlineNodesFirst}
                       onPatch={patch}
                     />
@@ -2277,7 +2278,7 @@ export function ThemeManage() {
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="surface-inset flex flex-col gap-2 px-4 py-3">
-                      <span className="setting-subhead-title">默认指标</span>
+                      <span className="setting-subhead-title">{t("默认指标")}</span>
                       <SettingSelect
                         value={draft.homeSortField}
                         onChange={(event) =>
@@ -2289,40 +2290,40 @@ export function ThemeManage() {
                       >
                         {HOME_SORT_FIELDS.map((field) => (
                           <option key={field} value={field}>
-                            {HOME_SORT_FIELD_LABELS[field]}
+                            {t(HOME_SORT_FIELD_LABELS[field])}
                           </option>
                         ))}
                       </SettingSelect>
                     </div>
 
                     <div className="surface-inset flex flex-col gap-2 px-4 py-3">
-                      <span className="setting-subhead-title">默认次序</span>
+                      <span className="setting-subhead-title">{t("默认次序")}</span>
                       <SettingSelect
                         value={draft.homeSortDirection}
                         onChange={(event) =>
                           patch("homeSortDirection", event.target.value as "asc" | "desc")
                         }
                       >
-                        <option value="asc">升序</option>
-                        <option value="desc">降序</option>
+                        <option value="asc">{t("升序")}</option>
+                        <option value="desc">{t("降序")}</option>
                       </SettingSelect>
                     </div>
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="surface-inset flex flex-col gap-2 px-4 py-3">
-                      <span className="setting-subhead-title">默认分组</span>
+                      <span className="setting-subhead-title">{t("默认分组")}</span>
                       <SettingSelect
                         value={draft.homeDefaultGroup}
                         onChange={(event) => patch("homeDefaultGroup", event.target.value)}
-                        aria-label="默认分组"
+                        aria-label={t("默认分组")}
                       >
-                        <option value="">全部（不指定）</option>
+                        <option value="">{t("全部（不指定）")}</option>
                         {/* 站点换过分组名时，存着的那个值仍列出来，免得选中项凭空消失。 */}
                         {draft.homeDefaultGroup !== "" &&
                           !availableGroups.includes(draft.homeDefaultGroup) && (
                             <option value={draft.homeDefaultGroup}>
-                              {draft.homeDefaultGroup}（当前没有这个分组）
+                              {draft.homeDefaultGroup}{t("（当前没有这个分组）")}
                             </option>
                           )}
                         {availableGroups.map((group) => (
@@ -2331,20 +2332,20 @@ export function ThemeManage() {
                           </option>
                         ))}
                       </SettingSelect>
-                      <span className="setting-hint">打开首页时默认选中的分组。</span>
+                      <span className="setting-hint">{t("打开首页时默认选中的分组。")}</span>
                     </div>
 
                     {/* 地区顺序在首页地区栏上直接拖（站长提的：拖比在这里上下点直观）；这里只留查看和恢复默认。 */}
                     <div className="surface-inset flex flex-col gap-2 px-4 py-3">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="setting-subhead-title">地区次序</span>
+                        <span className="setting-subhead-title">{t("地区次序")}</span>
                         <button
                           type="button"
                           disabled={draft.homeRegionOrder.length === 0}
                           onClick={() => patch("homeRegionOrder", [])}
                           className="theme-manage-button is-compact shrink-0"
                         >
-                          恢复默认
+                          {t("恢复默认")}
                         </button>
                       </div>
                       <span
@@ -2353,10 +2354,10 @@ export function ThemeManage() {
                       >
                         {draft.homeRegionOrder.length > 0
                           ? draft.homeRegionOrder.join(" → ")
-                          : "默认：中国大陆、港澳台、新加坡、日本、美国、欧洲、其他"}
+                          : t("默认：中国大陆、港澳台、新加坡、日本、美国、欧洲、其他")}
                       </span>
                       <span className="setting-hint">
-                        在首页按住地区标签直接拖动（手机上先长按）；新出现的地区按默认规则排在后面。
+                        {t("在首页按住地区标签直接拖动（手机上先长按）；新出现的地区按默认规则排在后面。")}
                       </span>
                     </div>
                   </div>
@@ -2364,8 +2365,8 @@ export function ThemeManage() {
                   {availableGroups.length > 0 && (
                     <div className="surface-inset flex flex-col gap-3 px-4 py-3">
                       <div className="flex items-center justify-between">
-                        <span className="setting-subhead-title">分组次序</span>
-                        <span className="setting-hint">点击上下箭头调整次序</span>
+                        <span className="setting-subhead-title">{t("分组次序")}</span>
+                        <span className="setting-hint">{t("点击上下箭头调整次序")}</span>
                       </div>
                       <div className="flex flex-col gap-1.5">
                         {orderedDraftGroups.map((group, index) => (
@@ -2403,28 +2404,28 @@ export function ThemeManage() {
               {/* 面板 4: 网络延迟 */}
               <InstancePanel
                 id="set-ping-mode"
-                kicker="延迟"
-                title="网络延迟"
-                description="设定延迟展示方式并为服务器指定线路。"
+                kicker={t("延迟")}
+                title={t("网络延迟")}
+                description={t("设定延迟展示方式并为服务器指定线路。")}
                 aside={<Activity size={16} />}
               >
                 <div className="flex flex-col gap-4">
                   <div className="surface-inset flex flex-col gap-3 px-4 py-4">
-                    <span className="setting-subhead-title">展示模式</span>
+                    <span className="setting-subhead-title">{t("展示模式")}</span>
                     <div className="instance-segmented is-prominent is-even is-stack-mobile">
                       <button
                         type="button"
                         data-active={!draft.enableHomepageMultiPing ? "true" : "false"}
                         onClick={() => patch("enableHomepageMultiPing", false)}
                       >
-                        单线模式
+                        {t("单线模式")}
                       </button>
                       <button
                         type="button"
                         data-active={draft.enableHomepageMultiPing ? "true" : "false"}
                         onClick={() => patch("enableHomepageMultiPing", true)}
                       >
-                        多线模式
+                        {t("多线模式")}
                       </button>
                     </div>
                   </div>
@@ -2433,9 +2434,9 @@ export function ThemeManage() {
                     <div className="surface-inset flex flex-col gap-3 px-4 py-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <span className="setting-subhead-title">多线槽位</span>
+                          <span className="setting-subhead-title">{t("多线槽位")}</span>
                           <p className="setting-hint mt-1">
-                            卡片将依序展示各线路的实时延迟光柱。
+                            {t("卡片将依序展示各线路的实时延迟光柱。")}
                           </p>
                         </div>
                         {draft.homepageMultiPingTaskIds.length < multiPingSlotLimit && (
@@ -2444,7 +2445,7 @@ export function ThemeManage() {
                             onClick={addMultiPingTask}
                             className="theme-manage-button is-compact"
                           >
-                            + 添加展示线路
+                            {t("+ 添加展示线路")}
                           </button>
                         )}
                       </div>
@@ -2456,7 +2457,7 @@ export function ThemeManage() {
                             className="flex items-center justify-between gap-2 rounded-[10px] border border-(--hairline) px-3 py-2"
                           >
                             <span className="text-[12px] font-medium text-(--text-secondary)">
-                              槽位 #{slot + 1}
+                              {t("槽位 #{n}", { n: slot + 1 })}
                             </span>
                             <SettingSelect
                               value={String(taskId)}
@@ -2465,7 +2466,7 @@ export function ThemeManage() {
                             >
                               {sortedTasks.map((task) => (
                                 <option key={task.id} value={task.id}>
-                                  {task.name || `线路 #${task.id}`}
+                                  {task.name || t("线路 #{id}", { id: task.id })}
                                 </option>
                               ))}
                             </SettingSelect>
@@ -2475,7 +2476,7 @@ export function ThemeManage() {
                                 onClick={() => removeMultiPingTask(slot)}
                                 className="theme-manage-button is-compact is-danger"
                               >
-                                删除
+                                {t("删除")}
                               </button>
                             )}
                           </div>
@@ -2485,7 +2486,7 @@ export function ThemeManage() {
                   ) : (
                     <div className="flex flex-col gap-4">
                       <div className="surface-inset flex flex-col gap-2 px-4 py-3">
-                        <span className="setting-subhead-title">默认线路</span>
+                        <span className="setting-subhead-title">{t("默认线路")}</span>
                         <SettingSelect
                           value={String(draft.homepageDefaultPingTaskId)}
                           onChange={(event) =>
@@ -2494,24 +2495,24 @@ export function ThemeManage() {
                         >
                           {sortedTasks.map((task) => (
                             <option key={task.id} value={task.id}>
-                              {task.name || `线路 #${task.id}`}
+                              {task.name || t("线路 #{id}", { id: task.id })}
                             </option>
                           ))}
                         </SettingSelect>
-                        <span className="setting-hint">未单独指派线路的服务器均显示此线路数据。</span>
+                        <span className="setting-hint">{t("未单独指派线路的服务器均显示此线路数据。")}</span>
                       </div>
 
                       <ToggleRow
                         field="fakePingForUnbound"
-                        title="平滑占位"
-                        desc="无探测数据时显示平滑占位，保持视觉整齐。"
+                        title={t("平滑占位")}
+                        desc={t("无探测数据时显示平滑占位，保持视觉整齐。")}
                         checked={draft.fakePingForUnbound}
                         onPatch={patch}
                       />
 
                       <div className="flex flex-col gap-3">
                         <span className="setting-subhead-title">
-                          专属线路 (已设 {assignedNodeCount} 台)
+                          {t("专属线路 (已设 {n} 台)", { n: assignedNodeCount })}
                         </span>
                         {sortedTasks.map((task) => (
                           <TaskBindingSection
@@ -2537,18 +2538,18 @@ export function ThemeManage() {
             {/* 面板 5: 状态光柱 */}
               {/* 面板 5: 状态光柱 */}
               <InstancePanel
-                kicker="光柱"
-                title="状态光柱"
-                description="定制流量、延迟与丢包光柱的过渡色与判断门槛。"
+                kicker={t("光柱")}
+                title={t("状态光柱")}
+                description={t("定制流量、延迟与丢包光柱的过渡色与判断门槛。")}
                 aside={<Sliders size={16} />}
               >
                 <div className="flex flex-col gap-5">
                   {/* 顶置配套方案预设：一套方案联动覆盖流量、延迟、丢包三处光柱 */}
                   <div className="surface-inset flex flex-col gap-3.5 px-4 py-4">
                     <div>
-                      <span className="setting-subhead-title">配套预设方案</span>
+                      <span className="setting-subhead-title">{t("配套预设方案")}</span>
                       <p className="setting-hint mt-1">
-                        一键联动设定流量、延迟与丢包光柱的成套视觉方案。
+                        {t("一键联动设定流量、延迟与丢包光柱的成套视觉方案。")}
                       </p>
                     </div>
 
@@ -2587,7 +2588,7 @@ export function ThemeManage() {
                                     : "text-(--text-primary)",
                                 )}
                               >
-                                {preset.name}
+                                {t(preset.name)}
                               </span>
                               <div className="setting-color-theme-radio" aria-hidden="true">
                                 {isSelected && <div className="setting-color-theme-radio-dot" />}
@@ -2607,19 +2608,19 @@ export function ThemeManage() {
                   <div className="surface-inset flex flex-col gap-3.5 px-4 py-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <span className="setting-subhead-title">流量光柱</span>
+                        <span className="setting-subhead-title">{t("流量光柱")}</span>
                         <p className="setting-hint mt-1">
-                          从用量充裕到即将耗尽，呈现平滑过渡色谱。
+                          {t("从用量充裕到即将耗尽，呈现平滑过渡色谱。")}
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={resetTrafficSpectrum}
                         className="theme-manage-button is-compact shrink-0 flex items-center gap-1.5"
-                        title="恢复为默认的监控绿色谱"
+                        title={t("恢复为默认的监控绿色谱")}
                       >
                         <RotateCcw size={13} />
-                        重置色彩
+                        {t("重置色彩")}
                       </button>
                     </div>
 
@@ -2628,17 +2629,17 @@ export function ThemeManage() {
                       <div className="flex items-center justify-between text-[12px]">
                         <span className="font-medium text-(--text-secondary) flex items-center gap-1.5">
                           <Sparkles size={13} className="text-(--accent-500)" />
-                          流量光柱实时效果 (18 段)
+                          {t("流量光柱实时效果 (18 段)")}
                         </span>
                         <span className="text-[11px] text-(--text-tertiary)">
-                          所见即所得 · 0% 充裕至 100% 耗尽连续色谱
+                          {t("所见即所得 · 0% 充裕至 100% 耗尽连续色谱")}
                         </span>
                       </div>
 
                       <div className="flex flex-col gap-1 rounded-md bg-(--bg-primary) p-2.5 shadow-inner">
                         <div className="flex items-center justify-between text-[11px] text-(--text-tertiary) mb-1">
-                          <span>18 段发光光柱色谱全貌：</span>
-                          <span className="font-mono">从轻载平滑过渡至警戒红</span>
+                          <span>{t("18 段发光光柱色谱全貌：")}</span>
+                          <span className="font-mono">{t("从轻载平滑过渡至警戒红")}</span>
                         </div>
                         <div className="traffic-quota-track" aria-hidden>
                           {previewTrafficSegmentColors.map((color, i) => (
@@ -2660,7 +2661,7 @@ export function ThemeManage() {
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-[13px] font-semibold text-(--text-primary)">
-                                {label}
+                                {t(label)}
                               </span>
                               <span
                                 className={clsx(
@@ -2670,7 +2671,7 @@ export function ThemeManage() {
                                     : "bg-(--bg-primary) text-(--text-tertiary) border-(--hairline)",
                                 )}
                               >
-                                {stage}
+                                {t(stage)}
                               </span>
                             </div>
 
@@ -2685,7 +2686,7 @@ export function ThemeManage() {
                                   value={currentColor}
                                   onChange={(e) => patchTrafficSpectrumColor(key, e.target.value)}
                                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                  title={`选取${label}`}
+                                  title={t("选取{name}", { name: t(label) })}
                                 />
                               </label>
                               <input
@@ -2699,15 +2700,15 @@ export function ThemeManage() {
                             </div>
 
                             <p className="text-[11px] text-(--text-tertiary) leading-tight">
-                              {hint}
+                              {t(hint)}
                             </p>
 
                             <div className="flex items-center justify-between gap-2 pt-1 border-t border-(--hairline)">
                               <span className="text-[11px] text-(--text-secondary) shrink-0">
-                                {isEnd ? "末端特性" : "阶段定位"}
+                                {isEnd ? t("末端特性") : t("阶段定位")}
                               </span>
                               <span className="text-[11px] font-mono text-(--text-tertiary)">
-                                {isEnd ? "严格警报红守护" : "平滑色谱锚点"}
+                                {isEnd ? t("严格警报红守护") : t("平滑色谱锚点")}
                               </span>
                             </div>
                           </div>
@@ -2720,19 +2721,19 @@ export function ThemeManage() {
                   <div className="surface-inset flex flex-col gap-3.5 px-4 py-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <span className="setting-subhead-title">延迟光柱</span>
+                        <span className="setting-subhead-title">{t("延迟光柱")}</span>
                         <p className="setting-hint mt-1">
-                          设定各毫秒区间的判断门槛与对应光柱颜色。
+                          {t("设定各毫秒区间的判断门槛与对应颜色：首页卡片的延迟小格、详情页 Ping 线路按钮上的延迟数字。")}
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={resetPingLatency}
                         className="theme-manage-button is-compact shrink-0 flex items-center gap-1.5"
-                        title="恢复为默认的 60/100/160/200ms 及预设色"
+                        title={t("恢复为默认的 60/100/160/200ms 及预设色")}
                       >
                         <RotateCcw size={13} />
-                        重置延迟
+                        {t("重置延迟")}
                       </button>
                     </div>
 
@@ -2741,10 +2742,10 @@ export function ThemeManage() {
                       <div className="flex flex-wrap items-center justify-between gap-1 text-[12px]">
                         <span className="font-medium text-(--text-secondary) flex items-center gap-1.5">
                           <Activity size={13} className="text-(--status-success)" />
-                          延迟光柱实时效果 (示例梯度 15ms ~ 320ms)
+                          {t("延迟光柱实时效果 (示例梯度 15ms ~ 320ms)")}
                         </span>
                         <span className="tabular font-medium text-(--text-tertiary) text-[11px]">
-                          门槛：{draft.pingLatencyThresholds.excellent}ms / {draft.pingLatencyThresholds.good}ms / {draft.pingLatencyThresholds.moderate}ms / {draft.pingLatencyThresholds.elevated}ms
+                          {t("门槛：")}{draft.pingLatencyThresholds.excellent}ms / {draft.pingLatencyThresholds.good}ms / {draft.pingLatencyThresholds.moderate}ms / {draft.pingLatencyThresholds.elevated}ms
                         </span>
                       </div>
                       <div className="rounded-md bg-(--bg-primary) p-2 shadow-inner">
@@ -2772,13 +2773,13 @@ export function ThemeManage() {
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-[13px] font-semibold text-(--text-primary)">
-                                {label}
+                                {t(label)}
                               </span>
                               <div className="flex items-center gap-1.5">
                                 <label
                                   className="metric-color-swatch"
                                   style={{ background: currentColor }}
-                                  title="点击调整颜色"
+                                  title={t("点击调整颜色")}
                                 >
                                   <input
                                     type="color"
@@ -2791,7 +2792,7 @@ export function ThemeManage() {
                                     type="button"
                                     onClick={() => patchPingLatencyColor(key, defaultColor)}
                                     className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors p-1"
-                                    title="恢复该项默认色"
+                                    title={t("恢复该项默认色")}
                                   >
                                     <RotateCcw size={12} />
                                   </button>
@@ -2800,12 +2801,12 @@ export function ThemeManage() {
                             </div>
 
                             <p className="text-[11px] text-(--text-tertiary) leading-tight">
-                              {hint}
+                              {t(hint)}
                             </p>
 
                             <div className="flex items-center justify-between gap-2 pt-1 border-t border-(--hairline)">
                               <span className="text-[11px] text-(--text-secondary) shrink-0">
-                                {isThresholdEditable ? "门槛上限" : "高延迟区间"}
+                                {isThresholdEditable ? t("门槛上限") : t("高延迟区间")}
                               </span>
                               {isThresholdEditable ? (
                                 <div className="flex items-center gap-1">
@@ -2840,19 +2841,19 @@ export function ThemeManage() {
                   <div className="surface-inset flex flex-col gap-3.5 px-4 py-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <span className="setting-subhead-title">丢包光柱</span>
+                        <span className="setting-subhead-title">{t("丢包光柱")}</span>
                         <p className="setting-hint mt-1">
-                          设定不同丢包率区间的判断门槛与对应颜色。
+                          {t("设定不同丢包率区间的判断门槛与对应颜色：首页卡片的丢包小格、详情页 Ping 线路按钮上的丢包率。")}
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={resetPingLoss}
                         className="theme-manage-button is-compact shrink-0 flex items-center gap-1.5"
-                        title="恢复为默认的 3%/10% 门槛及预设色"
+                        title={t("恢复为默认的 3%/10% 门槛及预设色")}
                       >
                         <RotateCcw size={13} />
-                        重置丢包
+                        {t("重置丢包")}
                       </button>
                     </div>
 
@@ -2861,10 +2862,10 @@ export function ThemeManage() {
                       <div className="flex flex-wrap items-center justify-between gap-1 text-[12px]">
                         <span className="font-medium text-(--text-secondary) flex items-center gap-1.5">
                           <Activity size={13} className="text-(--status-warning)" />
-                          丢包光柱实时效果 (示例梯度 0% ~ 25%)
+                          {t("丢包光柱实时效果 (示例梯度 0% ~ 25%)")}
                         </span>
                         <span className="tabular font-medium text-(--text-tertiary) text-[11px]">
-                          门槛：0% / {draft.pingLossThresholds.low}% / {draft.pingLossThresholds.medium}%
+                          {t("门槛：")}0% / {draft.pingLossThresholds.low}% / {draft.pingLossThresholds.medium}%
                         </span>
                       </div>
                       <div className="rounded-md bg-(--bg-primary) p-2 shadow-inner">
@@ -2895,13 +2896,13 @@ export function ThemeManage() {
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-[13px] font-semibold text-(--text-primary)">
-                                {label}
+                                {t(label)}
                               </span>
                               <div className="flex items-center gap-1.5">
                                 <label
                                   className="metric-color-swatch"
                                   style={{ background: currentColor }}
-                                  title="点击调整颜色"
+                                  title={t("点击调整颜色")}
                                 >
                                   <input
                                     type="color"
@@ -2914,7 +2915,7 @@ export function ThemeManage() {
                                     type="button"
                                     onClick={() => patchPingLossColor(key, defaultColor)}
                                     className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors p-1"
-                                    title="恢复该项默认色"
+                                    title={t("恢复该项默认色")}
                                   >
                                     <RotateCcw size={12} />
                                   </button>
@@ -2923,12 +2924,12 @@ export function ThemeManage() {
                             </div>
 
                             <p className="text-[11px] text-(--text-tertiary) leading-tight">
-                              {hint}
+                              {t(hint)}
                             </p>
 
                             <div className="flex items-center justify-between gap-2 pt-1 border-t border-(--hairline)">
                               <span className="text-[11px] text-(--text-secondary) shrink-0">
-                                {isEditable ? "丢包上限" : "生效条件"}
+                                {isEditable ? t("丢包上限") : t("生效条件")}
                               </span>
                               {isEditable ? (
                                 <div className="flex items-center gap-1">
@@ -2950,7 +2951,7 @@ export function ThemeManage() {
                                 </div>
                               ) : (
                                 <span className="font-mono text-[11px] text-(--text-tertiary)">
-                                  {key === "zero" ? "= 0% (完全健康)" : `> ${draft.pingLossThresholds.medium}%`}
+                                  {key === "zero" ? t("= 0% (完全健康)") : `> ${draft.pingLossThresholds.medium}%`}
                                 </span>
                               )}
                             </div>
@@ -2965,12 +2966,12 @@ export function ThemeManage() {
               {/* 面板 6: 隐藏节点 */}
               <InstancePanel
                 id="set-hidden-nodes"
-                kicker="过滤"
-                title="隐藏节点"
+                kicker={t("过滤")}
+                title={t("隐藏节点")}
                 aside={<Search size={16} />}
               >
                 <div className="surface-inset flex flex-col gap-2 px-4 py-3">
-                  <span className="setting-subhead-title">隐藏名单 (每行一个 UUID 或名称)</span>
+                  <span className="setting-subhead-title">{t("隐藏名单 (每行一个 UUID 或名称)")}</span>
                   <textarea
                     rows={4}
                     value={draft.hiddenNodesText}
@@ -2979,7 +2980,7 @@ export function ThemeManage() {
                     className="surface-inset p-3 text-[13px] font-mono outline-none"
                   />
                   <span className="setting-hint">
-                    名单内的服务器不在首页呈现，已生效 {draftHiddenNodes.length} 台。
+                    {t("名单内的服务器不在首页呈现，已生效 {n} 台。", { n: draftHiddenNodes.length })}
                   </span>
                 </div>
               </InstancePanel>
@@ -2992,16 +2993,16 @@ export function ThemeManage() {
               {/* 面板 1: 财务设置 */}
               <InstancePanel
                 id="set-cost"
-                kicker="资产"
-                title="财务设置"
-                description="管理续费提醒、汇率换算与不计费的排除服务器。"
+                kicker={t("资产")}
+                title={t("财务设置")}
+                description={t("管理续费提醒、汇率换算与不计费的排除服务器。")}
                 aside={<CircleDollarSign size={16} />}
               >
                 <div className="flex flex-col gap-4">
                   <label className="surface-inset flex flex-col gap-2 px-4 py-3">
-                    <span className="setting-subhead-title">续费提醒</span>
+                    <span className="setting-subhead-title">{t("续费提醒")}</span>
                     <span className="flex items-center gap-2">
-                      <span className="shrink-0 text-[13px] text-(--text-secondary)">到期前</span>
+                      <span className="shrink-0 text-[13px] text-(--text-secondary)">{t("到期前")}</span>
                       <input
                         type="number"
                         min={0}
@@ -3019,19 +3020,19 @@ export function ThemeManage() {
                             Math.min(MAX_RENEWAL_REMINDER_DAYS, Math.max(0, Math.round(next))),
                           );
                         }}
-                        aria-label="续费提醒天数"
+                        aria-label={t("续费提醒天数")}
                         className="surface-inset w-24 px-3 py-2 text-right text-[13px] tabular outline-none"
                       />
-                      <span className="shrink-0 text-[13px] text-(--text-secondary)">天开始提醒</span>
+                      <span className="shrink-0 text-[13px] text-(--text-secondary)">{t("天开始提醒")}</span>
                     </span>
                     <span className="setting-hint">
-                      资产总值卡右上角的提醒按这个天数统计即将到期的机器；填 0 关闭提醒（最多 {MAX_RENEWAL_REMINDER_DAYS} 天）。
+                      {t("资产总值卡右上角的提醒按这个天数统计即将到期的机器；填 0 关闭提醒（最多 {n} 天）。", { n: MAX_RENEWAL_REMINDER_DAYS })}
                     </span>
                   </label>
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <label className="surface-inset flex flex-col gap-2 px-4 py-3">
-                      <span className="setting-subhead-title">汇率接口</span>
+                      <span className="setting-subhead-title">{t("汇率接口")}</span>
                       <input
                         type="url"
                         value={draft.costRateApiUrl}
@@ -3039,19 +3040,19 @@ export function ThemeManage() {
                         placeholder="https://open.er-api.com/v6/latest/CNY"
                         className="surface-inset px-3 py-2 text-[13px] outline-none"
                       />
-                      <span className="setting-hint">留空使用默认公共汇率接口。</span>
+                      <span className="setting-hint">{t("留空使用默认公共汇率接口。")}</span>
                     </label>
 
                     <div className="surface-inset flex flex-col gap-2 px-4 py-3">
-                      <span className="setting-subhead-title">排除机器</span>
+                      <span className="setting-subhead-title">{t("排除机器")}</span>
                       <textarea
                         rows={3}
                         value={draft.costIgnoredText}
                         onChange={(event) => patch("costIgnoredText", event.target.value)}
-                        placeholder="测试机&#10;node-uuid"
+                        placeholder={t("测试机") + "\nnode-uuid"}
                         className="surface-inset min-h-24 w-full resize-y p-2.5 text-[13px] outline-none font-mono"
                       />
-                      <span className="setting-hint">填入的机器不计入资产总值与续费成本。</span>
+                      <span className="setting-hint">{t("填入的机器不计入资产总值与续费成本。")}</span>
                     </div>
                   </div>
                 </div>
@@ -3060,9 +3061,9 @@ export function ThemeManage() {
               {/* 面板 2: 买入溢价 */}
               <InstancePanel
                 id="set-premiums"
-                kicker="溢价"
-                title="买入溢价"
-                description="记录收机实际花费，系统自动平摊折溢价。"
+                kicker={t("溢价")}
+                title={t("买入溢价")}
+                description={t("记录收机实际花费，系统自动平摊折溢价。")}
                 aside={<CircleDollarSign size={16} />}
               >
                 <div className="flex flex-col gap-3">
@@ -3070,10 +3071,10 @@ export function ThemeManage() {
                     <input
                       value={premiumSearch}
                       onChange={(event) => setPremiumSearch(event.target.value)}
-                      placeholder="搜索服务器…"
+                      placeholder={t("搜索服务器…")}
                       className="surface-inset px-3 py-1.5 text-[13px] outline-none max-w-xs"
                     />
-                    <span className="setting-hint">已记录 {premiumConfiguredCount} 台溢价</span>
+                    <span className="setting-hint">{t("已记录 {n} 台溢价", { n: premiumConfiguredCount })}</span>
                   </div>
 
                   <PremiumList

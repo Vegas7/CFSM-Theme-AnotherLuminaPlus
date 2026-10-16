@@ -3,6 +3,7 @@ import { normalizeBillingCycle } from "@/utils/billing";
 import { fetchWithTimeout } from "@/utils/abort";
 import { resolveExpireTimestamp } from "@/utils/format";
 import { buildNodeIdentitySet, nodeMatchesIdentitySet, normalizeNodeIdentityList } from "@/utils/nodeIdentity";
+import { t } from "@/i18n";
 
 const COST_TARGET_CURRENCY = "CNY";
 export const DEFAULT_COST_RATE_API_URL = "https://api.frankfurter.dev/v2/rates?base=USD";
@@ -465,7 +466,7 @@ export function calculateCostSummary(
     );
     const baseDetail = {
       uuid: node.uuid,
-      name: String(name || "未命名服务器"),
+      name: String(name || t("未命名服务器")),
       region: String(node.region || ""),
       expiredAt: String(node.expired_at || ""),
       weight: Number(node.weight) || 0,

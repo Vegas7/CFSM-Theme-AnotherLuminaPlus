@@ -34,6 +34,7 @@ import {
 } from "@/services/cfsm/mappers";
 import { seedMeasuredHistory } from "@/services/pingLiveStore";
 import { resolvePreferredAppearance } from "@/utils/themeSettings";
+import { t } from "@/i18n";
 
 export { ApiRequestError, DatabaseUpgradeRequiredError } from "@/services/cfsm/http";
 
@@ -638,7 +639,7 @@ function percentile(sortedValues: number[], fraction: number): number | null {
 export function saveThemeSettings(): Promise<void> {
   return Promise.reject(
     new ApiRequestError(
-      "第三方主题不能写入后端设置，请在 /admin#/admin 中修改",
+      t("第三方主题不能写入后端设置，请在 /admin#/admin 中修改"),
       403,
       "/admin#/admin",
     ),

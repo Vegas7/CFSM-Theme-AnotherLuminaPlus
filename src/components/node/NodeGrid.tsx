@@ -64,6 +64,7 @@ import { RenewalReminder } from "./RenewalReminder";
 import type { NodeViewMode, ClusterOverviewMode, MatrixColorTheme, MatrixBootEffect } from "@/utils/themeSettings";
 import { getRenewalReminders, type RenewalReminderSource } from "@/utils/renewalReminder";
 import { DiaTextReveal } from "@/components/ui/DiaTextReveal";
+import { t } from "@/i18n";
 
 // 卡片视图网格密度；列表档由独立组件布局。
 const GRID_LAYOUT: Record<NodeViewMode, { className: string; minColumnWidth: number }> = {
@@ -111,23 +112,23 @@ function formatRebootAgo(seconds: number): { value: string; unit: string; fullTe
     return { value: "—", unit: "", fullText: "—" };
   }
   if (seconds < 60) {
-    return { value: "刚刚", unit: "", fullText: "刚刚" };
+    return { value: t("刚刚"), unit: "", fullText: t("刚刚") };
   }
   const days = Math.floor(seconds / 86400);
   if (days >= 1) {
-    return { value: String(days), unit: "天前", fullText: `${days}天前` };
+    return { value: String(days), unit: t("天前"), fullText: t("{n}天前", { n: days }) };
   }
   const hours = Math.floor(seconds / 3600);
   if (hours >= 1) {
-    return { value: String(hours), unit: "小时前", fullText: `${hours}小时前` };
+    return { value: String(hours), unit: t("小时前"), fullText: t("{n}小时前", { n: hours }) };
   }
   const minutes = Math.max(1, Math.floor(seconds / 60));
-  return { value: String(minutes), unit: "分钟前", fullText: `${minutes}分钟前` };
+  return { value: String(minutes), unit: t("分钟前"), fullText: t("{n}分钟前", { n: minutes }) };
 }
 
 function HomeBrand({ siteName }: { siteName: string }) {
   return (
-    <header className="home-brand sr-only" aria-label="站点名称">
+    <header className="home-brand sr-only" aria-label={t("站点名称")}>
       <h1 className="home-brand-title" title={siteName}>
         {siteName}
       </h1>
@@ -142,24 +143,24 @@ function getTimeGreetingInfo(
   renewalCount: number,
 ): { greeting: string; subtitle: string } {
   const hour = new Date().getHours();
-  let greeting = "早上好";
-  if (hour >= 0 && hour < 5) greeting = "夜深了";
-  else if (hour >= 5 && hour < 11) greeting = "早上好";
-  else if (hour >= 11 && hour < 13) greeting = "中午好";
-  else if (hour >= 13 && hour < 18) greeting = "下午好";
-  else greeting = "晚上好";
+  let greeting = t("早上好");
+  if (hour >= 0 && hour < 5) greeting = t("夜深了");
+  else if (hour >= 5 && hour < 11) greeting = t("早上好");
+  else if (hour >= 11 && hour < 13) greeting = t("中午好");
+  else if (hour >= 13 && hour < 18) greeting = t("下午好");
+  else greeting = t("晚上好");
 
   // 1. 存在离线异常时，精准贴合实际情况告警提示
   if (totalNodes > 0 && offlineNodes > 0) {
     if (onlineNodes === 0) {
       return {
         greeting,
-        subtitle: "您的服务器已全部离线，请及时排查网络与连接状态。",
+        subtitle: t("您的服务器已全部离线，请及时排查网络与连接状态。"),
       };
     }
     return {
       greeting,
-      subtitle: `检测到 ${offlineNodes} 台服务器处于离线状态，请及时排查处理。`,
+      subtitle: t("检测到 {n} 台服务器处于离线状态，请及时排查处理。", { n: offlineNodes }),
     };
   }
 
@@ -167,7 +168,7 @@ function getTimeGreetingInfo(
   if (totalNodes === 0) {
     return {
       greeting,
-      subtitle: "暂未检测到在线服务器，等待节点客户端数据上报。",
+      subtitle: t("暂未检测到在线服务器，等待节点客户端数据上报。"),
     };
   }
 
@@ -175,7 +176,7 @@ function getTimeGreetingInfo(
   if (renewalCount > 0) {
     return {
       greeting,
-      subtitle: `当前有 ${renewalCount} 台服务器临近到期，请留意续费维护。`,
+      subtitle: t("当前有 {n} 台服务器临近到期，请留意续费维护。", { n: renewalCount }),
     };
   }
 
@@ -183,30 +184,30 @@ function getTimeGreetingInfo(
   if (hour >= 0 && hour < 5) {
     return {
       greeting,
-      subtitle: "夜间全站服务器运行平稳，各项指标持续实时监控中。",
+      subtitle: t("夜间全站服务器运行平稳，各项指标持续实时监控中。"),
     };
   }
   if (hour >= 5 && hour < 11) {
     return {
       greeting,
-      subtitle: "全站服务器运行健康，系统资源与网络指标持续监控中。",
+      subtitle: t("全站服务器运行健康，系统资源与网络指标持续监控中。"),
     };
   }
   if (hour >= 11 && hour < 13) {
     return {
       greeting,
-      subtitle: "当前所有服务器运行平稳，系统负载与核心指标持续采集中。",
+      subtitle: t("当前所有服务器运行平稳，系统负载与核心指标持续采集中。"),
     };
   }
   if (hour >= 13 && hour < 18) {
     return {
       greeting,
-      subtitle: "所有服务器运行稳定，系统负载与网络吞吐持续监控中。",
+      subtitle: t("所有服务器运行稳定，系统负载与网络吞吐持续监控中。"),
     };
   }
   return {
     greeting,
-    subtitle: "全站服务器运行良好，网络状态与系统负载数据持续采集中。",
+    subtitle: t("全站服务器运行良好，网络状态与系统负载数据持续采集中。"),
   };
 }
 
@@ -295,8 +296,8 @@ function HomeOverviewCards({
     overview.totalNodes > 0 ? (overview.onlineNodes / overview.totalNodes) * 100 : 0;
   const { isPriceVisible } = usePriceVisibility();
   const renderAssetValue = () => {
-    if (!isPriceVisible) return "保密";
-    if (!costSummary) return costLoading ? "计算中" : "—";
+    if (!isPriceVisible) return t("保密");
+    if (!costSummary) return costLoading ? t("计算中") : "—";
     const totalOriginal = costSummary.totalOriginalPriceCny ?? 0;
     if (totalOriginal > 0 || costSummary.remainingCny > 0) {
       return (
@@ -329,8 +330,8 @@ function HomeOverviewCards({
 
   const renderRating = (rating: OverviewRating | null) =>
     rating ? (
-      <span className="overview-card-rating" data-rating-level={rating.level} title={rating.label}>
-        {rating.label}
+      <span className="overview-card-rating" data-rating-level={rating.level} title={t(rating.label)}>
+        {t(rating.label)}
       </span>
     ) : null;
 
@@ -349,7 +350,7 @@ function HomeOverviewCards({
   return (
     <section
       className={`mao-dashboard-hero home-overview${dense ? " is-dense" : ""}`}
-      aria-label="首页总览"
+      aria-label={t("首页总览")}
       data-palette={matrixColorTheme || "default"}
     >
       {/* 左侧主要区域：问候语 + 6 宫格指标小卡片 */}
@@ -357,10 +358,10 @@ function HomeOverviewCards({
         <div className="mao-hero-header">
           <div className="mao-badge">
             <Sparkles size={12} className="text-(--text-primary)" />
-            <span>监控总览</span>
+            <span>{t("监控总览")}</span>
           </div>
           <h1 className="mao-hero-greeting flex items-center gap-1.5 flex-wrap">
-            <span>{greetingInfo.greeting}，</span>
+            <span>{greetingInfo.greeting}{t("，")}</span>
             {isEditingName ? (
               <span className="inline-flex items-center gap-1">
                 <input
@@ -373,14 +374,14 @@ function HomeOverviewCards({
                     if (e.key === "Enter") handleSaveName();
                     if (e.key === "Escape") setIsEditingName(false);
                   }}
-                  placeholder="输入昵称 (如 jerry)"
+                  placeholder={t("输入昵称 (如 jerry)")}
                   className="px-2 py-0.5 text-base rounded bg-(--input-bg,rgba(0,0,0,0.3)) border border-(--accent) text-(--text-primary) focus:outline-none w-36"
                 />
                 <button
                   type="button"
                   onClick={handleSaveName}
                   className="p-1 rounded bg-(--accent) text-white font-medium hover:opacity-90 transition-opacity"
-                  title="保存"
+                  title={t("保存")}
                 >
                   <Check size={14} />
                 </button>
@@ -388,7 +389,7 @@ function HomeOverviewCards({
                   type="button"
                   onClick={() => setIsEditingName(false)}
                   className="p-1 rounded bg-white/10 text-(--text-muted) hover:text-(--text-primary) transition-colors"
-                  title="取消"
+                  title={t("取消")}
                 >
                   <X size={14} />
                 </button>
@@ -397,7 +398,7 @@ function HomeOverviewCards({
               <span
                 className={`inline-flex items-center gap-1.5 group ${loggedIn ? "cursor-pointer" : ""}`}
                 onClick={loggedIn ? handleStartEdit : undefined}
-                title={loggedIn ? "点击快速修改管理员昵称" : undefined}
+                title={loggedIn ? t("点击快速修改管理员昵称") : undefined}
               >
                 <DiaTextReveal text={username || "Guest"} />
                 {loggedIn && (
@@ -421,14 +422,14 @@ function HomeOverviewCards({
             <div className="mao-stat-head">
               <div className="mao-stat-title-wrap">
                 <StatMetricIcon metric="connections" icon={Network} />
-                <span className="mao-stat-label">活跃连接</span>
+                <span className="mao-stat-label">{t("活跃连接")}</span>
               </div>
             </div>
             <div className="mao-stat-value">
               {totalConnections.toLocaleString()} <span className="mao-stat-unit">Conn</span>
             </div>
             <div className="mao-stat-footer">
-              <span className="mao-stat-caption" title={`TCP 连接: ${overview.totalTcpConn.toLocaleString()} · UDP 连接: ${overview.totalUdpConn.toLocaleString()}`}>
+              <span className="mao-stat-caption" title={t("TCP 连接: {tcp} · UDP 连接: {udp}", { tcp: overview.totalTcpConn.toLocaleString(), udp: overview.totalUdpConn.toLocaleString() })}>
                 TCP {overview.totalTcpConn.toLocaleString()} · UDP {overview.totalUdpConn.toLocaleString()}
               </span>
             </div>
@@ -439,7 +440,7 @@ function HomeOverviewCards({
             <div className="mao-stat-head">
               <div className="mao-stat-title-wrap">
                 <StatMetricIcon metric="cpu" icon={Cpu} />
-                <span className="mao-stat-label">平均 CPU</span>
+                <span className="mao-stat-label">{t("平均 CPU")}</span>
               </div>
             </div>
             <div className="mao-stat-value">
@@ -447,7 +448,7 @@ function HomeOverviewCards({
             </div>
             <div className="mao-stat-footer">
               <span className="mao-stat-caption">
-                {overview.onlineNodes > 0 ? `${overview.onlineNodes} 台在线服务器` : "暂无在线服务器"}
+                {overview.onlineNodes > 0 ? t("{n} 台在线服务器", { n: overview.onlineNodes }) : t("暂无在线服务器")}
               </span>
             </div>
           </div>
@@ -457,15 +458,15 @@ function HomeOverviewCards({
             <div className="mao-stat-head">
               <div className="mao-stat-title-wrap">
                 <StatMetricIcon metric="ram" icon={Layers} />
-                <span className="mao-stat-label">内存用量</span>
+                <span className="mao-stat-label">{t("内存用量")}</span>
               </div>
             </div>
             <div className="mao-stat-value">
               {ramUsedValue} <span className="mao-stat-unit">{ramUsedUnit}</span>
             </div>
             <div className="mao-stat-footer">
-              <span className="mao-stat-caption" title={`已用: ${formatBytes(overview.totalRamUsed)} / 总量: ${formatBytes(overview.totalRamTotal)}`}>
-                共 {formatBytes(overview.totalRamTotal)} · {overview.ramPct.toFixed(1)}%
+              <span className="mao-stat-caption" title={t("已用: {used} / 总量: {total}", { used: formatBytes(overview.totalRamUsed), total: formatBytes(overview.totalRamTotal) })}>
+                {t("共 {total}", { total: formatBytes(overview.totalRamTotal) })} · {overview.ramPct.toFixed(1)}%
               </span>
             </div>
           </div>
@@ -475,15 +476,15 @@ function HomeOverviewCards({
             <div className="mao-stat-head">
               <div className="mao-stat-title-wrap">
                 <StatMetricIcon metric="disk" icon={HardDrive} />
-                <span className="mao-stat-label">硬盘用量</span>
+                <span className="mao-stat-label">{t("硬盘用量")}</span>
               </div>
             </div>
             <div className="mao-stat-value">
               {diskUsedValue} <span className="mao-stat-unit">{diskUsedUnit}</span>
             </div>
             <div className="mao-stat-footer">
-              <span className="mao-stat-caption" title={`已用: ${formatBytes(overview.totalDiskUsed)} / 总量: ${formatBytes(overview.totalDiskTotal)}`}>
-                共 {formatBytes(overview.totalDiskTotal)} · {overview.diskPct.toFixed(1)}%
+              <span className="mao-stat-caption" title={t("已用: {used} / 总量: {total}", { used: formatBytes(overview.totalDiskUsed), total: formatBytes(overview.totalDiskTotal) })}>
+                {t("共 {total}", { total: formatBytes(overview.totalDiskTotal) })} · {overview.diskPct.toFixed(1)}%
               </span>
             </div>
           </div>
@@ -493,7 +494,7 @@ function HomeOverviewCards({
             <div className="mao-stat-head">
               <div className="mao-stat-title-wrap">
                 <StatMetricIcon metric="uptime" icon={Timer} />
-                <span className="mao-stat-label">最近重启</span>
+                <span className="mao-stat-label">{t("最近重启")}</span>
               </div>
             </div>
             <div className="mao-stat-value">
@@ -513,11 +514,11 @@ function HomeOverviewCards({
                 className="mao-stat-caption truncate"
                 title={
                   recentReboot
-                    ? `最近重启设备: ${recentReboot.name} · ${recentReboot.fullText}`
-                    : "暂无在线设备"
+                    ? t("最近重启设备: {name} · {ago}", { name: recentReboot.name, ago: recentReboot.fullText })
+                    : t("暂无在线设备")
                 }
               >
-                {recentReboot ? recentReboot.name : "暂无在线设备"}
+                {recentReboot ? recentReboot.name : t("暂无在线设备")}
               </span>
             </div>
           </div>
@@ -528,7 +529,7 @@ function HomeOverviewCards({
               <div className="mao-stat-head">
                 <div className="mao-stat-title-wrap">
                   <StatMetricIcon metric="asset" icon={CircleDollarSign} />
-                  <span className="mao-stat-label">资产总值</span>
+                  <span className="mao-stat-label">{t("资产总值")}</span>
                 </div>
                 {showDetailButton && (
                   <RenewalReminder
@@ -539,8 +540,8 @@ function HomeOverviewCards({
                     <Link
                       to="/assets"
                       className="overview-card-action mao-stat-action"
-                      aria-label="打开资产统计页"
-                      title={renewalCount > 0 ? `${renewalCount} 台设备即将到期` : "资产统计"}
+                      aria-label={t("打开资产统计页")}
+                      title={renewalCount > 0 ? t("{n} 台设备即将到期", { n: renewalCount }) : t("资产统计")}
                     >
                       <CircleDollarSign size={14} className={renewalCount > 0 ? "text-(--status-warning)" : ""} />
                     </Link>
@@ -552,7 +553,7 @@ function HomeOverviewCards({
               </div>
               <div className="mao-stat-footer">
                 <span className="mao-stat-caption">
-                  {!isPriceVisible ? "仅管理员可见" : "实时汇率折算"}
+                  {!isPriceVisible ? t("仅管理员可见") : t("实时汇率折算")}
                 </span>
                 {renderRating(assetRating)}
               </div>
@@ -571,28 +572,28 @@ function HomeOverviewCards({
             <div className="mao-progress-title-wrap">
               <h3 className="mao-progress-title">
                 <Activity size={17} className="text-(--text-primary)" />
-                <span>集群状态</span>
+                <span>{t("集群状态")}</span>
               </h3>
               <p className="mao-progress-subtitle">
                 {clusterOverviewMode === "classic"
-                  ? "服务器在线率与实时网络吞吐"
-                  : "全节点实时负载与机架全景"}
+                  ? t("服务器在线率与实时网络吞吐")
+                  : t("全节点实时负载与机架全景")}
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
 
               <span className={`mao-status-pill ${isAllHealthy ? "is-healthy" : "is-warning"}`}>
                 <span className="mao-status-dot" />
-                {isAllHealthy ? "状态健康" : overview.totalNodes === 0 ? "未连接" : `存在离线 (${overview.offlineNodes})`}
+                {isAllHealthy ? t("状态健康") : overview.totalNodes === 0 ? t("未连接") : t("存在离线 ({n})", { n: overview.offlineNodes })}
               </span>
               {bandwidthRating && (
                 <span
                   className="overview-card-rating is-bandwidth-badge"
                   data-rating-level={bandwidthRating.level}
-                  title={`全站实时带宽评级: ${bandwidthRating.label}`}
+                  title={t("全站实时带宽评级: {label}", { label: t(bandwidthRating.label) })}
                 >
                   <span className="mao-status-dot" />
-                  {bandwidthRating.label}
+                  {t(bandwidthRating.label)}
                 </span>
               )}
             </div>
@@ -606,11 +607,11 @@ function HomeOverviewCards({
                 <div className="mao-progress-section-header">
                   <div className="flex items-baseline gap-1.5">
                     <span className="mao-progress-big-num">{onlinePct.toFixed(0)}%</span>
-                    <span className="mao-progress-unit-label">在线率</span>
+                    <span className="mao-progress-unit-label">{t("在线率")}</span>
                   </div>
                   <div className="mao-progress-tag-box">
-                    <span className="mao-progress-tag-label">离线服务器</span>
-                    <span className="mao-progress-tag-val">{overview.offlineNodes} 台</span>
+                    <span className="mao-progress-tag-label">{t("离线服务器")}</span>
+                    <span className="mao-progress-tag-val">{t("{n} 台", { n: overview.offlineNodes })}</span>
                   </div>
                 </div>
                 {/* 节点展示：达到 51 台时切换为纯无缝一体化进度条，少于 51 台时呈现经典胶囊块 */}
@@ -621,7 +622,7 @@ function HomeOverviewCards({
                     aria-valuenow={Math.round(onlinePct)}
                     aria-valuemin={0}
                     aria-valuemax={100}
-                    title={`在线: ${overview.onlineNodes} 台 (${onlinePct.toFixed(1)}%) · 离线: ${overview.offlineNodes} 台`}
+                    title={t("在线: {online} 台 ({pct}%) · 离线: {offline} 台", { online: overview.onlineNodes, pct: onlinePct.toFixed(1), offline: overview.offlineNodes })}
                   >
                     <div
                       className="mao-seamless-segment is-online"
@@ -651,7 +652,7 @@ function HomeOverviewCards({
                           <span
                             key={i}
                             className={`mao-node-block ${statusClass}`}
-                            title={`服务器 ${i + 1}: ${isOnline ? "在线" : isOffline ? "离线" : "未知"}`}
+                            title={t("服务器 {n}: {status}", { n: i + 1, status: isOnline ? t("在线") : isOffline ? t("离线") : t("未知") })}
                           />
                         );
                       })
@@ -661,8 +662,8 @@ function HomeOverviewCards({
                   </div>
                 )}
                 <div className="mao-progress-section-footer">
-                  <span>在线 {overview.onlineNodes} 台</span>
-                  <span>总计 {overview.totalNodes} 台</span>
+                  <span>{t("在线 {n} 台", { n: overview.onlineNodes })}</span>
+                  <span>{t("总计 {n} 台", { n: overview.totalNodes })}</span>
                 </div>
               </div>
 
@@ -708,14 +709,14 @@ function GroupTabs({
   onSelectGroup: (group: string) => void;
 }) {
   return (
-    <div className="home-group-tabs" role="group" aria-label="服务器分组">
+    <div className="home-group-tabs" role="group" aria-label={t("服务器分组")}>
       <button
         type="button"
         aria-pressed={selectedGroup === HOME_ALL_GROUP}
         data-active={selectedGroup === HOME_ALL_GROUP ? "true" : "false"}
         onClick={() => onSelectGroup(HOME_ALL_GROUP)}
       >
-        全部
+        {t("全部")}
       </button>
       {groups.map((group) => (
         <button
@@ -741,7 +742,7 @@ export function NodeGrid() {
   const { hydrated: storeHydrated, nodeInfoError } = useNodeStoreStatus();
   const { data: me } = useAuth();
   const { data: publicConfig } = usePublicConfig();
-  const siteName = publicConfig?.sitename?.trim() || "节点概览";
+  const siteName = publicConfig?.sitename?.trim() || t("节点概览");
   const themeSettings = useThemeSettings();
   const { mode } = useViewMode();
   const sort = useHomeSort();
@@ -1086,8 +1087,8 @@ export function NodeGrid() {
         className="flex h-[40vh] flex-col items-center justify-center gap-2 text-(--text-tertiary)"
         aria-live="polite"
       >
-        <span className="text-[14px]">节点数据暂时无法加载</span>
-        <span className="text-[12px]">正在等待后端自动重试</span>
+        <span className="text-[14px]">{t("节点数据暂时无法加载")}</span>
+        <span className="text-[12px]">{t("正在等待后端自动重试")}</span>
       </div>
     );
   }
@@ -1138,8 +1139,8 @@ export function NodeGrid() {
       <>
         {homeHeader}
         <div className="flex h-[40vh] flex-col items-center justify-center gap-2 text-(--text-tertiary)">
-          <span className="text-[15px]">尚未连接到任何节点</span>
-          <span className="text-[12px]">等待后端推送或前往管理后台添加</span>
+          <span className="text-[15px]">{t("尚未连接到任何节点")}</span>
+          <span className="text-[12px]">{t("等待后端推送或前往管理后台添加")}</span>
         </div>
       </>
     );
@@ -1150,7 +1151,7 @@ export function NodeGrid() {
       {homeHeader}
       <section
         className="mao-cluster-card"
-        aria-label="服务器集群与监控列表"
+        aria-label={t("服务器集群与监控列表")}
         data-palette={themeSettings.matrixColorTheme || "default"}
       >
         {showHomeOverview && (
@@ -1158,7 +1159,7 @@ export function NodeGrid() {
             <div className="mao-section-top-row">
               <div className="mao-badge">
                 <Server size={12} className="text-(--text-primary)" />
-                <span>服务器集群</span>
+                <span>{t("服务器集群")}</span>
               </div>
               {showHomeSort && (
                 <div className="mao-section-header-actions">
@@ -1167,9 +1168,9 @@ export function NodeGrid() {
               )}
             </div>
             <div className="mao-section-title-wrap">
-              <h2 className="mao-section-title">服务器矩阵与实时监控</h2>
+              <h2 className="mao-section-title">{t("服务器矩阵与实时监控")}</h2>
               <p className="mao-section-sub">
-                实时监控服务器负载、资源占用、网络吞吐与在线状态。
+                {t("实时监控服务器负载、资源占用、网络吞吐与在线状态。")}
               </p>
             </div>
           </div>

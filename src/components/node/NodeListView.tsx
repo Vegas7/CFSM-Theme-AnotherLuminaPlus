@@ -16,6 +16,7 @@ import { formatOsLabel, joinTagTitle, nodeDetailLinkLabels } from "./nodeCardSha
 import { formatHealthBucketTooltip } from "./pingBucketText";
 import type { PingOverviewTaskLoadState } from "@/types/cfsm";
 import { HOMEPAGE_PING_BUCKET_COUNT } from "@/hooks/usePingOverview";
+import { t } from "@/i18n";
 
 const GAUGE_SEGMENTS = 14;
 
@@ -45,20 +46,20 @@ export function formatListPingStatus(
   state: ListPingState,
 ) {
   const roundedLatency = latency == null ? null : Math.round(latency);
-  const value = roundedLatency == null ? null : `${roundedLatency} 毫秒`;
+  const value = roundedLatency == null ? null : t("{n} 毫秒", { n: roundedLatency });
   if (value != null) {
     if (state === "error") {
       return {
         visibleText: `${roundedLatency}`,
-        title: "首页 Ping 刷新失败，显示上次数据",
-        ariaText: `${value}，首页 Ping 刷新失败，显示上次数据`,
+        title: t("首页 Ping 刷新失败，显示上次数据"),
+        ariaText: t("{value}，首页 Ping 刷新失败，显示上次数据", { value }),
       };
     }
     if (state === "pending") {
       return {
         visibleText: `${roundedLatency}`,
-        title: "首页 Ping 正在刷新，显示上次数据",
-        ariaText: `${value}，首页 Ping 正在刷新，显示上次数据`,
+        title: t("首页 Ping 正在刷新，显示上次数据"),
+        ariaText: t("{value}，首页 Ping 正在刷新，显示上次数据", { value }),
       };
     }
     return {
@@ -71,27 +72,27 @@ export function formatListPingStatus(
   switch (state) {
     case "unconfigured":
       return {
-        visibleText: "未配置",
-        title: "未配置首页 Ping",
-        ariaText: "未配置首页 Ping",
+        visibleText: t("未配置"),
+        title: t("未配置首页 Ping"),
+        ariaText: t("未配置首页 Ping"),
       };
     case "pending":
       return {
-        visibleText: "加载中",
-        title: "正在加载首页 Ping",
-        ariaText: "首页 Ping 加载中",
+        visibleText: t("加载中"),
+        title: t("正在加载首页 Ping"),
+        ariaText: t("首页 Ping 加载中"),
       };
     case "error":
       return {
-        visibleText: "加载失败",
-        title: "首页 Ping 加载失败",
-        ariaText: "首页 Ping 加载失败",
+        visibleText: t("加载失败"),
+        title: t("首页 Ping 加载失败"),
+        ariaText: t("首页 Ping 加载失败"),
       };
     default:
       return {
-        visibleText: "无样本",
-        title: "暂无有效 Ping 样本",
-        ariaText: "无样本",
+        visibleText: t("无样本"),
+        title: t("暂无有效 Ping 样本"),
+        ariaText: t("无样本"),
       };
   }
 }
@@ -201,7 +202,7 @@ function ListLatency({
     <div
       className="node-list-latency"
       data-ping-state={state}
-      aria-label={`网络延迟 ${status.ariaText}`}
+      aria-label={t("网络延迟 {value}", { value: status.ariaText })}
     >
       <span
         className="node-list-latency-value tabular"
@@ -265,20 +266,20 @@ const NodeRow = memo(function NodeRow({ uuid }: { uuid: string }) {
   const usedPct = `${Math.round(clamp01(traffic.fraction) * 100)}%`;
   const rowLabel = [
     node.name,
-    `系统 ${formatOsLabel(osName, node.os)}`,
+    t("系统 {value}", { value: formatOsLabel(osName, node.os) }),
     `CPU ${pctText(node.cpuPct)}`,
-    `内存 ${pctText(node.ramPct)}`,
-    `磁盘 ${pctText(node.diskPct)}`,
-    `负载 ${node.load1.toFixed(2)}`,
-    `上行 ${upRate.value}${upRate.unit}`,
-    `下行 ${downRate.value}${downRate.unit}`,
-    `流量使用 ${usedPct}`,
-    `网络延迟 ${listPingStatus.ariaText}`,
-    node.online === true ? "在线" : node.online === false ? "离线" : "状态未知",
-    `运行 ${uptime.value}${uptime.unit}`,
-    `到期 ${expire.value}${expire.unit}`,
-    "查看详情",
-  ].join("，");
+    t("内存 {value}", { value: pctText(node.ramPct) }),
+    t("磁盘 {value}", { value: pctText(node.diskPct) }),
+    t("负载 {value}", { value: node.load1.toFixed(2) }),
+    t("上行 {value}", { value: `${upRate.value}${upRate.unit}` }),
+    t("下行 {value}", { value: `${downRate.value}${downRate.unit}` }),
+    t("流量使用 {value}", { value: usedPct }),
+    t("网络延迟 {value}", { value: listPingStatus.ariaText }),
+    node.online === true ? t("在线") : node.online === false ? t("离线") : t("状态未知"),
+    t("运行 {value}", { value: `${uptime.value}${uptime.unit}` }),
+    t("到期 {value}", { value: `${expire.value}${expire.unit}` }),
+    t("查看详情"),
+  ].join(t("，"));
 
   return (
     <Link
@@ -363,7 +364,7 @@ const NodeRow = memo(function NodeRow({ uuid }: { uuid: string }) {
 
       <div
         className="node-list-cell col-traffic"
-        title={`本期流量 · 剩余 ${traffic.remainingLabel} · ${traffic.detail}`}
+        title={t("本期流量 · 剩余 {remaining} · {detail}", { remaining: traffic.remainingLabel, detail: traffic.detail })}
       >
         {/* 本计费周期的上下行（按重置日清零），和右边的用量百分比同一口径。 */}
         <div className="node-list-traffic-rows">
@@ -400,16 +401,16 @@ export function NodeListView({ uuids }: { uuids: string[] }) {
     <div className="node-list-scroll">
       <div className="node-list">
         <div className="node-list-row node-list-head" aria-hidden>
-          <div className="node-list-cell node-list-node">节点</div>
-          <div className="node-list-cell col-os">系统</div>
+          <div className="node-list-cell node-list-node">{t("节点")}</div>
+          <div className="node-list-cell col-os">{t("系统")}</div>
           <div className="node-list-cell col-metric">CPU</div>
-          <div className="node-list-cell col-metric">内存</div>
-          <div className="node-list-cell col-metric">磁盘</div>
-          <div className="node-list-cell col-load">负载</div>
-          <div className="node-list-cell col-live">实时</div>
-          <div className="node-list-cell col-traffic">流量</div>
-          <div className="node-list-cell col-net">网络</div>
-          <div className="node-list-cell col-life">在线 / 到期</div>
+          <div className="node-list-cell col-metric">{t("内存")}</div>
+          <div className="node-list-cell col-metric">{t("磁盘")}</div>
+          <div className="node-list-cell col-load">{t("负载")}</div>
+          <div className="node-list-cell col-live">{t("实时")}</div>
+          <div className="node-list-cell col-traffic">{t("流量")}</div>
+          <div className="node-list-cell col-net">{t("网络")}</div>
+          <div className="node-list-cell col-life">{t("在线 / 到期")}</div>
         </div>
         {uuids.map((uuid) => (
           <NodeRow key={uuid} uuid={uuid} />

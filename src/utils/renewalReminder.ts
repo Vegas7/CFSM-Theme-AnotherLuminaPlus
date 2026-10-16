@@ -1,6 +1,7 @@
 import type { NodeInfo } from "@/types/cfsm";
 import { formatRenewalPrice } from "@/utils/billing";
 import { getExpireDaysRemaining, resolveExpireTimestamp } from "@/utils/format";
+import { t } from "@/i18n";
 
 const DAY_MS = 86_400_000;
 
@@ -95,14 +96,14 @@ export function getRenewalReminders(
           currency: node.currency,
           billing_cycle: node.billing_cycle,
           expired_at: node.expired_at,
-        }) ?? "价格未设置",
+        }) ?? t("价格未设置"),
       autoRenewal: node.auto_renewal,
       tone: expired || critical ? "critical" : node.auto_renewal ? "success" : "warning",
       statusLabel: expired
-        ? "已过期"
+        ? t("已过期")
         : node.auto_renewal
-          ? "自动续费已开启"
-          : "即将到期",
+          ? t("自动续费已开启")
+          : t("即将到期"),
     });
   }
 
@@ -112,9 +113,9 @@ export function getRenewalReminders(
 }
 
 export function formatRenewalReminderExpiry(daysRemaining: number) {
-  if (daysRemaining < 0) return `已过期 ${Math.abs(daysRemaining)} 天`;
-  if (daysRemaining === 0) return "今日到期";
-  return `${daysRemaining} 天后到期`;
+  if (daysRemaining < 0) return t("已过期 {n} 天", { n: Math.abs(daysRemaining) });
+  if (daysRemaining === 0) return t("今日到期");
+  return t("{n} 天后到期", { n: daysRemaining });
 }
 
 export function getVisibleRenewalReminders(

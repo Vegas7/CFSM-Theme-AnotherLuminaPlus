@@ -1,10 +1,12 @@
+import { t } from "@/i18n";
 export function Spinner({
   size = 20,
-  label = "加载中",
+  label,
 }: {
   size?: number;
   label?: string;
 }) {
+  label ??= t("加载中");
   return (
     <span
       role={label ? "status" : undefined}

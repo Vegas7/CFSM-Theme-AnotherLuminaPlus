@@ -13,6 +13,7 @@ import {
   type RenewalReminderPreferences,
   type RenewalReminderSource,
 } from "@/utils/renewalReminder";
+import { t } from "@/i18n";
 
 const STORAGE_KEY = "lumina-renewal-reminders-v1";
 const MAX_VISIBLE_ROWS = 4;
@@ -233,11 +234,11 @@ export function RenewalReminder({
           ref={triggerRef as React.RefObject<HTMLButtonElement>}
           type="button"
           className="overview-card-action renewal-reminder-trigger"
-          aria-label={`${visibleReminders.length} 个续费提醒`}
+          aria-label={t("{n} 个续费提醒", { n: visibleReminders.length })}
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={open ? panelId : undefined}
-          title={`${visibleReminders.length} 个续费提醒`}
+          title={t("{n} 个续费提醒", { n: visibleReminders.length })}
           onClick={() => {
             const next = !open;
             setOpen(next);
@@ -259,17 +260,17 @@ export function RenewalReminder({
           <header className="renewal-reminder-head">
             <div>
               <div className="renewal-reminder-title-line">
-                <h2 id={titleId}>续费提醒</h2>
+                <h2 id={titleId}>{t("续费提醒")}</h2>
                 <span className="renewal-reminder-count">{visibleReminders.length}</span>
               </div>
-              <p>{visibleReminders.length} 台服务器将在 {warningDays} 天内到期</p>
+              <p>{t("{n} 台服务器将在 {days} 天内到期", { n: visibleReminders.length, days: warningDays })}</p>
             </div>
             <button
               ref={closeRef}
               type="button"
               className="renewal-reminder-close"
-              aria-label="关闭续费提醒"
-              title="关闭"
+              aria-label={t("关闭续费提醒")}
+              title={t("关闭")}
               onClick={closeAndRestoreFocus}
             >
               <X size={15} aria-hidden />
@@ -290,24 +291,24 @@ export function RenewalReminder({
               </div>
             ))}
             {hiddenCount > 0 && (
-              <p className="renewal-reminder-more">还有 {hiddenCount} 台临期服务器</p>
+              <p className="renewal-reminder-more">{t("还有 {n} 台临期服务器", { n: hiddenCount })}</p>
             )}
           </div>
 
           <footer className="renewal-reminder-actions">
             <Link to="/assets" className="renewal-reminder-detail" onClick={() => setOpen(false)}>
-              查看详情
+              {t("查看详情")}
             </Link>
-            <div className="renewal-reminder-btn-group" role="group" aria-label="提醒操作">
+            <div className="renewal-reminder-btn-group" role="group" aria-label={t("提醒操作")}>
               <button type="button" className="renewal-reminder-later" onClick={snooze}>
-                {RENEWAL_SNOOZE_DAYS} 天后提醒
+                {t("{n} 天后提醒", { n: RENEWAL_SNOOZE_DAYS })}
               </button>
               <button
                 type="button"
                 className="renewal-reminder-dismiss"
                 onClick={dismissCurrentCycles}
               >
-                本周期不再提醒
+                {t("本周期不再提醒")}
               </button>
             </div>
           </footer>

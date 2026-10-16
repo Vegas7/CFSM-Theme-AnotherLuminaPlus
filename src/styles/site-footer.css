@@ -89,8 +89,33 @@
   inset: -1.5px;
   border-radius: 50%;
   background-color: var(--status-healthy, #10b981);
-  opacity: 0.5;
-  animation: sao-pulse-ring 2.4s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+  opacity: 0;
+  /*
+   * 性能：涟漪只在打开页面时扩散 4 次（约 10 秒），之后圆点静止常亮；鼠标移到页脚胶囊上再接着扩散。
+   * 无限循环的 transform 动画会让浏览器假设它可能盖住页面上任何东西，滚动时每次重新分层都要拿整页
+   * 去做重叠判断 —— 实测 32 台节点的首页滚 3 秒，分层（Layerize）从 450ms 涨到 1270ms，滚动明显发涩。
+   */
+  animation: sao-pulse-ring 2.4s cubic-bezier(0.24, 0, 0.38, 1) 4;
+}
+
+.home-footer-capsule:hover .home-footer-pulse::after {
+  /* 换个同样的关键帧名，悬停时才能从头重新播放。 */
+  animation: sao-pulse-ring-hover 2.4s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+}
+
+@keyframes sao-pulse-ring-hover {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  60% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
 }
 
 @keyframes sao-pulse-ring {

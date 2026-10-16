@@ -2,25 +2,22 @@ import { describe, expect, it } from "vitest";
 import { resolvePriceVisibility } from "@/hooks/usePriceVisibility";
 
 describe("resolvePriceVisibility", () => {
-  it("strictly follows showPriceForGuests by default (hides price when disabled)", () => {
-    // 默认基准严格遵守「向访客公开价格与资产」配置：关闭时默认均隐藏，彻底杜绝价格默认泄露
-    expect(resolvePriceVisibility(false, false, null)).toBe(false);
-    expect(resolvePriceVisibility(true, false, null)).toBe(false);
-
-    // 开启向访客公开时，默认均显示
-    expect(resolvePriceVisibility(false, true, null)).toBe(true);
+  it("shows prices to the logged-in owner by default; guests follow showPriceForGuests", () => {
+    // 站长登录了就看得到，不受「公开资产」影响
+    expect(resolvePriceVisibility(true, false, null)).toBe(true);
     expect(resolvePriceVisibility(true, true, null)).toBe(true);
+
+    // 访客：只有开了「公开资产」才看得到
+    expect(resolvePriceVisibility(false, false, null)).toBe(false);
+    expect(resolvePriceVisibility(false, true, null)).toBe(true);
   });
 
-  it("allows logged-in admin to temporarily reveal prices via override", () => {
-    // 管理员在未公开情况下，可一键临时展开查看
-    expect(resolvePriceVisibility(true, false, "visible")).toBe(true);
-    // 未登录访客在未公开情况下，不可通过 override 越权查看
+  it("never lets a guest reveal prices through the override", () => {
     expect(resolvePriceVisibility(false, false, "visible")).toBe(false);
+    expect(resolvePriceVisibility(true, false, "visible")).toBe(true);
   });
 
-  it("respects temporary hidden override", () => {
-    // 无论是否公开，用户临时选择隐藏均严格隐藏
+  it("respects the temporary hidden override (e.g. before taking a screenshot)", () => {
     expect(resolvePriceVisibility(true, true, "hidden")).toBe(false);
     expect(resolvePriceVisibility(false, true, "hidden")).toBe(false);
     expect(resolvePriceVisibility(true, false, "hidden")).toBe(false);
@@ -29,19 +26,9 @@ describe("resolvePriceVisibility", () => {
 
   it("suppresses node card price tags when price visibility resolves to false", () => {
     const rawPrice = "¥30.00/月";
-    // 默认未开放价格，标签必须为 null
-    const guestHidden = resolvePriceVisibility(false, false, null);
-    expect(guestHidden ? rawPrice : null).toBeNull();
-
-    const adminDefaultHidden = resolvePriceVisibility(true, false, null);
-    expect(adminDefaultHidden ? rawPrice : null).toBeNull();
-
-    // 管理员临时展开
-    const adminVisible = resolvePriceVisibility(true, false, "visible");
-    expect(adminVisible ? rawPrice : null).toBe(rawPrice);
-
-    // 访客开放价格
-    const guestVisible = resolvePriceVisibility(false, true, null);
-    expect(guestVisible ? rawPrice : null).toBe(rawPrice);
+    expect(resolvePriceVisibility(false, false, null) ? rawPrice : null).toBeNull();
+    expect(resolvePriceVisibility(true, false, null) ? rawPrice : null).toBe(rawPrice);
+    expect(resolvePriceVisibility(true, false, "hidden") ? rawPrice : null).toBeNull();
+    expect(resolvePriceVisibility(false, true, null) ? rawPrice : null).toBe(rawPrice);
   });
 });
