@@ -67,7 +67,7 @@
 
 .compact-node-card.is-offline .compact-node-title,
 .compact-node-card.is-offline .compact-node-title:hover {
-  color: color-mix(in srgb, var(--status-offline) 72%, var(--text-primary) 28%);
+  color: var(--text-secondary);
 }
 
 .compact-node-subtitle {
@@ -392,7 +392,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: calc(7px - var(--ci-shrink) * 0.4px) calc(10px - var(--ci-shrink) * 1px);
+  padding: calc(7px - var(--ci-shrink) * 0.4px) calc(10px - var(--ci-shrink) * 2.2px);
   color: var(--text-secondary);
   text-align: left;
 }
@@ -413,7 +413,7 @@
   min-width: 0;
   align-items: center;
   justify-content: space-between;
-  gap: calc(6px - var(--ci-shrink) * 0.7px);
+  gap: calc(6px - var(--ci-shrink) * 1.3px);
   font-size: calc(11px - var(--ci-shrink) * 0.4px);
   line-height: 1.1;
 }
@@ -437,10 +437,11 @@
   color: var(--compact-info-row-color, var(--text-primary));
   font-size: calc(11.5px - var(--ci-shrink) * 0.6px);
   font-weight: 700;
-  letter-spacing: calc(var(--ci-shrink) * -0.01em);
+  letter-spacing: calc(var(--ci-shrink) * -0.012em);
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .compact-node-info-row-value small,
@@ -525,10 +526,7 @@
 .compact-node-health-bars {
   position: relative;
   display: grid;
-  /* 列数由柱子数量自己撑开，别写死格数：写死过 18，格数改成 20 之后多出来的两根
-     直接换行到第二排（2026-08-23 栽过一次）。tooltip 是 absolute 的，不占轨道。 */
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(18, minmax(0, 1fr));
   align-items: end;
   gap: 1.5px;
   min-width: 0;
@@ -541,20 +539,21 @@
   position: absolute;
   bottom: calc(100% + 7px);
   left: var(--node-health-tooltip-x, var(--compact-health-tooltip-x, 50%));
-  z-index: 2;
+  z-index: 10;
   width: max-content;
-  max-width: 156px;
+  max-width: 220px;
+  white-space: nowrap;
   pointer-events: none;
   border-radius: 5px;
-  background: color-mix(in srgb, var(--text-primary) 90%, black 10%);
-  box-shadow: 0 10px 18px -14px rgba(0, 0, 0, 0.55);
+  background: color-mix(in srgb, var(--text-primary) 92%, black 8%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
   color: var(--surface);
-  padding: 4px 6px;
+  padding: 4px 7px;
   font-size: 10.5px;
-  font-weight: 680;
+  font-weight: 600;
   line-height: 1.15;
   text-align: center;
-  transform: translateX(-50%) translateY(0) scale(1);
+  transform: translateX(calc(-1 * var(--node-health-tooltip-align, var(--compact-health-tooltip-align, 50%)))) translateY(0) scale(1);
   animation: compact-health-tooltip-in 150ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
@@ -563,7 +562,7 @@
   content: "";
   position: absolute;
   top: 100%;
-  left: 50%;
+  left: var(--node-health-arrow-x, var(--compact-health-arrow-x, 50%));
   width: 6px;
   height: 6px;
   background: inherit;
@@ -587,17 +586,9 @@
     transform 150ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* 选中态不能锁在 hover 媒体查询里：触屏点一下也要看得出点中了哪根 —— 那边根本没有
-   :hover，只有这个 data-selected。 */
-.compact-node-health-bar[data-selected="true"] {
-  filter: saturate(1.14) brightness(1.04);
-  opacity: 1 !important;
-  outline: none;
-  transform: scaleY(1.55);
-}
-
 @media (any-hover: hover) and (any-pointer: fine) {
-  .compact-node-health-bar:hover {
+  .compact-node-health-bar:hover,
+  .compact-node-health-bar[data-selected="true"] {
     filter: saturate(1.14) brightness(1.04);
     opacity: 1 !important;
     outline: none;
@@ -609,27 +600,21 @@
   }
 }
 
-/* 触屏上把整条的可点区域纵向撑开：柱条本身只有 9~16px 高，手指压不准。
-   `content-box` + 等量负外边距 = 命中区变大但占位不变，柱子画在哪儿一点不动。
-   只加纵向，横向一动命中换算（按容器宽度均分）就偏了。 */
 @media (any-hover: none) {
-  .health-bar-row,
-  .compact-node-health-bars,
-  .mini-health-bars {
-    box-sizing: content-box;
-    padding-block: 4px;
-    margin-block: -4px;
+  .compact-node-health-tooltip,
+  .node-health-hover-tooltip {
+    display: none;
   }
 }
 
 @keyframes compact-health-tooltip-in {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(4px) scale(0.96);
+    transform: translateX(calc(-1 * var(--node-health-tooltip-align, var(--compact-health-tooltip-align, 50%)))) translateY(4px) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(1);
+    transform: translateX(calc(-1 * var(--node-health-tooltip-align, var(--compact-health-tooltip-align, 50%)))) translateY(0) scale(1);
   }
 }
 

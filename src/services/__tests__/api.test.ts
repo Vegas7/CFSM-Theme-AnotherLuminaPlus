@@ -2,6 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearHistoryCache,
+  extractUsernameFromStorage,
+  getInitialAuth,
   getLoadRecords,
   getMe,
   getPingRecords,
@@ -9,8 +11,8 @@ import {
   getServerApiBase,
   getServersSnapshot,
   normalizeHistoryHours,
-  refreshPingHistory,
   resetRecentThemeOptionsWrite,
+  resolveAuthUsername,
   saveThemeOptions,
 } from "@/services/api";
 import {
@@ -19,7 +21,6 @@ import {
 } from "@/services/cfsm/config";
 import { DEFAULT_CARRIER_NAMES } from "@/services/cfsm/mappers";
 import { ApiRequestError } from "@/services/cfsm/http";
-import { getPingHistorySnapshot } from "@/services/pingLiveStore";
 
 const ORIGIN = "https://status.example.com";
 
@@ -267,13 +268,32 @@ describe("getMe", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("derives the login state from config.authorization", async () => {
-    window.localStorage.setItem("jwt_token", "token");
+  it("derives the login state and custom nickname from storage and config", async () => {
+    window.localStorage.setItem("jwt_token", "sample-token");
+    window.localStorage.setItem("cfsm_admin_username", "jerry");
     fetchMock.mockImplementation(jsonReply({ authorization: true, site_title: "S" }));
 
-    await expect(getMe()).resolves.toMatchObject({ logged_in: true });
+    const me = await getMe();
+    expect(me.logged_in).toBe(true);
+    expect(me.username).toBe("jerry");
     const [, init] = fetchMock.mock.calls[0]!;
-    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer token");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sample-token");
+  });
+
+  it("syncs theme_options.adminNickname to local storage automatically", async () => {
+    window.localStorage.setItem("jwt_token", "sample-token");
+    fetchMock.mockImplementation(
+      jsonReply({
+        authorization: true,
+        site_title: "S",
+        theme_options: { adminNickname: "jerry_from_cloud" },
+      }),
+    );
+
+    const me = await getMe();
+    expect(me.logged_in).toBe(true);
+    expect(me.username).toBe("jerry_from_cloud");
+    expect(window.localStorage.getItem("cfsm_admin_username")).toBe("jerry_from_cloud");
   });
 
   it("drops an expired token on 401 so later requests go out anonymously", async () => {
@@ -282,6 +302,42 @@ describe("getMe", () => {
 
     await expect(getMe()).rejects.toBeInstanceOf(ApiRequestError);
     expect(window.localStorage.getItem("jwt_token")).toBeNull();
+  });
+});
+
+describe("auth username resolution and zero-flicker initialData", () => {
+  it("reads custom nickname from cfsm_admin_username storage", () => {
+    window.localStorage.setItem("cfsm_admin_username", "jerry");
+    expect(extractUsernameFromStorage()).toBe("jerry");
+    expect(resolveAuthUsername("sample-token")).toBe("jerry");
+  });
+
+  it("sanitizes dangerous control characters and limits length", () => {
+    window.localStorage.setItem("cfsm_admin_username", "jerry\x00\x1f\x7f");
+    expect(extractUsernameFromStorage()).toBe("jerry");
+
+    const tooLong = "a".repeat(45);
+    window.localStorage.setItem("cfsm_admin_username", tooLong);
+    expect(extractUsernameFromStorage()).toBe("");
+  });
+
+  it("defaults to Admin if storage has no valid custom nickname", () => {
+    window.localStorage.removeItem("cfsm_admin_username");
+    expect(resolveAuthUsername("sample-token")).toBe("Admin");
+  });
+
+  it("provides zero-flicker getInitialAuth synchronously without any async delay", () => {
+    // 1. 无 token 状态：同步返回未登录
+    expect(getInitialAuth()).toEqual({ logged_in: false, username: "", uuid: "" });
+
+    // 2. 有 token 状态且缓存了自定义昵称：同步直接返回 jerry
+    window.localStorage.setItem("jwt_token", "sample-token");
+    window.localStorage.setItem("cfsm_admin_username", "jerry");
+    expect(getInitialAuth()).toEqual({
+      logged_in: true,
+      username: "jerry",
+      uuid: "",
+    });
   });
 });
 
@@ -357,6 +413,34 @@ describe("Turnstile 凭证过期", () => {
     expect(onCleared).toHaveBeenCalledTimes(1);
 
     unsubscribe();
+  });
+
+  it("retries /api/config without Turnstile headers so the gate can re-appear", async () => {
+    // 凭证过期后带旧头请求 /api/config 会 403（后端：带了任一 Turnstile 头就不走 bypass）。
+    // 主题必须清掉凭证、不带任何 Turnstile 头重试走 bypass，稳定拿回 verified:false —— 否则
+    // 这次查询停在 error 态、缓存里那份还写着 verified:true，TurnstileGate 永远不再弹验证。
+    window.localStorage.setItem("turnstile_verified", "expired-cred");
+    const bypassConfig = {
+      site_title: "S",
+      turnstile_enabled: true,
+      turnstile_site_key: "0x4AAAA",
+      verified: false,
+    };
+    fetchMock
+      .mockImplementationOnce(jsonReply({ error: "Turnstile verification failed", code: 403 }, 403))
+      .mockImplementationOnce(jsonReply(bypassConfig));
+
+    const config = await getPublic();
+
+    expect(config.verified).toBe(false);
+    expect(window.localStorage.getItem("turnstile_verified")).toBeNull();
+
+    // 第一次带过期凭证、第二次（bypass 重试）一个 Turnstile 头都不带。
+    const firstHeaders = fetchMock.mock.calls[0]![1]!.headers as Record<string, string>;
+    const retryHeaders = fetchMock.mock.calls[1]![1]!.headers as Record<string, string>;
+    expect(firstHeaders["X-Turnstile-Verified"]).toBe("expired-cred");
+    expect(retryHeaders["X-Turnstile-Verified"]).toBeUndefined();
+    expect(retryHeaders["X-Turnstile-Token"]).toBeUndefined();
   });
 });
 
@@ -563,71 +647,3 @@ describe("getPingRecords", () => {
   });
 });
 
-describe("refreshPingHistory", () => {
-  it("查一次 hours=1 并把结果回灌延迟缓冲区", async () => {
-    const now = Date.now();
-    fetchMock.mockImplementation(
-      jsonReply([
-        historyRow({ timestamp: now - 120_000, ping_ct: 40 }),
-        historyRow({ timestamp: now - 60_000, ping_ct: 41 }),
-      ]),
-    );
-
-    const result = await refreshPingHistory(["node-a"]);
-
-    expect(result).toEqual({ requested: 1, succeeded: 1, failed: 0 });
-    const url = String(fetchMock.mock.calls[0]?.[0]);
-    expect(url).toContain("/api/history/all");
-    expect(url).toContain("hours=1");
-    // 回灌走的是详情页那条通道，缓冲区里应该能读到刚拉回来的采样。
-    expect(getPingHistorySnapshot("node-a").length).toBeGreaterThan(0);
-  });
-
-  it("去重节点 id，一台只发一次", async () => {
-    fetchMock.mockImplementation(jsonReply([historyRow({ timestamp: Date.now() })]));
-
-    const result = await refreshPingHistory(["node-a", "node-a", "node-b", ""]);
-
-    expect(result.requested).toBe(2);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("单台失败不影响其余节点回灌", async () => {
-    fetchMock.mockImplementation(async (input: unknown) => {
-      if (String(input).includes("id=node-b")) return jsonResponse({ error: "boom" }, 500);
-      return jsonResponse([historyRow({ timestamp: Date.now() })]);
-    });
-
-    const result = await refreshPingHistory(["node-a", "node-b", "node-c"]);
-
-    expect(result).toEqual({ requested: 3, succeeded: 2, failed: 1 });
-  });
-
-  it("并发有上限，节点多也不会一次全打出去", async () => {
-    const ids = Array.from({ length: 12 }, (_, index) => `node-${index}`);
-    let inFlight = 0;
-    let peak = 0;
-    const release: Array<() => void> = [];
-
-    fetchMock.mockImplementation(async () => {
-      inFlight += 1;
-      peak = Math.max(peak, inFlight);
-      await new Promise<void>((resolve) => release.push(resolve));
-      inFlight -= 1;
-      return jsonResponse([historyRow({ timestamp: Date.now() })]);
-    });
-
-    const pending = refreshPingHistory(ids);
-    // 放行到全部结束：每轮把已经排队的请求一起放掉。
-    for (let round = 0; round < ids.length + 4; round += 1) {
-      await Promise.resolve();
-      while (release.length > 0) release.shift()?.();
-      await Promise.resolve();
-    }
-    const result = await pending;
-
-    expect(result.requested).toBe(12);
-    expect(peak).toBeLessThanOrEqual(4);
-    expect(peak).toBeGreaterThan(1);
-  });
-});

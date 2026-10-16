@@ -9,9 +9,9 @@ const GB = 1024 ** 3;
 const MBPS_IN_BYTES_PER_SECOND = 1_000_000 / 8;
 
 const DEFAULT_LABELS: Record<OverviewRatingKind, readonly string[]> = {
-  traffic: ["轻量", "常规", "重度", "海量"],
-  bandwidth: ["闲置", "轻载", "活跃", "爆发"],
-  asset: ["入门", "标准", "顶级", "富佬"],
+  traffic: ["LOW", "MED", "HIGH", "ULTRA"],
+  bandwidth: ["IDLE", "LIGHT", "ACTIVE", "SURGE"],
+  asset: ["Nano", "Micro", "Medium", "High-Spec"],
 };
 
 export function getDefaultOverviewRatingLabelText(kind: OverviewRatingKind) {
@@ -53,7 +53,7 @@ export function getOverviewRating({
     kind === "asset"
       ? levelFromThresholds(value, [500, 1500, 3000])
       : kind === "traffic"
-        ? levelFromThresholds(value, [500 * GB, 2000 * GB, 10000 * GB])
+        ? levelFromThresholds(value, [10 * GB, 50 * GB, 200 * GB])
         : levelFromThresholds(value, [
             1 * MBPS_IN_BYTES_PER_SECOND,
             10 * MBPS_IN_BYTES_PER_SECOND,

@@ -439,6 +439,7 @@ export const MiniNodeCard = memo(function MiniNodeCard({
     pingBuckets,
     footerTags,
     renewalPrice,
+    isPriceVisible,
     latencyColor,
     lossColor,
     loadFraction,
@@ -457,7 +458,12 @@ export const MiniNodeCard = memo(function MiniNodeCard({
         node={node}
         osName={osName}
       />
-      <MiniChips tags={footerTags} renewalPrice={renewalPrice} ipv4={node.ipv4} ipv6={node.ipv6} />
+      <MiniChips
+        tags={footerTags}
+        renewalPrice={isPriceVisible ? renewalPrice : null}
+        ipv4={node.ipv4}
+        ipv6={node.ipv6}
+      />
       <MiniVitals node={node} loadFraction={loadFraction} />
       <MiniFlow node={node} upRate={upRate} downRate={downRate} />
       <MiniHealth

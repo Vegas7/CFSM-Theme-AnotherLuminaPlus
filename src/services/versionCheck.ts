@@ -12,14 +12,14 @@ import { fetchWithTimeout } from "@/utils/abort";
  */
 
 export const THEME_RELEASE_INDEX_URL =
-  "https://raw.githubusercontent.com/volcano-1025/CFSM-Theme-LuminaPlus/dist/index.html";
+  "https://raw.githubusercontent.com/WAOR/CFSM-SAO/dist/index.html";
 
-const LATEST_THEME_CACHE_KEY = "cfsm-luminaplus:theme-latest-version";
+const LATEST_THEME_CACHE_KEY = "cfsm-sao:theme-latest-version";
 const LATEST_THEME_TTL_MS = 12 * 60 * 60 * 1000;
 const LATEST_THEME_FAILURE_TTL_MS = 60 * 60 * 1000;
 const LATEST_THEME_TIMEOUT_MS = 8_000;
 
-/** `LuminaPlus v1.2.15` → `1.2.15`；读不出返回 null。 */
+/** `SAO v1.0.0` → `1.0.0`；读不出返回 null。 */
 export function parseThemeVersionMeta(content: unknown): string | null {
   if (typeof content !== "string") return null;
   const match = content.trim().match(/v?(\d+(?:\.\d+)+)$/i);
@@ -47,6 +47,7 @@ interface CachedLatestVersion {
 
 function readCachedLatest(): CachedLatestVersion | null {
   try {
+    window.localStorage.removeItem("cfsm-luminaplus:theme-latest-version");
     const parsed: unknown = JSON.parse(window.localStorage.getItem(LATEST_THEME_CACHE_KEY) ?? "null");
     if (!parsed || typeof parsed !== "object") return null;
     const entry = parsed as Record<string, unknown>;

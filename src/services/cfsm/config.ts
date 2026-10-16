@@ -103,27 +103,34 @@ export function hostAssetUrl(path: string): string {
   return `${base}${normalized}`;
 }
 
-/** 管理后台固定由内置默认主题接管，第三方主题只能跳转过去。 */
+/** 管理后台固定由内置默认主题接管，第三方主题只能跳转过去（必须跳 /admin#/admin）。 */
 export function getAdminUrl(): string {
-  return `${getPrimaryApiBase()}/admin#admin`;
+  return `${getPrimaryApiBase()}/admin#/admin`;
 }
 
+const memoryStorage = new Map<string, string>();
+
 // 统一走 window.localStorage：Node 自带的同名全局在没有 --localstorage-file 时不可用，
-// 会在测试环境里遮住 jsdom 的实现。
+// 会在测试环境里遮住 jsdom 的实现。针对无痕模式等不可写环境，增加内存降级备份。
 function readStorage(key: string): string {
   try {
-    return window.localStorage.getItem(key) ?? "";
+    const val = window.localStorage.getItem(key);
+    if (val !== null) return val;
   } catch {
-    return "";
+    // 隐私模式下读取异常，降级到内存
   }
+  return memoryStorage.get(key) ?? "";
 }
 
 function writeStorage(key: string, value: string): void {
+  if (value) memoryStorage.set(key, value);
+  else memoryStorage.delete(key);
+
   try {
     if (value) window.localStorage.setItem(key, value);
     else window.localStorage.removeItem(key);
   } catch {
-    // 隐私模式下 localStorage 不可写，降级为匿名访问即可。
+    // 隐私模式下 localStorage 不可写，内存降级已就绪保障当前会话有效。
   }
 }
 
@@ -143,14 +150,39 @@ export function setTurnstileToken(token: string): void {
   writeStorage(TURNSTILE_TOKEN_KEY, token);
 }
 
+export function clearTurnstileToken(): void {
+  writeStorage(TURNSTILE_TOKEN_KEY, "");
+}
+
 export function getTurnstileVerified(): string {
   return readStorage(TURNSTILE_VERIFIED_KEY);
 }
 
+const turnstileVerifiedListeners = new Set<() => void>();
+
+/**
+ * 缓存的验证凭证变了（验证通过拿到新凭证、或被后端拒掉清空）就通知。界面据此决定数据页挂不挂
+ * （见 useTurnstileVerificationRequired）：凭证是读 localStorage 的，不订阅的话只能等 `/api/config`
+ * 重新拉回来、数据变了才重渲 —— 后端下发的 config 前后一样时，验证过了页面也不会出来。
+ */
+export function subscribeTurnstileVerified(listener: () => void): () => void {
+  turnstileVerifiedListeners.add(listener);
+  return () => {
+    turnstileVerifiedListeners.delete(listener);
+  };
+}
+
+function emitTurnstileVerifiedChange(): void {
+  for (const listener of [...turnstileVerifiedListeners]) listener();
+}
+
 /** 一次成功验证的凭证有效期约 1 小时，缓存后可省掉重复的人机验证。 */
 export function setTurnstileVerified(value: string): void {
+  const changed = value !== getTurnstileVerified();
   writeStorage(TURNSTILE_VERIFIED_KEY, value);
   if (value) writeStorage(TURNSTILE_TOKEN_KEY, "");
+  // 每个带凭证的响应都会回写一遍，没变就不惊动订阅方。
+  if (changed) emitTurnstileVerifiedChange();
 }
 
 const turnstileClearedListeners = new Set<() => void>();
@@ -168,10 +200,12 @@ export function subscribeTurnstileCredentialsCleared(listener: () => void): () =
 }
 
 export function clearTurnstileCredentials(): void {
-  const hadCredentials = Boolean(getTurnstileToken() || getTurnstileVerified());
+  const hadVerified = Boolean(getTurnstileVerified());
+  const hadCredentials = Boolean(getTurnstileToken() || hadVerified);
   writeStorage(TURNSTILE_TOKEN_KEY, "");
   writeStorage(TURNSTILE_VERIFIED_KEY, "");
   // 真清掉了东西才通知：凭证已经没了之后，轮询每次 403 都再拉一遍 config 是白打请求。
   if (!hadCredentials) return;
+  if (hadVerified) emitTurnstileVerifiedChange();
   for (const listener of [...turnstileClearedListeners]) listener();
 }

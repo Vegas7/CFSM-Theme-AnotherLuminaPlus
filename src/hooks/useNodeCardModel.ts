@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { useFakePingFallback } from "@/hooks/useFakePing";
 import { useHourlyClock, useMinuteClock } from "@/hooks/useClock";
 import { useNodeCardSnapshots, useShowThreeNetDetails } from "@/hooks/useNode";
 import {
@@ -12,6 +11,7 @@ import {
   withLiveLatency,
 } from "@/hooks/usePingOverview";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
+import { usePriceVisibility } from "@/hooks/usePriceVisibility";
 import { carrierTaskName } from "@/services/cfsm/mappers";
 import { useCarrierNames, useLatencyWindowMs } from "@/hooks/usePublicConfig";
 import type { HomepagePingDisplayLine, HomepagePingLine } from "@/types/cfsm";
@@ -26,8 +26,8 @@ import {
   parseTags,
 } from "@/utils/format";
 import {
-  latencyHeatColor,
-  lossHeatColor,
+  resolveCustomLatencyColor,
+  resolveCustomLossColor,
   trafficUsageColor,
 } from "@/utils/metricTone";
 import { resolveTrafficUsage, trafficTypeLabel, type TrafficDisplay } from "@/utils/traffic";
@@ -60,11 +60,15 @@ export function useNodeCardModel(
   const {
     showCardGroup,
     showCardPrice,
-    fakePingForUnbound,
     homepagePingBindings,
     enableHomepageMultiPing,
     homepageMultiPingTaskIds,
+    pingLatencyThresholds,
+    pingLatencyColors,
+    pingLossThresholds,
+    pingLossColors,
   } = useThemeSettings();
+  const { isPriceVisible } = usePriceVisibility();
   // 后端关掉「输出首页详细 ping/loss」时那三条线一条数据都没有，直接回退单线路，
   // 免得画出三条空线（口径见 useShowThreeNetDetails）。
   const showThreeNetDetails = useShowThreeNetDetails();
@@ -99,13 +103,7 @@ export function useNodeCardModel(
     [homepagePingBindings, multiPingActive, uuid],
   );
   const now = useHourlyClock();
-  const ping = useFakePingFallback(
-    uuid,
-    realPing,
-    metrics?.online === true,
-    fakePingForUnbound && !multiPingActive,
-    homepagePingBindings,
-  );
+  const ping = realPing;
   // 状态跟随每条任务数据进入 Store,不再订阅全局 isRefreshing。这样后台轮询开始/结束
   // 时不会让所有节点卡片仅因一个布尔值变化而重渲染。
   const pingLoading =
@@ -208,18 +206,28 @@ export function useNodeCardModel(
       expireColor: getExpireTextColor(meta.expired_at, now),
       // 「卡片显示价格」只作用于大卡片（NodeCard 自己收敛）；小卡片等布局照旧显示，
       // 未填价格显示「免费」。
+      // 价格标签受「向访客公开价格与资产」配置及管理员临时隐藏切换管辖。
       showCardPrice,
-      renewalPrice: formatRenewalPrice(meta),
+      isPriceVisible,
+      renewalPrice: isPriceVisible ? formatRenewalPrice(meta) : null,
       osName: resolveOsInfo(meta.os).name,
       loadBaseline: meta.cpu_cores > 0 ? meta.cpu_cores : 4,
     };
-  }, [meta, now, showCardGroup, showCardPrice]);
+  }, [meta, now, showCardGroup, showCardPrice, isPriceVisible]);
 
   // ping 派生的颜色只在 ping item 变化时才变。
   const pingModel = useMemo(
     () => ({
-      latencyColor: latencyHeatColor(ping.lastValue),
-      lossColor: lossHeatColor(ping.loss),
+      latencyColor: resolveCustomLatencyColor(
+        ping.lastValue,
+        pingLatencyThresholds,
+        pingLatencyColors,
+      ),
+      lossColor: resolveCustomLossColor(
+        ping.loss,
+        pingLossThresholds,
+        pingLossColors,
+      ),
       hasRealHomepagePingBinding,
       // 保留旧字段供外部模型消费者兼容；它表示真实配置状态。
       hasHomepagePingBinding: hasRealHomepagePingBinding,
@@ -231,7 +239,11 @@ export function useNodeCardModel(
       hasRealHomepagePingBinding,
       ping,
       pingError,
+      pingLatencyColors,
+      pingLatencyThresholds,
       pingLoading,
+      pingLossColors,
+      pingLossThresholds,
       shouldRenderPingBars,
     ],
   );

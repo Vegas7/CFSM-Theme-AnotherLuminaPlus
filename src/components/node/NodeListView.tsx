@@ -246,6 +246,7 @@ const NodeRow = memo(function NodeRow({ uuid }: { uuid: string }) {
     expireColor,
     uptime,
     renewalPrice,
+    isPriceVisible,
     latencyColor,
     hasRealHomepagePingBinding,
     loadFraction,
@@ -281,6 +282,7 @@ const NodeRow = memo(function NodeRow({ uuid }: { uuid: string }) {
 
   return (
     <Link
+      id={`node-card-${uuid}`}
       to={`/server/${encodeURIComponent(uuid)}`}
       className={clsx("node-list-row", isOffline && "is-offline")}
       title={detailLabels.title}
@@ -294,9 +296,9 @@ const NodeRow = memo(function NodeRow({ uuid }: { uuid: string }) {
               {node.name}
             </span>
           </div>
-          {(renewalPrice || footerTags.length > 0) && (
+          {((isPriceVisible && renewalPrice) || footerTags.length > 0) && (
             <div className="node-list-chips" title={footerTags.length > 0 ? joinTagTitle(footerTags) : undefined}>
-              {renewalPrice && (
+              {isPriceVisible && renewalPrice && (
                 <span className="dstatus-price-chip">
                   <CircleDollarSign size={12} strokeWidth={2.2} />
                   {renewalPrice}

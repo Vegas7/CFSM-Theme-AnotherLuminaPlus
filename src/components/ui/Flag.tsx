@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { hostAssetUrl } from "@/services/cfsm/config";
 import { getDisplayRegionCode } from "@/utils/geo";
+import { hostAssetUrl } from "@/services/cfsm/config";
 
 interface FlagProps {
   region?: string | null;
@@ -9,15 +9,15 @@ interface FlagProps {
 
 export function Flag({ region, size = 14 }: FlagProps) {
   const value = region?.trim() ?? "";
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const [failStage, setFailStage] = useState(0);
 
   if (!value) {
     return (
       <span
         aria-hidden
-        className="inline-block rounded-[3px] shrink-0"
+        className="inline-block rounded-full shrink-0"
         style={{
-          width: size + 8,
+          width: size,
           height: size,
           background: "var(--border-subtle)",
         }}
@@ -26,20 +26,17 @@ export function Flag({ region, size = 14 }: FlagProps) {
   }
 
   const flagCode = getDisplayRegionCode(value);
-  // 旗帜由后端默认皮肤提供，主题不打包（见 theme-develop.md 的主题构建产物约定）。
-  // 后端的文件名是小写的。
-  const src = hostAssetUrl(`/flags/${flagCode.toLowerCase()}.svg`);
   const alt = `地区旗帜: ${flagCode}`;
 
-  if (failedSrc === src) {
+  if (failStage >= 2) {
     return (
       <span
         role="img"
         aria-label={alt}
-        className="inline-block rounded-[3px] shrink-0"
+        className="inline-block rounded-full shrink-0"
         title={alt}
         style={{
-          width: size + 8,
+          width: size,
           height: size,
           background: "var(--border-subtle)",
         }}
@@ -47,11 +44,17 @@ export function Flag({ region, size = 14 }: FlagProps) {
     );
   }
 
+  // 旗帜走后端默认皮肤静态资源（/flags/<code>.svg），不打包进主题产物
+  const src =
+    failStage === 0
+      ? hostAssetUrl(`/flags/${flagCode.toLowerCase()}.svg`)
+      : hostAssetUrl("/flags/xx.svg");
+
   return (
     <span
-      className="inline-flex items-center shrink-0"
+      className="inline-flex items-center justify-center shrink-0 rounded-full overflow-hidden select-none"
       style={{
-        width: size + 8,
+        width: size,
         height: size,
         lineHeight: 0,
       }}
@@ -60,14 +63,16 @@ export function Flag({ region, size = 14 }: FlagProps) {
         src={src}
         alt={alt}
         loading="lazy"
+        className="w-full h-full rounded-full pointer-events-none"
         style={{
           width: "100%",
           height: "100%",
-          objectFit: "contain",
+          objectFit: "cover",
           display: "block",
         }}
-        onError={() => setFailedSrc(src)}
+        onError={() => setFailStage((prev) => prev + 1)}
       />
     </span>
   );
 }
+

@@ -13,9 +13,10 @@ Thumbs.db
 *.zip
 
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 .claude/
-CLAUDE.md
 .codex
 .env
 .env.*
@@ -26,3 +27,6 @@ CLAUDE.md
 coverage/
 *.tsbuildinfo
 
+# Local reference checkouts
+komari-main/
+komari-theme-purcarte-main/

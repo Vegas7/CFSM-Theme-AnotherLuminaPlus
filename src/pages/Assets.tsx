@@ -9,6 +9,7 @@ import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useHourlyClock } from "@/hooks/useClock";
 import { useVisibleNodes } from "@/hooks/useVisibleNodes";
+import { useAuth } from "@/hooks/useAuth";
 import {
   calculateCostSummary,
   formatCnyMoney,
@@ -57,8 +58,6 @@ const MOBILE_SORT_OPTIONS: Array<{ field: AssetsSortField; label: string }> = [
 ];
 
 const ASSETS_MOBILE_QUERY = "(max-width: 720px)";
-/** 汇率接口失败时的占位，保持引用稳定。 */
-const EMPTY_RATES: Record<string, number> = {};
 
 function sortValue(detail: AssetDetail, field: AssetsSortField): number {
   switch (field) {
@@ -142,23 +141,18 @@ export function Assets() {
     enabled: themeSettings.isReady && nodes.length > 0,
     retry: 1,
   });
-  // 汇率接口失败也要出统计：人民币定价的节点不需要换算，外币节点单独标「汇率缺失」。
-  // 请求失败、被拦截、或 React Query 判定离线挂起（fetchStatus: "paused"）时查询会一直
-  // 停在 pending，所以判断条件是「没在请求且没有数据」，而不是 isError。
-  const ratesFetching = rateQuery.fetchStatus === "fetching" && !rateQuery.data;
-  const rates = rateQuery.data?.rates ?? (ratesFetching ? null : EMPTY_RATES);
   const summary = useMemo(
     () =>
-      rates
+      rateQuery.data
         ? calculateCostSummary(
             nodes,
             themeSettings.costIgnoredNodes,
-            rates,
+            rateQuery.data.rates,
             themeSettings.costPremiums,
             now,
           )
         : null,
-    [nodes, now, themeSettings.costIgnoredNodes, themeSettings.costPremiums, rates],
+    [nodes, now, themeSettings.costIgnoredNodes, themeSettings.costPremiums, rateQuery.data],
   );
   const detailRows = useMemo(() => {
     const direction = sortDirection === "asc" ? 1 : -1;
@@ -192,6 +186,9 @@ export function Assets() {
     }
   };
 
+  const { data: me } = useAuth();
+  const loggedIn = Boolean(me?.logged_in);
+
   if (!themeSettings.isReady) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -200,8 +197,11 @@ export function Assets() {
     );
   }
 
-  // 两个入口都关闭 = 站长不想暴露资产信息,直连 URL 一并回首页。
-  if (!themeSettings.showCostSummary && !themeSettings.showCostSummaryFloatingButton) {
+  // 两个入口都关闭或对访客隐藏资产时，未登录访客直连 URL 回首页。
+  if (
+    (!themeSettings.showCostSummary && !themeSettings.showCostSummaryFloatingButton) ||
+    (!loggedIn && !themeSettings.showPriceForGuests)
+  ) {
     return <Navigate to="/" replace />;
   }
 
@@ -273,7 +273,7 @@ export function Assets() {
       </div>
 
       {nodes.length === 0 ? (
-        <div className="flex h-[40vh] flex-col items-center justify-center gap-2 text-[var(--text-tertiary)]">
+        <div className="flex h-[40vh] flex-col items-center justify-center gap-2 text-(--text-tertiary)">
           <span className="text-[15px]">暂无节点数据</span>
           <span className="text-[12px]">等待后端推送或前往管理后台添加</span>
         </div>
@@ -511,7 +511,7 @@ export function Assets() {
             </>
           ) : (
             <div className="cost-summary-empty">
-              {ratesFetching ? "费用明细加载中" : "汇率获取失败，点击右上角刷新重试"}
+              {rateQuery.isError ? "汇率获取失败，点击右上角刷新重试" : "费用明细加载中"}
             </div>
           )}
 

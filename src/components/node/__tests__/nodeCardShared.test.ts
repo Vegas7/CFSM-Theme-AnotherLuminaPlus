@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PingOverviewBucket } from "@/types/cfsm";
 import {
+  formatCompactBillingCycle,
   formatCompactExpire,
   healthBarInteractionModel,
   healthBarSlotModel,
@@ -80,5 +81,36 @@ describe("formatCompactExpire", () => {
   it("keeps the remaining-days form otherwise", () => {
     expect(formatCompactExpire({ value: "12", unit: "天" })).toBe("余 12天");
     expect(formatCompactExpire({ value: "长期", unit: "" })).toBe("长期");
+  });
+});
+
+describe("formatCompactBillingCycle", () => {
+  it("formats standard cycles correctly", () => {
+    expect(formatCompactBillingCycle("month")).toBe("月付");
+    expect(formatCompactBillingCycle(30)).toBe("月付");
+    expect(formatCompactBillingCycle("quarter")).toBe("季付");
+    expect(formatCompactBillingCycle(90)).toBe("季付");
+    expect(formatCompactBillingCycle("half_year")).toBe("半年付");
+    expect(formatCompactBillingCycle(180)).toBe("半年付");
+    expect(formatCompactBillingCycle("year")).toBe("年付");
+    expect(formatCompactBillingCycle(365)).toBe("年付");
+    expect(formatCompactBillingCycle("two_years")).toBe("2年付");
+    expect(formatCompactBillingCycle("三年付")).toBe("3年付");
+    expect(formatCompactBillingCycle("three_years")).toBe("3年付");
+    expect(formatCompactBillingCycle("four_years")).toBe("4年付");
+    expect(formatCompactBillingCycle("five_years")).toBe("5年付");
+    expect(formatCompactBillingCycle(1095)).toBe("3年付");
+    expect(formatCompactBillingCycle("lifetime")).toBe("永久");
+    expect(formatCompactBillingCycle(-1)).toBe("永久");
+  });
+
+  it("handles free price sentinel", () => {
+    expect(formatCompactBillingCycle("year", -1)).toBe("免费");
+  });
+
+  it("falls back to 年付 for invalid or empty cycle values", () => {
+    expect(formatCompactBillingCycle("")).toBe("年付");
+    expect(formatCompactBillingCycle(null)).toBe("年付");
+    expect(formatCompactBillingCycle(undefined)).toBe("年付");
   });
 });

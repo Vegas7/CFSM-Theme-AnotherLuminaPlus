@@ -1,52 +1,4 @@
-/* LuminaPlus 共享表面样式 */
-
-/* 固定的全视口背景图,画在 body::before 上以便首帧即存在(index.html 内联脚本在 React
-   挂载前就注入这些变量,避免不透明→玻璃的闪烁)。位于 body 的 --bg-0 兜底之上、#root 内容
-   之下。设备图片纯靠 CSS 选择,url 与 size/position 通过 <html> 上继承的自定义属性传入。
-   未配置背景时变量默认为 `none`,这一层不绘制任何内容。 */
-body::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: -2;
-  /* 稳定、与滚动无关的尺寸。用 100vw/100vh(不用 inset:0 或 dvh)把这一层与动态视口解耦:
-     移动端滚动时 URL 栏收起、桌面端滚动条切换都不再改变盒子,因此 `background-size: cover`
-     不会在滚动中途重算——那次重算正是缩放抖动的来源。 */
-  width: 100vw;
-  height: 100vh;
-  background-image: var(--bg-image-desktop, none);
-  background-size: var(--bg-size, cover);
-  background-position: var(--bg-position, center);
-  background-repeat: no-repeat;
-  pointer-events: none;
-}
-
-@media (max-width: 720px) {
-  body::before {
-    background-image: var(--bg-image-mobile, var(--bg-image-desktop, none));
-  }
-}
-
-/* 图片上的可读性遮罩层。用 --bg-0(注入 --bg-scrim),从而暗色模式自动变暗、亮色模式自动
-   变亮;玻璃关闭时透明。尺寸与图片层一样保持稳定。 */
-body::after {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: -2;
-  width: 100vw;
-  height: 100vh;
-  background: var(--bg-scrim, transparent);
-  pointer-events: none;
-}
-
-/* 有意不做卡片磨砂(backdrop-filter):它依赖 GPU 合成,不同设备/浏览器渲染差异大
-   (关闭硬件加速的桌面浏览器甚至完全不画),还会和卡片的 content-visibility 优化冲突
-   (Chromium 把 paint containment 视为 backdrop root,吞掉元素自身的 backdrop-filter)。
-   半透明观感 = 纯半透明表面(--surface-a) + 图片上的可读性遮罩(--bg-scrim),
-   两者都是普通绘制,所有设备逐像素一致。 */
+/* SAO 共享表面样式 */
 
 .surface-inset {
   background: var(--surface-sunken);
@@ -123,6 +75,106 @@ body::after {
   color: var(--progress-cpu);
 }
 
+/* 访问异常卡片与网关 (AccessError & PrivateSiteGate) */
+.access-error-card {
+  display: flex;
+  width: min(420px, 100%);
+  margin: 0 auto;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  padding: 36px 28px;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 48%, transparent);
+  background: color-mix(in srgb, var(--surface-a) 90%, transparent);
+  box-shadow:
+    0 24px 48px -24px color-mix(in srgb, black 16%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.access-error-icon-wrap {
+  position: relative;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-elev);
+  color: var(--text-secondary);
+}
+
+.access-error-icon-wrap.is-lock {
+  color: var(--text-secondary);
+}
+
+.access-error-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.access-error-desc {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 320px;
+}
+
+.access-error-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+  width: 100%;
+}
+
+.access-error-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: var(--text-primary);
+  color: var(--bg-0);
+  border: 1px solid var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--text-primary) 30%, transparent);
+  transition:
+    opacity 160ms ease,
+    transform 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 160ms ease;
+}
+
+.access-error-refresh-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px -4px color-mix(in srgb, var(--text-primary) 40%, transparent);
+}
+
+.access-error-refresh-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.access-error-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .control-button {
   background: color-mix(in srgb, var(--surface-a) 88%, transparent);
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
@@ -145,115 +197,43 @@ body::after {
   transform: scale(0.96);
 }
 
-/* 「实时连接已达到时限」提示（RealtimeSessionPrompt）：贴底居中的浮条，不挡页面。按钮沿用 control-button，
-   主操作用强调色描边 + 淡染（与设置页分段控件选中态同一语言）。 */
-.realtime-session-prompt {
-  position: fixed;
-  left: 50%;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
-  z-index: 70;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: max-content;
-  max-width: calc(100vw - 1.5rem);
-  padding: 10px 12px 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--surface);
-  color: var(--text-primary);
-  transform: translateX(-50%);
-}
-
-.realtime-session-prompt-icon {
-  flex: none;
-  color: var(--text-tertiary);
-}
-
-.realtime-session-prompt-body {
-  min-width: 0;
-  font-size: 12.5px;
-  line-height: 1.45;
-}
-
-.realtime-session-prompt-body strong {
-  display: block;
-  font-weight: 650;
-}
-
-.realtime-session-prompt-body p {
-  margin: 0;
-  color: var(--text-secondary);
-}
-
-.realtime-session-prompt-actions {
-  display: flex;
-  flex: none;
-  gap: 6px;
-}
-
-.realtime-session-prompt-button {
-  padding: 6px 12px;
-  font-size: 12.5px;
-  font-weight: 560;
-  white-space: nowrap;
-}
-
-.realtime-session-prompt-button.is-primary {
-  border-color: color-mix(in srgb, var(--accent-500) 55%, var(--border));
-  background: color-mix(in srgb, var(--accent-500) 12%, var(--surface-a));
-  color: var(--text-primary);
-}
-
-/* 同步成功那条只报个平安，几秒后自己消失：不给按钮，图标和边框用强调色区别于失败。 */
-.site-theme-sync-notice.is-success {
-  border-color: color-mix(in srgb, var(--accent-500) 45%, var(--border));
-}
-
-.site-theme-sync-notice.is-success .realtime-session-prompt-icon {
-  color: var(--accent-500);
-}
-
-/* 两条提示同时出现（实时连接到时限 + 同步失败）时往上错开，别叠在一起。 */
-.realtime-session-prompt ~ .site-theme-sync-notice {
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
-}
-
-@media (max-width: 560px) {
-  .realtime-session-prompt {
-    flex-wrap: wrap;
-    width: calc(100vw - 1.5rem);
-  }
-
-  .realtime-session-prompt-body {
-    flex: 1 1 0;
-  }
-
-  .realtime-session-prompt-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-}
-
 /* 普通页面只处理页面边距与 iOS PWA 安全区，不为首页专属悬浮卡留空。 */
 .app-main {
   --app-gutter: 0.75rem;
   padding-left: max(var(--app-gutter), env(safe-area-inset-left, 0px));
   padding-right: max(var(--app-gutter), env(safe-area-inset-right, 0px));
-  padding-top: calc(env(safe-area-inset-top, 0px) + 1.25rem);
+  padding-top: 1.5rem;
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
 }
 
 .floating-controls {
-  position: absolute;
-  top: -14px;
-  right: 0;
-  /* 快捷栏及其调色盘应始终覆盖概览卡内弹层（续费提醒为 70），否则提醒红点
-     会穿透到配色面板上。 */
-  z-index: 90;
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  right: max(calc((100vw - 1720px) / 2 + 2rem), max(var(--app-gutter), env(safe-area-inset-right, 24px)));
+  /* 快捷栏及其调色盘在顶栏右上角 */
+  z-index: 50;
   display: inline-flex;
   flex: 0 0 auto;
   justify-content: flex-end;
   pointer-events: none;
+}
+
+@media (max-width: 1023px) {
+  .floating-controls {
+    right: max(calc((100vw - 1720px) / 2 + 1.5rem), max(var(--app-gutter), env(safe-area-inset-right, 16px)));
+  }
+}
+
+@media (max-width: 767px) {
+  .floating-controls {
+    right: max(calc((100vw - 1720px) / 2 + 1.25rem), max(var(--app-gutter), env(safe-area-inset-right, 16px)));
+  }
+}
+
+@media (max-width: 639px) {
+  .floating-controls {
+    right: max(calc((100vw - 1720px) / 2 + 0.75rem), max(var(--app-gutter), env(safe-area-inset-right, 12px)));
+  }
 }
 
 .floating-controls-inner {
@@ -272,21 +252,21 @@ body::after {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+  height: 36px;
 }
 
 .floating-controls-actions {
   position: absolute;
-  top: 0;
+  top: 50%;
+  transform: translateY(-50%) translateX(0) scale(1);
   right: calc(100% + 8px);
   display: inline-flex;
   width: max-content;
-  /* 刷新按钮常驻在触发器左边，折叠层要多让出它那 44px，否则窄屏上会滑到按钮底下。 */
-  max-width: min(340px, calc(100vw - 7rem));
+  max-width: min(600px, calc(100vw - 4.5rem));
   align-items: center;
   gap: 8px;
   overflow: hidden;
   opacity: 1;
-  transform: translateX(0) scale(1);
   transform-origin: right center;
   transition:
     max-width 220ms cubic-bezier(0.32, 0.72, 0, 1),
@@ -294,117 +274,61 @@ body::after {
     transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* 外观选择与其他快捷按钮共用同一个 36px 圆形规格；分组仅保留语义，不再额外
-   包一层会把整行撑高的胶囊。 */
-.floating-controls .floating-controls-appearance {
-  flex: 0 0 auto;
-  gap: 8px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
 .floating-controls-actions .control-button,
-.floating-controls-refresh,
 .floating-controls-trigger {
   width: 36px;
   min-width: 36px;
   height: 36px;
   flex: 0 0 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* 刷新按钮和展开箭头并排常驻，不收进快捷栏——它是一次动作，不是一个开关，
-   藏进折叠层里就变成两次点击。 */
-.floating-controls-refresh {
+/* 外观选择与其他快捷按钮共用同一个 36px 规格对齐 */
+.floating-controls .floating-controls-appearance {
   flex: 0 0 auto;
-  box-shadow: 0 10px 28px -22px rgba(0, 0, 0, 0.38);
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-a) 84%, transparent);
+  box-shadow: 0 8px 24px -22px rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
 }
 
-.floating-controls-refresh:disabled {
-  cursor: default;
-  opacity: 0.5;
+.floating-controls .floating-controls-appearance .control-button {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
-/* 30 分钟内重复点击的提醒态：琥珀色，和「失败」的红区分开。 */
-.floating-controls-refresh.is-refresh-warn {
-  border-color: color-mix(in srgb, var(--status-warning) 42%, var(--border));
-  color: var(--status-warning);
-}
-
-.floating-controls-refresh.is-refresh-error {
-  border-color: color-mix(in srgb, var(--status-offline) 38%, var(--border));
-  color: var(--status-offline);
-}
-
-/* 刷完之后按钮短暂变成对勾——一次动作要有个落点，光靠 title 看不见。 */
-.floating-controls-refresh.is-refresh-done {
-  border-color: color-mix(in srgb, var(--status-success) 42%, var(--border));
-  color: var(--status-success);
-}
-
-/* 结果条和「同步异常」提示共用锚点，两者不会同时出现（刷新结果优先且只停留几秒）。 */
-.floating-controls-refresh-toast {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 1;
-  width: max-content;
-  max-width: min(320px, calc(100vw - 2rem));
-  background: color-mix(in srgb, var(--surface-a) 90%, transparent);
-  animation: floating-controls-toast-in 180ms ease-out;
-}
-
-.floating-controls-refresh-toast.is-done {
-  border-color: color-mix(in srgb, var(--status-success) 32%, transparent);
-  color: var(--status-success);
-}
-
-.floating-controls-refresh-toast.is-warn {
-  border-color: color-mix(in srgb, var(--status-warning) 32%, transparent);
-  color: var(--status-warning);
-}
-
-.floating-controls-refresh-toast.is-error {
-  border-color: color-mix(in srgb, var(--status-offline) 32%, transparent);
-  color: var(--status-offline);
-}
-
-@keyframes floating-controls-toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .floating-controls-refresh-toast {
-    animation: none;
-  }
-}
-
-.floating-controls-refresh-spin {
-  animation: floating-controls-refresh-spin 900ms linear infinite;
-}
-
-@keyframes floating-controls-refresh-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .floating-controls-refresh-spin {
-    animation-duration: 2400ms;
-  }
+.floating-controls .floating-controls-appearance .control-button.is-active {
+  background: color-mix(in srgb, var(--surface-elev-a) 92%, var(--hover-bg-a));
+  border-color: color-mix(in srgb, var(--border-strong) 78%, transparent);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-strong) 48%, transparent);
 }
 
 .floating-controls.is-collapsed .floating-controls-actions {
   max-width: 0;
   opacity: 0;
   pointer-events: none;
-  transform: translateX(18px) scale(0.96);
+  transform: translateY(-50%) translateX(18px) scale(0.96);
 }
 
 .floating-controls-inner > .metric-color-picker,
@@ -440,6 +364,7 @@ body::after {
   border-radius: 999px;
   background: var(--status-offline);
 }
+
 /* 悬浮控制卡里的"卡片配色"取色面板 */
 .metric-color-picker {
   align-self: flex-end;
@@ -502,108 +427,6 @@ body::after {
 .metric-color-error {
   font-size: 11px;
   color: var(--status-offline);
-}
-
-.metric-color-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  /* 标题省掉后（登录站长）也把按钮组顶到右边。 */
-  margin-left: auto;
-}
-
-.dark-depth-control {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  border: 1px solid var(--hairline);
-  border-radius: 11px;
-  background: var(--surface-sunken);
-  padding: 9px;
-}
-
-.dark-depth-presets {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 5px;
-}
-
-.dark-depth-preset {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--text-tertiary);
-  padding: 6px 4px;
-  font-size: 10.5px;
-  font-weight: 620;
-  line-height: 1;
-  transition:
-    border-color 140ms ease,
-    background 140ms ease,
-    color 140ms ease;
-}
-
-.dark-depth-preset:hover {
-  background: var(--hover-bg);
-  color: var(--text-secondary);
-}
-
-.dark-depth-preset[data-active="true"] {
-  border-color: color-mix(in srgb, var(--accent-500) 42%, var(--border));
-  background: color-mix(in srgb, var(--accent-500) 9%, var(--surface-elev));
-  color: var(--text-primary);
-}
-
-.dark-depth-preset-swatch {
-  width: 12px;
-  height: 12px;
-  flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 4px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.22);
-}
-
-.dark-depth-preset[data-depth="0"] .dark-depth-preset-swatch { background: #212830; }
-.dark-depth-preset[data-depth="60"] .dark-depth-preset-swatch { background: #0d1117; }
-.dark-depth-preset[data-depth="100"] .dark-depth-preset-swatch { background: #000000; }
-
-.dark-depth-range {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dark-depth-range-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 580;
-}
-
-.dark-depth-range output {
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-
-.dark-depth-range input[type="range"] {
-  width: 100%;
-  height: 16px;
-  margin: 0;
-  cursor: pointer;
-  accent-color: var(--accent-500);
-}
-
-.dark-depth-hint {
-  margin: 0;
-  color: var(--text-tertiary);
-  font-size: 10px;
-  line-height: 1.35;
 }
 
 .metric-color-reset-all {
@@ -724,10 +547,6 @@ body::after {
     --app-gutter: 2rem;
     padding-top: calc(env(safe-area-inset-top, 0px) + 1.5rem);
   }
-
-  .floating-controls {
-    top: -18px;
-  }
 }
 
 @media (max-width: 360px) {
@@ -738,11 +557,10 @@ body::after {
   }
 
   .floating-controls-actions {
-    max-width: calc(100vw - env(safe-area-inset-right, 0px) - 90px);
+    max-width: calc(100vw - env(safe-area-inset-right, 0px) - 52px);
   }
 
   .floating-controls-actions .control-button,
-  .floating-controls-refresh,
   .floating-controls-trigger {
     width: 32px;
     min-width: 32px;
@@ -752,8 +570,100 @@ body::after {
 }
 
 /* 主题管理报头:eyebrow + 大标题 + 右侧账目式元信息,和资产页同一套编辑排版语言。 */
-/* 主题设置页的粘性顶栏：返回 + 标题 + 操作/同步状态压成一行，滚动时钉在页顶。
-   原来是一整块 masthead（大标题、说明段、统计），一屏里先吃掉 200px，还跟着页面滚走。 */
+.theme-masthead {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+  background:
+    linear-gradient(
+      130deg,
+      color-mix(in srgb, var(--accent-500) 5%, transparent) 0%,
+      transparent 44%
+    ),
+    var(--surface-a);
+  padding: 20px 24px 22px;
+}
+
+.theme-masthead-topline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.theme-masthead-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 40px;
+  border-top: 1px solid color-mix(in srgb, var(--hairline) 90%, transparent);
+  padding-top: 18px;
+}
+
+.theme-masthead-headings {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.theme-masthead-kicker {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.theme-masthead-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(26px, 3.4vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.theme-masthead-desc {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.theme-masthead-meta {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 26px;
+  margin: 0;
+}
+
+.theme-masthead-meta div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.theme-masthead-meta dt {
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  font-weight: 680;
+  letter-spacing: 0.14em;
+}
+
+.theme-masthead-meta dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 740;
+  font-variant-numeric: tabular-nums;
+}
+
 .theme-topbar {
   position: sticky;
   top: 0;
@@ -765,8 +675,6 @@ body::after {
   padding: 9px 14px;
   border: 1px solid var(--hairline);
   border-radius: 16px;
-  /* 必须完全不透明：半透明时下面滚过去的设置会透出来，看着像两层字叠在一起。
-     用 --surface 而不是 --surface-a，后者会跟着「卡片透明度」一起变透。 */
   background: var(--surface);
   box-shadow: 0 10px 24px -20px rgba(0, 0, 0, 0.55);
 }
@@ -785,17 +693,51 @@ body::after {
 }
 
 @media (max-width: 720px) {
-  /* 窄屏只留箭头：站长那行「主题设置 + 同步状态」才挤得下一行；访客的按钮会换到第二行横滑。 */
   .theme-topbar-back span {
     display: none;
   }
+}
 
+
+/* 流量色谱预设按钮卡片（清晰可见的边框与激活高亮，浅色/深色模式全面适配） */
+.setting-spectrum-preset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  cursor: pointer;
+  transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+  outline: none;
+  width: 100%;
+}
+
+:root:not([data-appearance="dark"]) .setting-spectrum-preset-card {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+}
+
+.setting-spectrum-preset-card:hover {
+  border-color: color-mix(in srgb, var(--accent-500) 50%, var(--border-color));
+  transform: translateY(-1px);
+}
+
+.setting-spectrum-preset-card[data-active="true"] {
+  border-color: var(--accent-500);
+  background: color-mix(in srgb, var(--accent-500) 10%, var(--bg-card));
+  box-shadow: 0 0 0 1px var(--accent-500), 0 3px 10px -2px color-mix(in srgb, var(--accent-500) 25%, transparent);
+}
+
+.setting-spectrum-preset-card:focus,
+.setting-spectrum-preset-card:focus-visible {
+  outline: none;
 }
 
 .theme-manage-toolbar-actions {
   display: inline-flex;
-  /* 靠右用 margin-left:auto，不用 justify-content:flex-end —— 窄屏换行后按钮放不下时，
-     flex-end 会把最左边那个顶出容器外，还滚不回来（溢出方向反了）。 */
   margin-left: auto;
   max-width: 100%;
   flex-wrap: nowrap;
@@ -809,8 +751,6 @@ body::after {
   display: none;
 }
 
-/* 设置页的排版口径，一处改全页跟着改。分区标题 / 小节标题 / 字段名 / 说明四档，别再在 JSX 里写
-   text-[13px] font-medium 这种一次性组合 —— 之前同一层级的字在不同分区有 12px、13px 三四种写法。 */
 .setting-subhead {
   display: flex;
   flex-wrap: wrap;
@@ -832,10 +772,312 @@ body::after {
   font-weight: 560;
 }
 
+.setting-grid {
+  display: grid;
+  gap: 14px 16px;
+  align-items: start;
+}
+
+@media (min-width: 720px) {
+  .setting-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .setting-grid > .is-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.instance-segmented.is-even {
+  display: flex;
+  width: 100%;
+}
+
+.instance-segmented.is-prominent.is-even button,
+.instance-segmented.is-even button {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .instance-segmented.is-stack-mobile {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 6px;
+  }
+
+  .instance-segmented.is-stack-mobile button {
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 12px;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.35;
+  }
+}
+
+.instance-segmented button svg {
+  flex-shrink: 0;
+}
+
+.setting-segment-slot {
+  container: setting-segment / inline-size;
+  min-width: 0;
+}
+
+@container setting-segment (max-width: 430px) {
+  .instance-segmented.is-prominent.is-even button {
+    padding: 0 4px;
+  }
+
+  .instance-segmented.is-even:has(> button:nth-child(4)) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .instance-segmented.is-even:has(> button:nth-child(5):last-child) {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .instance-segmented.is-even:has(> button:nth-child(5):last-child) > button {
+    grid-column: span 2;
+  }
+
+  .instance-segmented.is-even:has(> button:nth-child(5):last-child) > button:nth-child(n + 4) {
+    grid-column: span 3;
+  }
+}
+
+@media (min-width: 960px) {
+  .setting-grid.is-triple {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.setting-control {
+  width: 100%;
+}
+
+.setting-select {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.setting-select > select {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 34px 8px 12px;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.setting-select-icon {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  color: var(--text-secondary);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
 .setting-hint {
   color: var(--text-tertiary);
   font-size: 11px;
   line-height: 1.55;
+}
+
+/* 设置项卡片式选择网格（2个选项平分整行，撑满面板版面） */
+.setting-mode-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .setting-mode-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.setting-mode-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 14px 16px 16px;
+  border-radius: 12px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  min-height: 96px;
+  outline: none;
+}
+
+.setting-mode-card:hover {
+  border-color: color-mix(in srgb, var(--accent-500) 45%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-500) 4%, var(--surface-sunken));
+  transform: translateY(-1px);
+}
+
+.setting-mode-card[data-active="true"] {
+  background: color-mix(in srgb, var(--accent-500) 10%, var(--surface-sunken));
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 1px var(--accent-500), 0 4px 12px -2px color-mix(in srgb, var(--accent-500) 25%, transparent);
+}
+
+.setting-mode-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.setting-mode-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.setting-mode-card[data-active="true"] .setting-mode-card-title {
+  color: var(--accent-500);
+}
+
+.setting-mode-card-radio {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1.5px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 160ms ease;
+  background: var(--surface-sunken);
+}
+
+.setting-mode-card:hover .setting-mode-card-radio {
+  border-color: color-mix(in srgb, var(--accent-500) 50%, var(--hairline));
+}
+
+.setting-mode-card[data-active="true"] .setting-mode-card-radio {
+  border-color: var(--accent-500);
+  background: var(--accent-500);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent-500) 60%, transparent);
+}
+
+.setting-mode-card-radio-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ffffff;
+  opacity: 0;
+  transform: scale(0.4);
+  transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.setting-mode-card[data-active="true"] .setting-mode-card-radio-dot {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.setting-mode-card-desc {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.setting-mode-card[data-active="true"] .setting-mode-card-desc {
+  color: var(--text-secondary);
+}
+
+/* 矩阵配色风格切换卡片（清晰可见的边框与激活高亮，浅色/深色模式全面适配） */
+.setting-color-theme-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-sunken);
+  border: 1.5px solid var(--border-color);
+  cursor: pointer;
+  transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+  outline: none;
+  width: 100%;
+}
+
+:root:not([data-appearance="dark"]) .setting-color-theme-card {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: #f8fafc;
+}
+
+.setting-color-theme-card:hover {
+  border-color: color-mix(in srgb, var(--accent-500) 50%, var(--border-color));
+  transform: translateY(-1px);
+}
+
+.setting-color-theme-card[data-active="true"] {
+  border-color: var(--accent-500);
+  background: color-mix(in srgb, var(--accent-500) 10%, var(--surface-sunken));
+  box-shadow: 0 0 0 1px var(--accent-500), 0 3px 10px -2px color-mix(in srgb, var(--accent-500) 25%, transparent);
+}
+
+.setting-color-theme-card.is-eva[data-active="true"] {
+  border-color: #8b5cf6;
+  background: color-mix(in srgb, #7c3aed 10%, var(--surface-sunken));
+  box-shadow: 0 0 0 1px #8b5cf6, 0 3px 12px -2px rgba(124, 58, 237, 0.35);
+}
+
+.setting-color-theme-radio {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(0, 0, 0, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 140ms ease;
+}
+
+:root[data-appearance="dark"] .setting-color-theme-radio {
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.setting-color-theme-card[data-active="true"] .setting-color-theme-radio,
+.setting-spectrum-preset-card[data-active="true"] .setting-color-theme-radio {
+  border-color: var(--accent-500);
+  background: var(--accent-500);
+}
+
+.setting-color-theme-card.is-eva[data-active="true"] .setting-color-theme-radio {
+  border-color: #8b5cf6;
+  background: #7c3aed;
+}
+
+.setting-color-theme-radio-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #ffffff;
 }
 
 .theme-manage-button {
@@ -919,7 +1161,6 @@ body::after {
     );
 }
 
-/* 登录站长工具栏上替代保存按钮的同步状态：和按钮同高、不可点，所以不要边框和阴影。 */
 .theme-manage-sync-status {
   display: inline-flex;
   align-items: center;
@@ -936,18 +1177,11 @@ body::after {
   color: var(--status-offline);
 }
 
-/* ------------------------------------------------------------------ *
- * 主题设置页：分组导航
- * 九个分区一条直线排下来时，桌面 5.4 屏、手机 6.7 屏，改一项要扫整页；
- * 现在一次只渲染一组，导航在桌面端粘在左边、手机端是顶部一条横滑标签；顶栏也钉住。
- * ------------------------------------------------------------------ */
-/* 设置区是独立滚动区：高度由 JS 量出来（顶栏到页脚之间），页面本身正好不用滚，
-   卡片只在自己的框里滚，永远不会滑到顶栏那一块去 —— 两个框之间始终是同一道缝。 */
 .theme-manage-body {
   display: grid;
   gap: 16px;
   align-items: start;
-  height: var(--theme-body-height, auto);
+  height: auto;
   min-height: 0;
 }
 
@@ -955,15 +1189,11 @@ body::after {
   display: flex;
   min-width: 0;
   min-height: 0;
-  height: 100%;
+  height: auto;
   flex-direction: column;
   gap: 20px;
-  overflow-y: auto;
-  /* 滚到头不要把整页也带着滚。 */
-  overscroll-behavior: contain;
-  /* 滚动条贴着卡片会压住圆角，留一点道。 */
-  padding-right: 4px;
-  scrollbar-width: thin;
+  overflow: visible;
+  padding-bottom: 28px;
 }
 
 .theme-tab-rail {
@@ -1016,7 +1246,6 @@ body::after {
   color: var(--accent-500);
 }
 
-/* 说明文字只在桌面端的竖排导航里出现，手机上横滑标签放不下。 */
 .theme-tab-hint {
   display: none;
 }
@@ -1024,10 +1253,19 @@ body::after {
 @media (min-width: 900px) {
   .theme-manage-body {
     grid-template-columns: 210px minmax(0, 1fr);
+    height: var(--theme-body-height, auto);
+  }
+
+  .theme-manage-sections {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+    padding-bottom: 24px;
+    scrollbar-width: thin;
   }
 
   .theme-tab-rail {
-    /* 设置区自己滚，导航不用再 sticky；分组多到放不下时它自己滚。 */
     height: 100%;
     flex-direction: column;
     overflow-y: auto;
@@ -1046,6 +1284,9 @@ body::after {
     font-size: 11px;
     font-weight: 500;
     line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -1163,7 +1404,7 @@ body::after {
   gap: 5px;
 }
 
-/* 分区小标(仅主题管理传入 kicker 时出现)。 */
+/* 编号分区小标(仅主题管理传入 kicker 时出现):两位序号用品牌色 + 分区名。 */
 .instance-panel-kicker {
   display: inline-flex;
   align-items: center;
@@ -1173,6 +1414,14 @@ body::after {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.16em;
+}
+
+.instance-panel-kicker-num {
+  color: var(--accent-500);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 带 kicker 的面板(主题管理各分区)标题区加一道发丝下线,读作报告的分节。 */
@@ -1241,11 +1490,10 @@ body::after {
   background: var(--hover-bg);
 }
 
-/* 弹出菜单共享骨架:实例切换器、首页排序控件(home.css 的 .home-sort-*)与卡片线路切换(.ping-line-menu-*)
-   是同一套 panel/item 视觉,组选择器只定义这一处;差异项(展开方向、宽度、item gap、可滚动)在各自规则里补充。 */
+/* 弹出菜单共享骨架:实例切换器与首页排序控件(home.css 的 .home-sort-*)是同一套 panel/item
+   视觉,组选择器只定义这一处;差异项(展开方向、宽度、item gap、切换器的可滚动)在各自规则里补充。 */
 .instance-switcher-panel,
-.home-sort-panel,
-.ping-line-menu {
+.home-sort-panel {
   position: absolute;
   top: calc(100% + 6px);
   z-index: 30;
@@ -1271,8 +1519,7 @@ body::after {
 }
 
 .instance-switcher-item,
-.home-sort-item,
-.ping-line-menu-item {
+.home-sort-item {
   display: flex;
   align-items: center;
   width: 100%;
@@ -1292,64 +1539,16 @@ body::after {
 }
 
 .instance-switcher-item:hover,
-.home-sort-item:hover,
-.ping-line-menu-item:hover {
+.home-sort-item:hover {
   color: var(--text-primary);
   background: var(--hover-bg);
 }
 
 .instance-switcher-item[data-active="true"],
-.home-sort-item[data-active="true"],
-.ping-line-menu-item[data-active="true"] {
+.home-sort-item[data-active="true"] {
   color: var(--text-primary);
   background: color-mix(in srgb, var(--surface-elev-a) 92%, var(--hover-bg-a));
   font-weight: 600;
-}
-
-/* 卡片线路切换(PingLineSwitcher)的浮层挂在 body 上、fixed 定位:卡片有 overflow:hidden 与
-   content-visibility:auto,放在卡内会被裁掉。top/left/max-height 由组件按线路名的位置写进内联样式。 */
-.ping-line-menu {
-  position: fixed;
-  z-index: 60;
-  min-width: 148px;
-  max-width: min(240px, calc(100vw - 16px));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.ping-line-menu-item {
-  gap: 8px;
-}
-
-.ping-line-menu-item svg {
-  display: block;
-  flex: none;
-}
-
-.ping-line-menu-item[data-active="true"] svg {
-  color: var(--accent-500);
-}
-
-.ping-line-menu-label {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ping-line-menu-hint {
-  flex: none;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.ping-line-menu-divider {
-  flex: none;
-  height: 1px;
-  margin: 3px 4px;
-  background: var(--hairline);
 }
 
 .instance-switcher-dot {
@@ -1442,25 +1641,6 @@ body::after {
   font-weight: 500;
   line-height: 1.3;
   word-break: break-word;
-}
-
-.instance-info-label-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-/* 「估算」等小角标：弱化的胶囊，提示该值非精确数据（如今日流量按瞬时速率积分得出）。 */
-.instance-info-tag {
-  flex: 0 0 auto;
-  padding: 1px 5px;
-  border-radius: 999px;
-  background: var(--surface-muted, rgba(127, 127, 127, 0.14));
-  color: var(--text-tertiary);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  cursor: help;
 }
 
 .instance-info-inline-value {
@@ -1564,6 +1744,16 @@ body::after {
   box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.22);
 }
 
+.instance-progress-track.is-unlimited {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--text-tertiary) 28%, transparent) 0 6px,
+      color-mix(in srgb, var(--text-tertiary) 10%, transparent) 6px 12px
+    ),
+    var(--progress-bg);
+}
+
 .instance-progress-fill {
   display: block;
   height: 100%;
@@ -1606,47 +1796,25 @@ body::after {
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.instance-segmented::-webkit-scrollbar {
+  display: none;
 }
 
 .instance-segmented.is-scrollable {
   overflow-x: auto;
 }
 
-/* 要一眼看清「现在是哪一种」的分段控件（首页延迟的单线路 / 多线路、默认线路都用它）：
-   占满整行、选项等宽。默认那套激活态只有一层很淡的 hover 底色，几项并排时得盯着看才分得出
-   选中的是哪个；这里改用和取色器 `.dark-depth-preset[data-active]` 同一套「强调色描边 +
-   9% 淡染」——比原来显眼，又不像实心蓝那样跳出整页的设计语言。
-   `flex-wrap` + 140px 基准宽：以后后端加线路（选项变 5、6 个）会自己换行，不需要横向滚动。 */
-.instance-segmented.is-prominent {
+.instance-segmented.is-scrollable > button {
+  flex-shrink: 0;
+}
+
+.instance-segmented.is-even {
   display: flex;
-  flex-wrap: wrap;
   width: 100%;
-  gap: 4px;
-  padding: 4px;
-}
-
-.instance-segmented.is-prominent button {
-  flex: 1 1 140px;
-  min-height: 38px;
-  padding: 0 14px;
-  border: 1px solid transparent; /* 占位，选中时才显色，免得换选项时高度跳一下 */
-  font-size: 13px;
-}
-
-.instance-segmented.is-prominent button[data-active="true"] {
-  border-color: color-mix(in srgb, var(--accent-500) 42%, var(--border));
-  background: color-mix(in srgb, var(--accent-500) 9%, var(--surface-elev));
-  color: var(--text-primary);
-}
-
-.instance-segmented.is-prominent button:not([data-active="true"]):hover:not(:disabled) {
-  background: var(--hover-bg);
-  color: var(--text-secondary);
-}
-
-.instance-segmented.is-prominent button:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
 }
 
 .instance-segmented button,
@@ -1656,6 +1824,9 @@ body::after {
   justify-content: center;
   gap: 6px;
   min-height: 30px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 0 12px;
   border-radius: 10px;
   color: var(--text-secondary);
@@ -1696,6 +1867,13 @@ body::after {
   transition: transform 160ms ease, background 160ms ease;
 }
 
+.instance-switch-state {
+  min-width: 24px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 650;
+}
+
 .instance-segmented button[data-active="true"],
 .instance-toggle-button[data-active="true"],
 .instance-toggle-button:hover {
@@ -1710,6 +1888,10 @@ body::after {
 .instance-toggle-button[data-active="true"] .instance-switch-thumb {
   transform: translateX(14px);
   background: color-mix(in srgb, white 84%, var(--progress-cpu) 16%);
+}
+
+.instance-toggle-button[data-active="true"] .instance-switch-state {
+  color: var(--text-primary);
 }
 
 .instance-chart-meta {
@@ -1830,12 +2012,6 @@ body::after {
   display: none;
 }
 
-/* 触屏拖动辅助线：纵向滑动仍然滚页面，横向的那一笔留给 bindTouchCursor 处理。
-   不写这条的话浏览器会在第一次 touchmove 就自己开始滚，游标根本拖不动。 */
-.instance-uplot-wrap .u-over {
-  touch-action: pan-y;
-}
-
 .instance-uplot-wrap.is-large {
   margin-top: 16px;
 }
@@ -1919,61 +2095,6 @@ body::after {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-/* 丢包色带：左槽位宽度由 JS 传入，与主图 Y 轴刻度同宽，保证横轴逐像素对齐 */
-.ping-loss-strip {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin: 10px 0 0;
-}
-
-/* 与主图 uPlot 游标同款的虚线，纵向贯穿整条色带。
-   向下多伸 10px 跨过 uPlot 的顶部内边距（options.padding 的第一个值），
-   与主图那根游标接成一条完整的线 */
-.ping-loss-cursor {
-  position: absolute;
-  top: 0;
-  bottom: -10px;
-  width: 0;
-  border-right: 1px dashed #607d8b;
-  pointer-events: none;
-}
-
-/* 色带紧贴图表：中间留白会把游标虚线切成两截 */
-.ping-loss-strip + .instance-uplot-wrap.is-large {
-  margin-top: 0;
-}
-
-.ping-loss-row {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  min-width: 0;
-  /* 行高与标签字号解耦：否则调一次字号就把整条色带的疏密也改了 */
-  height: 10px;
-}
-
-.ping-loss-label {
-  flex: none;
-  box-sizing: border-box;
-  padding-right: 8px;
-  font-size: 8px;
-  /* 行高压到 1：默认 1.5 的行盒比 6px 的色带高得多，行距看着全是文字撑出来的 */
-  line-height: 1;
-  color: var(--text-secondary);
-  text-align: right;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.ping-loss-row canvas {
-  display: block;
-  flex: none;
-  border-radius: 3px;
 }
 
 .instance-ping-task {
@@ -2122,153 +2243,4 @@ body::after {
     gap: 6px;
   }
 
-}
-
-/* ------------------------------------------------------------------ *
- * 打开页面时的延迟数据自检弹窗
- * ------------------------------------------------------------------ */
-
-/* z-index 要压过快捷栏（90）：这是一次要用户做决定的打断，不能被悬浮球盖住。 */
-.ping-health-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: grid;
-  place-items: center;
-  padding: max(1rem, env(safe-area-inset-left, 0px));
-  background: color-mix(in srgb, #000 38%, transparent);
-  backdrop-filter: blur(2px);
-  animation: ping-health-overlay-in 160ms ease-out;
-}
-
-.ping-health-dialog {
-  width: min(420px, 100%);
-  max-height: calc(100dvh - 2rem);
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--surface-elev);
-  box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.65);
-  padding: 16px;
-  animation: ping-health-dialog-in 180ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.ping-health-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ping-health-icon {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--status-warning) 16%, transparent);
-  color: var(--status-warning);
-}
-
-.ping-health-title {
-  flex: 1 1 auto;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.ping-health-close {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  flex: 0 0 26px;
-  border-radius: 999px;
-  color: var(--text-tertiary);
-}
-
-.ping-health-close:hover {
-  background: var(--hover-bg);
-  color: var(--text-secondary);
-}
-
-.ping-health-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-  font-size: 12px;
-  line-height: 1.65;
-  color: var(--text-secondary);
-}
-
-/* 成本那一段单独起一块底色——它是这个弹窗真正要用户看清的部分。 */
-.ping-health-cost {
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  background: var(--surface-sunken);
-  padding: 8px 10px;
-}
-
-.ping-health-cost strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.ping-health-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.ping-health-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.ping-health-button.is-skip {
-  background: var(--surface);
-  color: var(--text-secondary);
-}
-
-.ping-health-button.is-skip:hover {
-  background: var(--hover-bg);
-}
-
-.ping-health-button.is-refresh {
-  border-color: color-mix(in srgb, var(--accent-500) 42%, var(--border));
-  background: color-mix(in srgb, var(--accent-500) 12%, transparent);
-  color: var(--accent-strong);
-}
-
-.ping-health-button.is-refresh:hover {
-  background: color-mix(in srgb, var(--accent-500) 20%, transparent);
-}
-
-@keyframes ping-health-overlay-in {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes ping-health-dialog-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ping-health-overlay,
-  .ping-health-dialog {
-    animation: none;
-  }
 }

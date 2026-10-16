@@ -14,8 +14,11 @@ const OS_NAME_SPLIT_REGEX = /[\s/]+/;
  * 下面 `image` 里只记文件名，必须存在于后端 `public/os-icons/`；没有对应图标的系统
  * 统一落到 os-unknown。URL 在渲染时才拼，模块初始化阶段不依赖 window。
  */
-function osIconUrl(file: string) {
-  return hostAssetUrl(`/os-icons/${file}`);
+function osIconUrl(file: string, stage: number) {
+  if (stage === 0) {
+    return hostAssetUrl(`/os-icons/${file}`);
+  }
+  return hostAssetUrl("/os-icons/os-unknown.svg");
 }
 
 const OS_CONFIGS: OsConfig[] = [
@@ -232,9 +235,34 @@ export const OsLogo = memo(function OsLogo({
   size?: number;
 }) {
   const os = resolveOsInfo(value);
-  const [failedImage, setFailedImage] = useState<string | null>(null);
-  const file = failedImage === os.image ? DEFAULT_OS_CONFIG.image : os.image;
-  const src = osIconUrl(file);
+  const [failStage, setFailStage] = useState<number>(0);
+
+  if (failStage >= 4) {
+    // 降级兜底：当后端未提供图标或网络异常时，以无碎图的通用 Server SVG 兜底
+    return (
+      <svg
+        className="os-logo shrink-0"
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-label={os.name}
+        style={{ "--os-logo-size": `${size}px` } as React.CSSProperties}
+      >
+        <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+        <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+        <line x1="6" x2="6.01" y1="6" y2="6" />
+        <line x1="6" x2="6.01" y1="18" y2="18" />
+      </svg>
+    );
+  }
+
+  const file = failStage >= 2 ? DEFAULT_OS_CONFIG.image : os.image;
+  const src = osIconUrl(file, failStage);
 
   return (
     <img
@@ -247,7 +275,7 @@ export const OsLogo = memo(function OsLogo({
       loading="lazy"
       draggable={false}
       onError={() => {
-        if (file !== DEFAULT_OS_CONFIG.image) setFailedImage(os.image);
+        setFailStage((prev) => prev + 1);
       }}
       style={{ "--os-logo-size": `${size}px` } as React.CSSProperties}
     />
