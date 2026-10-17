@@ -670,6 +670,8 @@ export interface PingRecordsResponse {
   records: PingRecord[];
   tasks: PingTask[];
   intervalSeconds?: number;
+  /** 后端返回的全部历史行时间（毫秒），含没带 Ping 的行；图表据此区分「没测」和「断线」。 */
+  rowTimes?: number[];
   rangeStartMs?: number;
   rangeEndMs?: number;
   stats?: PingTaskStats[];

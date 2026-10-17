@@ -213,6 +213,49 @@ export function insertMetricGapSentinels(
   return normalizePoints([...sortedPoints, ...sentinelPoints], true).points;
 }
 
+/**
+ * 按「后端有没有返回行」判断断点，而不是按某条线路有没有值。
+ *
+ * 长区间历史是后端每个采样窗口取第一行（`ROW_NUMBER() ... PARTITION BY ts/interval`），而探针不是每次
+ * 上报都带 Ping：取到的那行正好没测 Ping 时，这条线路在这个窗口就没有值。窗口长度和上报节奏一错相，
+ * 「有 Ping 的行」会一簇一簇地出现（6 小时档最明显），按线路自身的间隔判断就会把线切成碎段。
+ * 这类缺值只是没测、不是断线，应该跨过去；真正的断线是后端那段时间一行都没有（探针离线），
+ * 或者明确的超时（记录值为 null，本来就是断点）。
+ *
+ * `coverageTimes` 是后端返回的全部行时间（秒）。相邻两行间隔超过 `interval` 的 1.25 倍就算断线：
+ * 在缺口里补一个全部线路为 null 的点，并把缺口内已有的点也标空。
+ */
+export function insertCoverageGapSentinels(
+  points: TimedMetricPoint[],
+  keys: string[],
+  coverageTimes: number[],
+  interval: number,
+): TimedMetricPoint[] {
+  if (points.length < 2 || keys.length === 0 || !(interval > 0)) return points;
+  const times = [...new Set(coverageTimes)].filter(Number.isFinite).sort((a, b) => a - b);
+  if (times.length < 2) return points;
+  const breakThreshold = interval + Math.max(1, interval * 0.25);
+  const gaps: Array<{ start: number; end: number }> = [];
+  for (let index = 1; index < times.length; index += 1) {
+    if (times[index] - times[index - 1] > breakThreshold) {
+      gaps.push({ start: times[index - 1], end: times[index] });
+    }
+  }
+  if (gaps.length === 0) return points;
+
+  const nullPoint = (time: number): TimedMetricPoint => {
+    const point: TimedMetricPoint = { time };
+    for (const key of keys) point[key] = null;
+    return point;
+  };
+  const out = points.map((point) => {
+    const inGap = gaps.some((gap) => point.time > gap.start && point.time < gap.end);
+    return inGap ? nullPoint(point.time) : point;
+  });
+  for (const gap of gaps) out.push(nullPoint(gap.start + Math.min(interval, (gap.end - gap.start) / 2)));
+  return out.sort((left, right) => left.time - right.time);
+}
+
 export function interpolateMetricGaps(
   points: TimedMetricPoint[],
   keys: string[],

@@ -4,6 +4,7 @@ import {
   cutPeakValues,
   downsampleAligned,
   fillMissingMetricPoints,
+  insertCoverageGapSentinels,
   insertMetricGapSentinels,
   mergeHistoryWithLivePoints,
   smoothByCount,
@@ -425,5 +426,26 @@ describe("历史图接实时样本", () => {
   it("没有实时样本时原样返回历史", () => {
     const history = [point(0, 1)];
     expect(mergeHistoryWithLivePoints(history, [])).toBe(history);
+  });
+});
+
+describe("insertCoverageGapSentinels — 没测 vs 断线", () => {
+  // 后端每 180 秒一行，但只有部分行带 Ping（6 小时档的典型情形）。
+  const rowTimes = Array.from({ length: 10 }, (_, index) => index * 180);
+  const pingPoints: TimedMetricPoint[] = [0, 180, 900, 1080, 1620].map((time) => ({ time, A: 30 }));
+
+  it("后端行连续时，没带 Ping 的行不切断线条", () => {
+    const out = insertCoverageGapSentinels(pingPoints, ["A"], rowTimes, 180);
+    expect(out).toBe(pingPoints);
+    expect(out.some((point) => point.A === null)).toBe(false);
+  });
+
+  it("后端一段时间没有行（探针离线）时插入断点", () => {
+    const withOutage = rowTimes.filter((time) => time < 360 || time > 1000);
+    const out = insertCoverageGapSentinels(pingPoints, ["A"], withOutage, 180);
+    const nulls = out.filter((point) => point.A === null).map((point) => point.time);
+    expect(nulls.length).toBeGreaterThan(0);
+    expect(nulls.every((time) => time > 180 && time < 1080)).toBe(true);
+    expect(out.map((point) => point.time)).toEqual([...out.map((point) => point.time)].sort((a, b) => a - b));
   });
 });

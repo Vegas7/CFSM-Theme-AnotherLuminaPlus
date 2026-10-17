@@ -564,6 +564,7 @@ export async function getPingRecords(
     records,
     tasks: tasks.length > 0 ? tasks : carrierPingTasks(),
     intervalSeconds: inferIntervalSeconds(rows.map((row) => row.timestamp)),
+    rowTimes: rows.map((row) => row.timestamp).filter((time) => time > 0),
     rangeStartMs: rangeEndMs - normalizeHistoryHours(hours) * 60 * 60 * 1000,
     rangeEndMs,
     stats: buildPingStats(records, uuid),

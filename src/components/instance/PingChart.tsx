@@ -20,6 +20,7 @@ import {
   cutPeakValues,
   detectTypicalIntervalSeconds,
   downsampleAligned,
+  insertCoverageGapSentinels,
   insertMetricGapSentinels,
   smoothByCount,
 } from "./chartData";
@@ -288,16 +289,25 @@ export function PingChart({
     if (cutPeak && taskKeys.length > 0) {
       chartPoints = cutPeakValues(chartPoints, taskKeys);
     }
-    chartPoints = insertMetricGapSentinels(chartPoints, {
-      intervals: new Map(
-        tasks.map((task) => [
-          String(task.id),
-          resolvePingChartInterval(data.intervalSeconds, task.interval, fallbackInterval),
-        ] as const),
-      ),
-      defaultInterval: fallbackInterval,
-      matchToleranceRatio: 0.25,
-    });
+    // 有后端行时间就按「这段时间后端有没有行」判断断线：没带 Ping 的行只是没测，跨过去；
+    // 拿不到行时间（旧数据形状）时退回按各线路自己的间隔判断。
+    chartPoints = data.rowTimes?.length
+      ? insertCoverageGapSentinels(
+          chartPoints,
+          taskKeys,
+          data.rowTimes.map(toChartSeconds),
+          fallbackInterval,
+        )
+      : insertMetricGapSentinels(chartPoints, {
+          intervals: new Map(
+            tasks.map((task) => [
+              String(task.id),
+              resolvePingChartInterval(data.intervalSeconds, task.interval, fallbackInterval),
+            ] as const),
+          ),
+          defaultInterval: fallbackInterval,
+          matchToleranceRatio: 0.25,
+        });
     const times = chartPoints.map((point) => point.time);
     // undefined 表示错相采样，null 表示真实断点。
     const perTask = taskKeys.map((taskKey) =>
@@ -447,8 +457,8 @@ export function PingChart({
           label: taskLabels.get(task.id) ?? t("任务 #{id}", { id: task.id }),
           stroke: taskColors.get(task.id) ?? colorForSeries(index, tasks.length),
           width: 1.7,
-          // 断点如实画出来（掉线、整段丢包看得见）；偶尔漏一两次采样的小空缺已由
-          // insertMetricGapSentinels 自动桥接。原来的「断点连线」开关已去掉。
+          // 断点如实画出来（掉线、超时看得见）；后端有行、只是那行没带 Ping 的空缺按「没测」跨过去
+          // （见 insertCoverageGapSentinels）。原来的「断点连线」开关已去掉。
           spanGaps: false,
           show: !hiddenTasks.has(task.id),
           points: { show: false },
