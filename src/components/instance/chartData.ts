@@ -222,8 +222,10 @@ export function insertMetricGapSentinels(
  * 这类缺值只是没测、不是断线，应该跨过去；真正的断线是后端那段时间一行都没有（探针离线），
  * 或者明确的超时（记录值为 null，本来就是断点）。
  *
- * `coverageTimes` 是后端返回的全部行时间（秒）。相邻两行间隔超过 `interval` 的 1.25 倍就算断线：
- * 在缺口里补一个全部线路为 null 的点，并把缺口内已有的点也标空。
+ * `coverageTimes` 是后端返回的全部行时间（秒）。断线门槛放宽到 `interval` 的 2.5 倍：每个窗口取的是
+ * 窗口里的第一行，探针上报间隔不整除窗口长度时（比如每 65 秒报一次、窗口 180 秒），相邻两行的间隔
+ * 会在「窗口 − 上报间隔」到「窗口 + 上报间隔」之间来回跳，最多接近两个窗口长；按 1.25 倍算会把
+ * 正常的相位漂移当成断线。超过门槛时在缺口里补一个全部线路为 null 的点，并把缺口内已有的点也标空。
  */
 export function insertCoverageGapSentinels(
   points: TimedMetricPoint[],
@@ -234,7 +236,7 @@ export function insertCoverageGapSentinels(
   if (points.length < 2 || keys.length === 0 || !(interval > 0)) return points;
   const times = [...new Set(coverageTimes)].filter(Number.isFinite).sort((a, b) => a - b);
   if (times.length < 2) return points;
-  const breakThreshold = interval + Math.max(1, interval * 0.25);
+  const breakThreshold = interval * 2.5;
   const gaps: Array<{ start: number; end: number }> = [];
   for (let index = 1; index < times.length; index += 1) {
     if (times[index] - times[index - 1] > breakThreshold) {

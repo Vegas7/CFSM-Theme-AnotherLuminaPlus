@@ -440,6 +440,20 @@ describe("insertCoverageGapSentinels — 没测 vs 断线", () => {
     expect(out.some((point) => point.A === null)).toBe(false);
   });
 
+  it("窗口取首行造成的相位漂移（间隔在 150～300 秒间跳）不算断线", () => {
+    // 探针每 150 秒上报一次，后端 6 小时档每 180 秒窗口取第一行：相邻两行大多隔 150 秒，
+    // 约每 15 分钟有一次隔 300 秒。按 1.25 倍门槛这里会断 24 次。
+    const reports = Array.from({ length: 145 }, (_, index) => index * 150);
+    const sampled: number[] = [];
+    for (let start = 0; start < 6 * 3600; start += 180) {
+      const first = reports.find((time) => time >= start && time < start + 180);
+      if (first != null) sampled.push(first);
+    }
+    const points: TimedMetricPoint[] = sampled.map((time) => ({ time, A: 30 }));
+    const out = insertCoverageGapSentinels(points, ["A"], sampled, 180);
+    expect(out.some((point) => point.A === null)).toBe(false);
+  });
+
   it("后端一段时间没有行（探针离线）时插入断点", () => {
     const withOutage = rowTimes.filter((time) => time < 360 || time > 1000);
     const out = insertCoverageGapSentinels(pingPoints, ["A"], withOutage, 180);
