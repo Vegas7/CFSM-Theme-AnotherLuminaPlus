@@ -1,9 +1,12 @@
 /* 大卡、小卡与迷你卡共用的运维面板基底：纯白卡片镶嵌在灰色大卡片容器中 */
+/* 卡片底色放进 --node-card-bg（悬停、离线时跟着换）：小卡流量条要用一层和卡片同色的不透明底
+   盖住未用部分的色谱，见 compact-node-card.css 的 .compact-node-traffic 轨道。 */
 .server-card,
 .compact-node-card,
 .mini-node-card {
+  --node-card-bg: #ffffff;
   position: relative;
-  background: #ffffff;
+  background: var(--node-card-bg);
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 14px;
   content-visibility: auto;
@@ -19,7 +22,7 @@
 :root[data-appearance="dark"] .server-card,
 :root[data-appearance="dark"] .compact-node-card,
 :root[data-appearance="dark"] .mini-node-card {
-  background: #1c1c1f;
+  --node-card-bg: #1c1c1f;
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.25);
 }
@@ -38,7 +41,7 @@
 .compact-node-card:hover,
 .mini-node-card:hover {
   border-color: rgba(0, 0, 0, 0.14);
-  background: #ffffff;
+  --node-card-bg: #ffffff;
   box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
 }
@@ -46,7 +49,7 @@
 :root[data-appearance="dark"] .server-card:hover,
 :root[data-appearance="dark"] .compact-node-card:hover,
 :root[data-appearance="dark"] .mini-node-card:hover {
-  background: #27272a;
+  --node-card-bg: #27272a;
   border-color: rgba(255, 255, 255, 0.2);
   box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.6);
 }
@@ -54,7 +57,7 @@
 .server-card.is-offline,
 .compact-node-card.is-offline,
 .mini-node-card.is-offline {
-  background: #f9fafb;
+  --node-card-bg: #f9fafb;
   border-color: rgba(0, 0, 0, 0.05);
   box-shadow: none;
   filter: grayscale(1);
@@ -65,7 +68,7 @@
 :root[data-appearance="dark"] .server-card.is-offline,
 :root[data-appearance="dark"] .compact-node-card.is-offline,
 :root[data-appearance="dark"] .mini-node-card.is-offline {
-  background: #141416;
+  --node-card-bg: #141416;
   border-color: rgba(255, 255, 255, 0.04);
 }
 

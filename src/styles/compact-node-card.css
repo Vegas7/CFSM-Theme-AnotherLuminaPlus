@@ -315,6 +315,8 @@
   /* 仅流量仪表:把扁平的 --compact-gauge-color 填充换成共享的、按位置着色的热力光谱(中性遮盖
      层挡住已用比例之外的部分),从而像大卡片那样按分段呈现 green→amber→red。各项指标仪表则通过
      上面的基础规则保持单一纯色。 */
+  /* 深色主题的 --progress-bg 是半透明的（悬停时空格才看得见），单靠它盖不住下面的色谱，
+     未用部分会透出整条颜色、看着像用满了。中间垫一层和卡片同色的不透明底先盖住。 */
   background:
     linear-gradient(
       to right,
@@ -322,6 +324,13 @@
       transparent var(--compact-gauge-fill, 0%),
       var(--progress-bg) var(--compact-gauge-fill, 0%),
       var(--progress-bg) 100%
+    ),
+    linear-gradient(
+      to right,
+      transparent 0,
+      transparent var(--compact-gauge-fill, 0%),
+      var(--node-card-bg, #ffffff) var(--compact-gauge-fill, 0%),
+      var(--node-card-bg, #ffffff) 100%
     ),
     var(--traffic-heat-spectrum);
 }
