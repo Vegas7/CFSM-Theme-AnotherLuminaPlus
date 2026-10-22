@@ -5,7 +5,12 @@ import type {
   SysConfig,
   TrafficTrendSample,
 } from "@/types/cfsm";
-import { getServersSnapshot, getServerDetail, type ServersSnapshot } from "@/services/api";
+import {
+  getCachedServersSnapshot,
+  getServersSnapshot,
+  getServerDetail,
+  type ServersSnapshot,
+} from "@/services/api";
 import {
   emptyNodeMetrics,
   isServerOnline,
@@ -612,6 +617,11 @@ function applyRawUpdates(
 }
 
 let hydrated = false;
+/**
+ * 是否已经拿到过后端的新数据。`hydrated` 在用首屏缓存画出页面时就为真了，
+ * 但首屏同步失败要不要重试、在线状态要不要按当前时间重算，都得看这个。
+ */
+let backendSynced = false;
 let nodeInfoError = false;
 let realtimeConnected = false;
 let partialSites = false;
@@ -671,6 +681,165 @@ function syncServers() {
   return syncPromise;
 }
 
+/**
+ * 把一份 `/api/servers` 快照合进 store。`now` 是判断在线、速率新旧用的「当前时刻」：后端的新数据用
+ * Date.now()；首屏缓存用它保存的那一刻，节点的在线状态才还原成当时的样子，不会因为缓存是几小时前的
+ * 就整片显示离线。
+ */
+function applyServersSnapshot(snapshot: ServersSnapshot, now: number) {
+  const { servers: snapshotServers, baseByServerId } = withUnreachableSiteServers(snapshot);
+  const servers = sortServers(snapshotServers);
+  const order = servers.map((server) => server.id);
+  const touchedMeta = new Set<string>();
+  const touchedMetrics = new Set<string>();
+  const touchedTrafficTrends = new Set<string>();
+  const previousUuids = new Set(state.order);
+  const nextUuids = new Set(order);
+  const orderChanged =
+    order.length !== state.order.length ||
+    order.some((uuid, index) => uuid !== state.order[index]);
+
+  const rawByUuid: Record<string, CfsmServer> = {};
+  const metaByUuid: Record<string, NodeInfo> = {};
+  const metricsByUuid: Record<string, NodeMetrics> = {};
+  const trafficTrends: Record<string, NodeTrafficTrend> = {};
+
+  for (const server of servers) {
+    const uuid = server.id;
+    rawByUuid[uuid] = server;
+
+    const info = toNodeInfo(server);
+    const previousMeta = state.metaByUuid[uuid];
+    const metaUnchanged = previousMeta != null && shallowEqualNodeInfo(previousMeta, info);
+    metaByUuid[uuid] = metaUnchanged ? previousMeta : info;
+    if (!metaUnchanged) touchedMeta.add(uuid);
+
+    const previousMetrics = state.metricsByUuid[uuid];
+    // 列表接口自带最新指标，可直接作为实时值使用。
+    const restMetrics = carryForwardTotals(
+      toNodeMetrics(server, now, previousMetrics),
+      previousMetrics ?? emptyNodeMetrics(info, isServerOnline(server, now)),
+    );
+    // `/api/servers` 是缓存快照，`last_updated` 常比 WS 推来的样本旧十几到几十秒，而其中的
+    // 瞬时速率又明显偏高（线上实测个别节点 REST 24KB/s vs WS 0.8KB/s，合计约 4 倍）。
+    // 每 30 秒一次的全量刷新若照单全收，就会拿这份旧值盖掉新鲜的 WS 实时值，
+    // 「实时带宽」于是每半分钟被重新抬高一次再慢慢掉回去。快照不比现值新时，
+    // 只取 WS 不下发的字段（月度累计等），实时部分保持现值。
+    // 采用快照时另外挡一道瞬时速率：`updatedAt` 的比较只能防住"拿旧值盖新值"，
+    // 首屏没有现值可比，虚高的速率会长驱直入。
+    const trustSnapshotRate = shouldTrustSnapshotRate(
+      now - restMetrics.updatedAt,
+      realtimeKnownUnavailable(),
+    );
+    const nextMetrics =
+      previousMetrics && previousMetrics.updatedAt > restMetrics.updatedAt
+        ? {
+            ...previousMetrics,
+            online: restMetrics.online,
+            trafficUpMonthly: restMetrics.trafficUpMonthly,
+            trafficDownMonthly: restMetrics.trafficDownMonthly,
+          }
+        : trustSnapshotRate
+          ? restMetrics
+          : {
+              ...restMetrics,
+              netUp: previousMetrics?.netUp ?? 0,
+              netDown: previousMetrics?.netDown ?? 0,
+            };
+    const alignedMetrics = alignEmptyMetricsTotals(nextMetrics, info);
+    if (!previousMetrics || !shallowEqualMetrics(previousMetrics, alignedMetrics)) {
+      metricsByUuid[uuid] = alignedMetrics;
+      touchedMetrics.add(uuid);
+    } else {
+      metricsByUuid[uuid] = previousMetrics;
+    }
+
+    const prevTrend = state.trafficTrends[uuid] ?? EMPTY_TRAFFIC_TREND;
+    const metrics = metricsByUuid[uuid]!;
+    // 新版后端直接给一小时窗口；旧版没有这个字段，回落到逐点累积。
+    const latencyWindow = parseLatencyWindow(server);
+    if (latencyWindow.length > 0) seedPingHistory(uuid, latencyWindow);
+    else recordPingSample(uuid, metrics.updatedAt, metrics.ping);
+    const nextUp = updateTrafficTrendSeries(
+      prevTrend.up,
+      metrics.netUp,
+      metrics.updatedAt,
+      metrics.online,
+    );
+    const nextDown = updateTrafficTrendSeries(
+      prevTrend.down,
+      metrics.netDown,
+      metrics.updatedAt,
+      metrics.online,
+    );
+    if (nextUp.changed || nextDown.changed) {
+      trafficTrends[uuid] = {
+        up: nextUp.series,
+        down: nextDown.series,
+        snapshot: { up: nextUp.series.snapshot, down: nextDown.series.snapshot },
+      };
+      touchedTrafficTrends.add(uuid);
+    } else {
+      trafficTrends[uuid] = prevTrend;
+    }
+  }
+
+  for (const uuid of previousUuids) {
+    if (!nextUuids.has(uuid)) {
+      touchedMeta.add(uuid);
+      touchedMetrics.add(uuid);
+    }
+  }
+
+  const nodeListChanged =
+    orderChanged ||
+    [...touchedMeta].some((uuid) => {
+      const prev = state.metaByUuid[uuid];
+      const next = metaByUuid[uuid];
+      return Boolean(prev?.hidden) !== Boolean(next?.hidden);
+    });
+
+  // 节点被删除后连带清掉它的延迟缓冲区。
+  retainPingNodes(order);
+
+  const sysConfigChanged = updateSysConfigSnapshot(snapshot.sysConfig);
+  const storeStatusChanged =
+    !hydrated || nodeInfoError || partialSites !== snapshot.partial;
+  hydrated = true;
+  nodeInfoError = false;
+  partialSites = snapshot.partial;
+  updateWsSubscriptions(baseByServerId);
+
+  if (
+    orderChanged ||
+    touchedMeta.size > 0 ||
+    touchedMetrics.size > 0 ||
+    touchedTrafficTrends.size > 0 ||
+    storeStatusChanged
+  ) {
+    commit(
+      {
+        ...state,
+        order,
+        rawByUuid,
+        metaByUuid,
+        metricsByUuid,
+        trafficTrends,
+        failureStreak: 0,
+      },
+      {
+        meta: touchedMeta,
+        metrics: touchedMetrics,
+        trafficTrends: touchedTrafficTrends,
+        nodeList: nodeListChanged,
+        allNodes: orderChanged || touchedMeta.size > 0,
+        storeStatus: storeStatusChanged,
+      },
+    );
+  }
+  if (sysConfigChanged) emitListeners(sysConfigListeners);
+}
+
 async function performServersSync() {
   if (scrollActive) {
     refreshDeferredWhileScrolling = true;
@@ -685,159 +854,8 @@ async function performServersSync() {
       timeout: SERVERS_REQUEST_TIMEOUT_MS,
     });
     if (controller.signal.aborted) return;
-
-    const now = Date.now();
-    const { servers: snapshotServers, baseByServerId } = withUnreachableSiteServers(snapshot);
-    const servers = sortServers(snapshotServers);
-    const order = servers.map((server) => server.id);
-    const touchedMeta = new Set<string>();
-    const touchedMetrics = new Set<string>();
-    const touchedTrafficTrends = new Set<string>();
-    const previousUuids = new Set(state.order);
-    const nextUuids = new Set(order);
-    const orderChanged =
-      order.length !== state.order.length ||
-      order.some((uuid, index) => uuid !== state.order[index]);
-
-    const rawByUuid: Record<string, CfsmServer> = {};
-    const metaByUuid: Record<string, NodeInfo> = {};
-    const metricsByUuid: Record<string, NodeMetrics> = {};
-    const trafficTrends: Record<string, NodeTrafficTrend> = {};
-
-    for (const server of servers) {
-      const uuid = server.id;
-      rawByUuid[uuid] = server;
-
-      const info = toNodeInfo(server);
-      const previousMeta = state.metaByUuid[uuid];
-      const metaUnchanged = previousMeta != null && shallowEqualNodeInfo(previousMeta, info);
-      metaByUuid[uuid] = metaUnchanged ? previousMeta : info;
-      if (!metaUnchanged) touchedMeta.add(uuid);
-
-      const previousMetrics = state.metricsByUuid[uuid];
-      // 列表接口自带最新指标，可直接作为实时值使用。
-      const restMetrics = carryForwardTotals(
-        toNodeMetrics(server, now, previousMetrics),
-        previousMetrics ?? emptyNodeMetrics(info, isServerOnline(server, now)),
-      );
-      // `/api/servers` 是缓存快照，`last_updated` 常比 WS 推来的样本旧十几到几十秒，而其中的
-      // 瞬时速率又明显偏高（线上实测个别节点 REST 24KB/s vs WS 0.8KB/s，合计约 4 倍）。
-      // 每 30 秒一次的全量刷新若照单全收，就会拿这份旧值盖掉新鲜的 WS 实时值，
-      // 「实时带宽」于是每半分钟被重新抬高一次再慢慢掉回去。快照不比现值新时，
-      // 只取 WS 不下发的字段（月度累计等），实时部分保持现值。
-      // 采用快照时另外挡一道瞬时速率：`updatedAt` 的比较只能防住"拿旧值盖新值"，
-      // 首屏没有现值可比，虚高的速率会长驱直入。
-      const trustSnapshotRate = shouldTrustSnapshotRate(
-        now - restMetrics.updatedAt,
-        realtimeKnownUnavailable(),
-      );
-      const nextMetrics =
-        previousMetrics && previousMetrics.updatedAt > restMetrics.updatedAt
-          ? {
-              ...previousMetrics,
-              online: restMetrics.online,
-              trafficUpMonthly: restMetrics.trafficUpMonthly,
-              trafficDownMonthly: restMetrics.trafficDownMonthly,
-            }
-          : trustSnapshotRate
-            ? restMetrics
-            : {
-                ...restMetrics,
-                netUp: previousMetrics?.netUp ?? 0,
-                netDown: previousMetrics?.netDown ?? 0,
-              };
-      const alignedMetrics = alignEmptyMetricsTotals(nextMetrics, info);
-      if (!previousMetrics || !shallowEqualMetrics(previousMetrics, alignedMetrics)) {
-        metricsByUuid[uuid] = alignedMetrics;
-        touchedMetrics.add(uuid);
-      } else {
-        metricsByUuid[uuid] = previousMetrics;
-      }
-
-      const prevTrend = state.trafficTrends[uuid] ?? EMPTY_TRAFFIC_TREND;
-      const metrics = metricsByUuid[uuid]!;
-      // 新版后端直接给一小时窗口；旧版没有这个字段，回落到逐点累积。
-      const latencyWindow = parseLatencyWindow(server);
-      if (latencyWindow.length > 0) seedPingHistory(uuid, latencyWindow);
-      else recordPingSample(uuid, metrics.updatedAt, metrics.ping);
-      const nextUp = updateTrafficTrendSeries(
-        prevTrend.up,
-        metrics.netUp,
-        metrics.updatedAt,
-        metrics.online,
-      );
-      const nextDown = updateTrafficTrendSeries(
-        prevTrend.down,
-        metrics.netDown,
-        metrics.updatedAt,
-        metrics.online,
-      );
-      if (nextUp.changed || nextDown.changed) {
-        trafficTrends[uuid] = {
-          up: nextUp.series,
-          down: nextDown.series,
-          snapshot: { up: nextUp.series.snapshot, down: nextDown.series.snapshot },
-        };
-        touchedTrafficTrends.add(uuid);
-      } else {
-        trafficTrends[uuid] = prevTrend;
-      }
-    }
-
-    for (const uuid of previousUuids) {
-      if (!nextUuids.has(uuid)) {
-        touchedMeta.add(uuid);
-        touchedMetrics.add(uuid);
-      }
-    }
-
-    const nodeListChanged =
-      orderChanged ||
-      [...touchedMeta].some((uuid) => {
-        const prev = state.metaByUuid[uuid];
-        const next = metaByUuid[uuid];
-        return Boolean(prev?.hidden) !== Boolean(next?.hidden);
-      });
-
-    // 节点被删除后连带清掉它的延迟缓冲区。
-    retainPingNodes(order);
-
-    const sysConfigChanged = updateSysConfigSnapshot(snapshot.sysConfig);
-    const storeStatusChanged =
-      !hydrated || nodeInfoError || partialSites !== snapshot.partial;
-    hydrated = true;
-    nodeInfoError = false;
-    partialSites = snapshot.partial;
-    updateWsSubscriptions(baseByServerId);
-
-    if (
-      orderChanged ||
-      touchedMeta.size > 0 ||
-      touchedMetrics.size > 0 ||
-      touchedTrafficTrends.size > 0 ||
-      storeStatusChanged
-    ) {
-      commit(
-        {
-          ...state,
-          order,
-          rawByUuid,
-          metaByUuid,
-          metricsByUuid,
-          trafficTrends,
-          failureStreak: 0,
-        },
-        {
-          meta: touchedMeta,
-          metrics: touchedMetrics,
-          trafficTrends: touchedTrafficTrends,
-          nodeList: nodeListChanged,
-          allNodes: orderChanged || touchedMeta.size > 0,
-          storeStatus: storeStatusChanged,
-        },
-      );
-    }
-    if (sysConfigChanged) emitListeners(sysConfigListeners);
+    backendSynced = true;
+    applyServersSnapshot(snapshot, Date.now());
   } catch (error) {
     if (!controller.signal.aborted) {
       nodeInfoError = true;
@@ -1068,7 +1086,8 @@ function applyWsSamples(samples: WsSample[]) {
  * 掉线是"超过 5 分钟没有上报"，没有对应事件，只能定时重算在线标记。
  */
 function refreshOnlineFlags() {
-  if (state.order.length === 0) return;
+  // 还在显示首屏缓存：按现在的时间算，几小时前存的节点会整片变成离线，等后端数据来了再算。
+  if (state.order.length === 0 || !backendSynced) return;
   const now = Date.now();
   const touched: string[] = [];
   let nextMetricsByUuid = state.metricsByUuid;
@@ -1358,11 +1377,11 @@ async function runBootstrap() {
   } catch {
     bootstrapAttempts += 1;
     // 失败时最多有限指数退避重试 3 次，避免无限制打后端 D1
-    if (bootstrapAttempts <= 3 && started && !hydrated) {
+    if (bootstrapAttempts <= 3 && started && !backendSynced) {
       const delay = Math.min(10000, 2000 * 2 ** (bootstrapAttempts - 1));
       bootstrapRetryTimer = window.setTimeout(() => {
         bootstrapRetryTimer = null;
-        if (started && !hydrated) void bootstrap();
+        if (started && !backendSynced) void bootstrap();
       }, delay);
     }
   }
@@ -1381,6 +1400,11 @@ function ensureStarted() {
   document.addEventListener("visibilitychange", handleVisibilityChange);
   // 在后台标签页里打开（比如中键新开）时不会触发 visibilitychange，照样开始计缓冲期。
   if (document.hidden) handleVisibilityChange();
+  // 有上次存下的节点列表就先画出来（见 bootCache），后端的新数据回来后照常替换。
+  if (!hydrated) {
+    const cached = getCachedServersSnapshot();
+    if (cached) applyServersSnapshot(cached.snapshot, cached.savedAt);
+  }
   void bootstrap();
 
   // 官方规范铁律：/api/servers 禁止任何 setInterval 轮询！
@@ -1443,6 +1467,7 @@ function stopStore() {
   scrollActive = false;
   refreshDeferredWhileScrolling = false;
   hydrated = false;
+  backendSynced = false;
   nodeInfoError = false;
   partialSites = false;
   started = false;

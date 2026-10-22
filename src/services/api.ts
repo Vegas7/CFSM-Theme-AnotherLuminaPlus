@@ -15,6 +15,7 @@ import {
   type SysConfig,
 } from "@/types/cfsm";
 import { getJwtToken } from "@/services/cfsm/config";
+import { readBootServers, saveBootConfig, saveBootServers } from "@/services/bootCache";
 import {
   ApiRequestError,
   cfsmGet,
@@ -170,6 +171,12 @@ export async function saveThemeOptions(
  */
 export async function getPublic(options?: RequestOptions): Promise<PublicConfig> {
   const config = await getSiteConfig(options);
+  const result = buildPublicConfig(config);
+  saveBootConfig(result);
+  return result;
+}
+
+function buildPublicConfig(config: z.output<typeof SiteConfigSchema>): PublicConfig {
   return {
     sitename: config.site_title,
     description: "",
@@ -348,7 +355,28 @@ export async function getServersSnapshot(
   options?: Omit<RequestOptions, "base">,
 ): Promise<ServersSnapshot> {
   const results = await cfsmGetAll("/api/servers", ServersResponseSchema, options);
+  const snapshot = buildServersSnapshot(results);
+  // 全部后端都成功才存首屏缓存，免得下次打开先看到缺了一个站的列表。
+  if (!snapshot.partial) {
+    saveBootServers(results.flatMap((result) => (result.data ? [{ base: result.base, data: result.data }] : [])));
+  }
+  return snapshot;
+}
 
+/** 上次存下的节点列表（首屏缓存），没有或不可用时返回 null。见 bootCache。 */
+export function getCachedServersSnapshot(): { snapshot: ServersSnapshot; savedAt: number } | null {
+  const cached = readBootServers<z.output<typeof ServersResponseSchema>>();
+  if (!cached?.results.length) return null;
+  try {
+    return { snapshot: buildServersSnapshot(cached.results), savedAt: cached.savedAt };
+  } catch {
+    return null;
+  }
+}
+
+function buildServersSnapshot(
+  results: Array<{ base: string; data?: z.output<typeof ServersResponseSchema>; error?: unknown }>,
+): ServersSnapshot {
   const servers: CfsmServer[] = [];
   const baseByServerId = new Map<string, string>();
   const regionStats: Record<string, number> = {};

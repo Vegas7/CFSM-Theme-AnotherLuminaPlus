@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getPublic } from "@/services/api";
+import { readBootConfig } from "@/services/bootCache";
 import { DEFAULT_CARRIER_NAMES } from "@/services/cfsm/mappers";
 import type { CarrierNames, PublicConfig } from "@/types/cfsm";
 
@@ -9,7 +10,17 @@ export function usePublicConfig() {
     queryFn: ({ signal }) => getPublic({ signal }),
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
+    // 先用上次存下的配置把页面画出来（见 bootCache），同时照常请求一次，回来后替换。
+    initialData: () => readBootConfig()?.data,
+    initialDataUpdatedAt: () => readBootConfig()?.savedAt,
+    refetchOnMount: (query) => (isBootCachedConfig(query.state.dataUpdatedAt) ? "always" : false),
   });
+}
+
+/** 这份配置是不是首屏缓存里的旧数据（还没被后端的新结果替换）。要据此写回后端时先重新拉。 */
+export function isBootCachedConfig(dataUpdatedAt: number | undefined): boolean {
+  const cached = readBootConfig();
+  return cached != null && dataUpdatedAt === cached.savedAt;
 }
 
 /**

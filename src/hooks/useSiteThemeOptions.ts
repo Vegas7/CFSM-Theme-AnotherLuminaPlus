@@ -1,7 +1,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 import { pickPaletteSettings } from "@/hooks/useMetricColors";
 import { useAllPingLineOverrides } from "@/hooks/usePingOverview";
-import { usePublicConfig } from "@/hooks/usePublicConfig";
+import { isBootCachedConfig, usePublicConfig } from "@/hooks/usePublicConfig";
 import { useLocalThemeSettings } from "@/hooks/useThemeSettings";
 import { getPublic, saveThemeOptions } from "@/services/api";
 import { getJwtToken } from "@/services/cfsm/config";
@@ -217,10 +217,15 @@ async function runSync() {
   const seq = editSeq;
   setSyncStatus({ phase: "saving", error: null });
   try {
-    const config = await queryClient.ensureQueryData<PublicConfig>({
+    // 手上的还是首屏缓存里的旧配置时先向后端拉一次：拿旧的站点设置去比对、合并再写回，
+    // 会把别的设备在这期间改过的设置覆盖掉。
+    const publicQuery = {
       queryKey: ["public"],
-      queryFn: ({ signal }) => getPublic({ signal }),
-    });
+      queryFn: ({ signal }: { signal: AbortSignal }) => getPublic({ signal }),
+    };
+    const config = isBootCachedConfig(queryClient.getQueryState(["public"])?.dataUpdatedAt)
+      ? await queryClient.fetchQuery<PublicConfig>({ ...publicQuery, staleTime: 0 })
+      : await queryClient.ensureQueryData<PublicConfig>(publicQuery);
     const localSettings = getLocalThemeSettings();
     const localLineOverrides = getAllPingLineOverrides();
     const site = {

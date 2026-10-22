@@ -140,7 +140,7 @@ const CANVAS_COLOR_FALLBACKS = {
   // 与 tokens.css 深色 token 保持同值(color-mix 变量取 depth=0 的基色),只在首帧/样式
   // 未就绪时命中,避免回退色与 DOM 侧漂移。
   dark: {
-    "--progress-bg": "#343b45",
+    "--progress-bg": "rgba(255, 255, 255, 0.09)",
     "--progress-cpu": "#539bf5",
     "--progress-memory": "#b083f0",
     "--progress-disk": "#e0823d",
@@ -470,12 +470,20 @@ export function CanvasStrip({
     // 视口内（含与 IntersectionObserver 一致的 160px 预载边距）的卡片直接置为可见，让首帧
     // 就能画出来；之后仍交回两个 observer 接管（滚走后照常懒渲染）。读发生在 effect 内、
     // 与画布尺寸写入不穿插，只触发一次 reflow。
-    const rect = canvas.getBoundingClientRect();
-    updateWidth(normalizeWidth(rect.width));
-    if (typeof IntersectionObserver !== "undefined") {
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-      if (rect.bottom >= -160 && rect.top <= viewportHeight + 160) {
-        setVisible(true);
+    // 但卡片设了 content-visibility:auto：屏幕外的卡片本来不排版，同步读尺寸会逼浏览器把几十张卡全排
+    // 一遍（首页加载完那一下卡顿的主要来源）。这种卡片不量 —— ResizeObserver 对跳过渲染的元素不回调，
+    // 等它滚到附近、真正排版之后会照常回调，不存在上面说的「不自愈」。checkVisibility 只算样式、不排版。
+    const skippedOffscreen =
+      typeof canvas.checkVisibility === "function" &&
+      !canvas.checkVisibility({ contentVisibilityAuto: true });
+    if (!skippedOffscreen) {
+      const rect = canvas.getBoundingClientRect();
+      updateWidth(normalizeWidth(rect.width));
+      if (typeof IntersectionObserver !== "undefined") {
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+        if (rect.bottom >= -160 && rect.top <= viewportHeight + 160) {
+          setVisible(true);
+        }
       }
     }
     return () => {

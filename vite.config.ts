@@ -148,9 +148,8 @@ export default defineConfig(({ mode }) => {
             if (normalized.includes("/node_modules/@tanstack/react-query/")) {
               return "query";
             }
-            if (/\/node_modules\/(?:uplot|uplot-react)\//.test(normalized)) {
-              return "charts";
-            }
+            // uPlot 只有详情页用：不单独分组，让它跟着详情页的懒加载块走。以前分到「charts」组时，
+            // React 的一部分代码也被打进了这个块，首页因此必须先下载整个 uPlot（约 26KB gzip）才能启动。
             if (normalized.includes("/node_modules/zod/")) {
               return "validation";
             }

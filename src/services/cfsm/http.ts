@@ -121,6 +121,42 @@ export function discardEarlyData(): void {
   }
 }
 
+/**
+ * 等超前预取的结果，同时照顾调用方的取消信号和超时。
+ *
+ * 调用方（React Query、首屏同步）总会带 `signal`；以前一带 signal 就不用预取结果、重新发一遍请求，
+ * 结果 index.html 里提前发出的 `/api/config`、`/api/servers` 一次都没用上：首屏要等第二轮请求回来，
+ * 后端也白白多读一次 D1。现在照用预取结果：调用方取消时立刻放弃；预取卡住超过 `timeout`
+ * 时返回 undefined，调用方改走正常请求。
+ */
+function awaitEarlyData<T>(promise: Promise<T>, options?: RequestOptions): Promise<T | undefined> {
+  const signal = options?.signal;
+  if (signal?.aborted) {
+    return Promise.reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+  }
+  return new Promise<T | undefined>((resolve, reject) => {
+    let settled = false;
+    const finish = (settle: () => void) => {
+      if (settled) return;
+      settled = true;
+      globalThis.clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      settle();
+    };
+    const onAbort = () =>
+      finish(() => reject(signal?.reason ?? new DOMException("Aborted", "AbortError")));
+    const timer = globalThis.setTimeout(
+      () => finish(() => resolve(undefined)),
+      options?.timeout ?? DEFAULT_API_TIMEOUT_MS,
+    );
+    signal?.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => finish(() => resolve(value)),
+      (error: unknown) => finish(() => reject(error)),
+    );
+  });
+}
+
 /** 兼容旧命名，见 {@link discardEarlyData}。 */
 export function discardEarlyConfig(): void {
   discardEarlyData();
@@ -190,7 +226,7 @@ export async function cfsmGet<S extends z.ZodTypeAny>(
   if (
     path === "/api/config" &&
     (!options?.base || options.base === getPrimaryApiBase()) &&
-    !options?.signal &&
+    !options?.skipTurnstileHeaders &&
     typeof window !== "undefined"
   ) {
     const earlyWin = window as unknown as EarlyDataWindow;
@@ -198,7 +234,7 @@ export async function cfsmGet<S extends z.ZodTypeAny>(
     if (earlyConfig) {
       earlyWin.__EARLY_DATA__!.config = null;
       try {
-        const raw = await earlyConfig;
+        const raw = await awaitEarlyData(earlyConfig, options);
         if (raw) {
           captureTurnstileVerified(raw);
           const parsed = schema.safeParse(raw);
@@ -310,19 +346,24 @@ export async function cfsmGetAll<S extends z.ZodTypeAny>(
   // 消费超前预取的各站 /api/servers
   if (
     path === "/api/servers" &&
-    !options?.signal &&
     typeof window !== "undefined"
   ) {
     const earlyWin = window as unknown as EarlyDataWindow;
     const earlyServers = earlyWin.__EARLY_DATA__?.servers;
     if (earlyServers && Array.isArray(earlyServers) && earlyServers.length > 0) {
       earlyWin.__EARLY_DATA__!.servers = null;
-      try {
-        const settled = await Promise.all(earlyServers.map((item) => item.promise));
+      const settled = await awaitEarlyData(
+        Promise.all(earlyServers.map((item) => item.promise)),
+        options,
+      ).catch((error: unknown) => {
+        // 调用方取消了就照常抛出；其它异常降级至标准请求。
+        if (options?.signal?.aborted) throw error;
+        return undefined;
+      });
+      // 预取里有失败的（登录过期 401、验证前 403、超时……）就整批改走正常请求：正常请求会顺带
+      // 清掉失效凭证、按状态码给出准确的错误，不必等首屏同步失败后的退避重试。
+      if (settled && settled.every((res) => !res.error && res.data)) {
         return settled.map((res) => {
-          if (res.error || !res.data) {
-            return { base: res.base, error: res.error || new Error("No data") };
-          }
           const parsed = schema.safeParse(res.data);
           if (parsed.success) {
             return { base: res.base, data: parsed.data };
@@ -334,8 +375,6 @@ export async function cfsmGetAll<S extends z.ZodTypeAny>(
             ),
           };
         });
-      } catch {
-        // 异常降级至标准请求
       }
     }
   }

@@ -1,4 +1,5 @@
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   Cpu,
@@ -597,6 +598,50 @@ function FooterPriceChip({ renewalPrice, titled }: { renewalPrice: string; title
   );
 }
 
+/**
+ * 页脚标签行「能放下几个标签」的测量，所有大卡共用一个 ResizeObserver。
+ *
+ * 以前每张卡在 useLayoutEffect 里同步读 offsetWidth：卡片设了 content-visibility:auto，屏幕外的
+ * 卡片本来不排版，这一读就逼浏览器把它们全排一遍 —— 首屏几十张卡时这是加载最慢的一步。
+ * ResizeObserver 对被跳过渲染的元素不回调，等卡片滚到可见附近、真正排版之后才来；回调发生在排版
+ * 之后、绘制之前，读尺寸不会再触发重排。同一批回调里先把所有卡都量完，再用一次 flushSync 统一提交，
+ * 首帧画出来的就是排好的标签，也不会每提交一张卡、下一张读尺寸时又重排一次。
+ */
+type FooterFit = () => void;
+const footerFits = new Map<Element, FooterFit>();
+let footerObserver: ResizeObserver | null = null;
+let footerFontsHooked = false;
+
+function observeFooterRow(row: Element, fit: FooterFit) {
+  if (typeof ResizeObserver === "undefined") {
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }
+  footerObserver ??= new ResizeObserver((entries) => {
+    const fits = entries
+      .map((entry) => footerFits.get(entry.target))
+      .filter((item): item is FooterFit => Boolean(item));
+    if (fits.length > 0) flushSync(() => fits.forEach((item) => item()));
+  });
+  if (!footerFontsHooked) {
+    footerFontsHooked = true;
+    // 字体换上后标签变宽，行宽却没变、观察器不会回调：重新观察一遍，已渲染的卡会立刻再量一次。
+    void document.fonts?.ready.then(() => {
+      for (const element of footerFits.keys()) {
+        footerObserver?.unobserve(element);
+        footerObserver?.observe(element);
+      }
+    });
+  }
+  footerFits.set(row, fit);
+  footerObserver.observe(row);
+  return () => {
+    footerFits.delete(row);
+    footerObserver?.unobserve(row);
+  };
+}
+
 function NodeCardFooter({
   expire,
   expireColor,
@@ -623,11 +668,14 @@ function NodeCardFooter({
     const measure = measureRef.current;
     if (!row || !measure) return;
 
-    // chip 间距是个固定的 CSS token,每次 effect 跑读一次就够,不必每个 resize tick 都读。
-    const styles = window.getComputedStyle(measure);
-    const gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
+    // chip 间距是个固定的 CSS token，第一次量的时候读一次就够（读计算样式同样会触发排版，不在这里读）。
+    let gap: number | null = null;
 
     const updateVisibleTags = () => {
+      if (gap === null) {
+        const styles = window.getComputedStyle(measure);
+        gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
+      }
       const availableWidth = row.clientWidth;
       const children = Array.from(measure.children) as HTMLElement[];
       const tagWidths = children.slice(0, footerTags.length).map((child) => child.offsetWidth);
@@ -651,27 +699,7 @@ function NodeCardFooter({
       );
     };
 
-    updateVisibleTags();
-
-    let cancelled = false;
-    const observer =
-      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateVisibleTags);
-    if (observer) {
-      observer.observe(row);
-    } else {
-      window.addEventListener("resize", updateVisibleTags);
-    }
-    // 字体替换会在首次绘制后改变 tag 宽度;字体就绪后重新测量一次,
-    // 但若卡片在 promise resolve 前已卸载则跳过。
-    document.fonts?.ready.then(() => {
-      if (!cancelled) updateVisibleTags();
-    });
-
-    return () => {
-      cancelled = true;
-      observer?.disconnect();
-      if (!observer) window.removeEventListener("resize", updateVisibleTags);
-    };
+    return observeFooterRow(row, updateVisibleTags);
   }, [footerTags, renewalPrice]);
 
   return (
