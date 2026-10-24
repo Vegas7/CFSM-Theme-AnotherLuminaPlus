@@ -78,15 +78,36 @@
   top: 0;
   z-index: 40;
   width: 100%;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  /* 透明边框只占住 1px 高度，横线由 ::after 画 */
+  border-bottom: 1px solid transparent;
   background: #f4f5f7;
   padding-top: env(safe-area-inset-top, 0px);
-  transition: border-color 160ms ease, background 160ms ease;
+  /* 横屏刘海 / 灵动岛、iPhone Duo 侧边透明栏：站点名不钻到它们下面 */
+  padding-left: var(--col-l, 0px);
+  padding-right: var(--col-r, 0px);
+  transition: background 160ms ease;
+}
+
+/* 页头横线左右止于安全区：iPhone Duo 主屏幕 App 的外屏摄像头在侧边透明栏里（竖持在右侧顶部，
+   横持随旋转方向在左 / 右侧），横线不再延伸到那一列下面，避免被摄像头挡住一截。 */
+.mao-top-nav-bar::after {
+  content: "";
+  position: absolute;
+  left: var(--col-l, 0px);
+  right: var(--col-r, 0px);
+  bottom: -1px;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  transition: background 160ms ease;
 }
 
 :root[data-appearance="dark"] .mao-top-nav-bar {
   background: #09090b;
-  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-appearance="dark"] .mao-top-nav-bar::after {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .mao-nav-title {

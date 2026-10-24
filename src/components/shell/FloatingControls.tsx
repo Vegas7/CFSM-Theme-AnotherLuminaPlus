@@ -1,8 +1,10 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import {
   AlertTriangle,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Eye,
   EyeOff,
   Grid3x3,
@@ -24,6 +26,7 @@ import { useNodeStoreStatus } from "@/hooks/useNode";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { usePriceVisibility } from "@/hooks/usePriceVisibility";
+import { useSideColumn } from "@/hooks/useSideColumn";
 import { getAdminUrl } from "@/services/cfsm/config";
 import { setLang, useLang } from "@/i18n";
 import type { NodeViewMode, Appearance } from "@/utils/themeSettings";
@@ -70,8 +73,16 @@ export function FloatingControls({
   const { isPriceVisible, togglePriceVisibility } = usePriceVisibility();
   const { failureStreak } = useNodeStoreStatus();
   const lang = useLang();
-  const [collapsed, setCollapsed] = useState(true);
+  // iPhone Duo 主屏幕 App：快捷按钮竖排放进透明侧栏，不挡内容，所以默认展开、滚动时也不收起。
+  const inSideColumn = useSideColumn() !== null;
+  const [collapsed, setCollapsed] = useState(!inSideColumn);
   const [colorsOpen, setColorsOpen] = useState(false);
+  const [prevInSideColumn, setPrevInSideColumn] = useState(inSideColumn);
+  if (prevInSideColumn !== inSideColumn) {
+    setPrevInSideColumn(inSideColumn);
+    setCollapsed(!inSideColumn);
+    setColorsOpen(false);
+  }
   const [colorsMounted, setColorsMounted] = useState(false);
   const settingsReady = themeSettings.isReady;
   const showAdmin = settingsReady && themeSettings.enableAdminButton;
@@ -82,7 +93,13 @@ export function FloatingControls({
   const showPriceToggle = loggedIn;
   const showSyncWarning = failureStreak >= 2;
   const hiddenTabIndex = collapsed ? -1 : undefined;
-  const ToggleIcon = collapsed ? ChevronLeft : ChevronRight;
+  const ToggleIcon = inSideColumn
+    ? collapsed
+      ? ChevronUp
+      : ChevronDown
+    : collapsed
+      ? ChevronLeft
+      : ChevronRight;
   const ViewIcon = VIEW_MODE_META[nextMode].icon;
   const currentAppearance = APPEARANCE_META[appearance] ?? APPEARANCE_META.system;
   const AppearanceIcon = currentAppearance.icon;
@@ -93,19 +110,19 @@ export function FloatingControls({
 
   // 只要不在最宽松的大卡默认态,就视为"已切换"，按钮保持高亮。
   const isReducedView = mode !== "large";
+  // 展开的横向快捷栏会盖住顶栏站点名（由 Home 撤出）；放进侧栏时不占顶栏，不必撤出。
   useEffect(() => {
-    onExpandedChange?.(false);
-    return () => onExpandedChange?.(false);
-  }, [onExpandedChange]);
+    onExpandedChange?.(!collapsed && !inSideColumn);
+  }, [collapsed, inSideColumn, onExpandedChange]);
+  useEffect(() => () => onExpandedChange?.(false), [onExpandedChange]);
 
   // 仅监听用户主动的滚轮/触摸滑动手势（wheel / touchmove），100% 免疫任何 DOM 尺寸变化或重排引发的 scroll 事件
   useEffect(() => {
-    if (collapsed) return;
+    if (collapsed || inSideColumn) return;
 
     const handleUserScroll = () => {
       setCollapsed(true);
       setColorsOpen(false);
-      onExpandedChange?.(false);
     };
 
     window.addEventListener("wheel", handleUserScroll, { passive: true });
@@ -115,14 +132,13 @@ export function FloatingControls({
       window.removeEventListener("wheel", handleUserScroll);
       window.removeEventListener("touchmove", handleUserScroll);
     };
-  }, [collapsed, onExpandedChange]);
+  }, [collapsed, inSideColumn]);
 
   const toggleControls = () => {
     // 收起快捷栏时同时结束子面板状态，避免下次展开时调色盘自动复现。
     const nextCollapsed = !collapsed;
     if (nextCollapsed) setColorsOpen(false);
     setCollapsed(nextCollapsed);
-    onExpandedChange?.(!nextCollapsed);
   };
 
   return (

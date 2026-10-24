@@ -568,6 +568,76 @@
   }
 }
 
+/* ---------- iPhone Duo 主屏幕 App 的透明侧栏（html.has-side-column，见 utils/duoSideColumn.ts）。
+   系统状态栏在摄像头一侧透明的一列（约 84px），页面延伸到它下面。竖持时在右侧，横持时随旋转方向
+   在左侧或右侧（html.side-left / side-right）。快捷按钮竖排放进这一列、靠下放置（单手好按），
+   展开方向朝上；调色盘与同步提示贴在按钮栏旁边。 ---------- */
+:root {
+  --col-l: env(safe-area-inset-left, 0px);
+  --col-r: env(safe-area-inset-right, 0px);
+}
+/* ?column / ?column=left：在电脑上模拟 84px 的透明侧栏 */
+.sim-col-right { --col-r: 84px; }
+.sim-col-left { --col-l: 84px; }
+.sim-col-right .app-main { padding-right: max(var(--app-gutter), 84px); }
+.sim-col-left .app-main { padding-left: max(var(--app-gutter), 84px); }
+
+.has-side-column .floating-controls {
+  --fc-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  top: auto;
+  bottom: var(--fc-bottom);
+  right: max(0px, calc((var(--col-r) - 36px) / 2));
+}
+.has-side-column.side-left .floating-controls {
+  right: auto;
+  left: max(0px, calc((var(--col-l) - 36px) / 2));
+}
+/* 外屏向右（顺时针）横放时摄像头在侧栏底部：按钮栏整体上移避让（96px 为摄像头区域预留） */
+.has-side-column.cam-bottom .floating-controls {
+  --fc-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+}
+.has-side-column .floating-controls-actions {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  flex-direction: column;
+  max-width: none;
+  /* 顶部给状态栏图标留约 100px；按钮多到放不下时可在侧栏里上下滑动 */
+  max-height: calc(100vh - var(--fc-bottom) - 144px);
+  max-height: calc(100dvh - var(--fc-bottom) - 144px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  transform: translateX(-50%) translateY(0) scale(1);
+  transform-origin: center bottom;
+  transition:
+    max-height 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 160ms ease,
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.has-side-column .floating-controls.is-collapsed .floating-controls-actions {
+  max-width: none;
+  max-height: 0;
+  overflow-y: hidden;
+  transform: translateX(-50%) translateY(18px) scale(0.96);
+}
+.has-side-column .floating-controls-inner > .metric-color-picker,
+.has-side-column .floating-controls-sync-warning {
+  top: auto;
+  bottom: 0;
+  right: calc(100% + 12px);
+}
+.has-side-column.side-left .floating-controls-inner > .metric-color-picker,
+.has-side-column.side-left .floating-controls-sync-warning {
+  right: auto;
+  left: calc(100% + 12px);
+}
+.has-side-column .metric-color-picker {
+  max-height: min(560px, calc(100vh - var(--fc-bottom) - env(safe-area-inset-top, 0px) - 24px));
+  max-height: min(560px, calc(100dvh - var(--fc-bottom) - env(safe-area-inset-top, 0px) - 24px));
+}
+
 /* 主题管理报头:eyebrow + 大标题 + 右侧账目式元信息,和资产页同一套编辑排版语言。 */
 .theme-masthead {
   display: flex;
