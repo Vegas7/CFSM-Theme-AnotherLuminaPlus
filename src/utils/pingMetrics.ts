@@ -1,4 +1,5 @@
 import type { PingRecord } from "@/types/cfsm";
+import { t } from "@/i18n";
 
 /**
  * 把一条 Ping 样本还原成"总数/丢失/有效"三元组。
@@ -84,10 +85,14 @@ export function formatPingTooltipValue(
   latencyMs: number | null,
   lossPct: number | null,
 ): string {
+  const isTimeout = latencyMs != null && latencyMs < 0;
   const hasLoss = lossPct != null && lossPct > 0;
-  if (latencyMs == null) return hasLoss ? `丢包 ${formatPingLoss(lossPct)}` : "—";
+  if (isTimeout) {
+    return hasLoss ? t("超时 ({loss} 丢包)", { loss: formatPingLoss(lossPct) }) : t("超时");
+  }
+  if (latencyMs == null) return hasLoss ? t("丢包 {loss}", { loss: formatPingLoss(lossPct) }) : "—";
   const latency = `${latencyMs.toFixed(1)} ms`;
-  return hasLoss ? `丢包 ${formatPingLoss(lossPct)} · ${latency}` : latency;
+  return hasLoss ? `${t("丢包 {loss}", { loss: formatPingLoss(lossPct) })} · ${latency}` : latency;
 }
 
 /** 升序数组里离 value 最近的下标。 */

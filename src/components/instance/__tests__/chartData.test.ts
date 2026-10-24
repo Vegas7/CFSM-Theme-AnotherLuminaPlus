@@ -4,8 +4,10 @@ import {
   cutPeakValues,
   downsampleAligned,
   fillMissingMetricPoints,
+  insertCoverageGapSentinels,
   insertMetricGapSentinels,
   mergeHistoryWithLivePoints,
+  smoothByCount,
   type TimedMetricPoint,
 } from "@/components/instance/chartData";
 
@@ -144,7 +146,7 @@ describe("insertMetricGapSentinels — three-state ping semantics", () => {
     expect(at(out, 60)!.A).toBeNull();
   });
 
-  it("tolerates a single missed sample (gap <= 2x interval)", () => {
+  it("breaks at a single missed sample", () => {
     const points: TimedMetricPoint[] = [
       { time: 0, A: 10 },
       { time: 120, A: 12 }, // 60 处漏了一个采样 → 空缺正好是 2 倍 interval
@@ -153,11 +155,10 @@ describe("insertMetricGapSentinels — three-state ping semantics", () => {
 
     const out = insertMetricGapSentinels(points, opts({ A: 60 }));
 
-    expect(out.every((point) => point.A !== null)).toBe(true);
+    expect(at(out, 60)!.A).toBeNull();
   });
 
-  it("bridges up to two consecutive missed samples (gap <= 3x interval)", () => {
-    // 连续漏两次采样 → 空缺正好 3 倍 interval，仍视为抖动/漏采而非中断，保持可跨过(不插 null)。
+  it("breaks across two consecutive missed samples", () => {
     const points: TimedMetricPoint[] = [
       { time: 0, A: 10 },
       { time: 180, A: 13 }, // 60、120 两处漏采 → 空缺 = 3 倍 interval
@@ -166,11 +167,11 @@ describe("insertMetricGapSentinels — three-state ping semantics", () => {
 
     const out = insertMetricGapSentinels(points, opts({ A: 60 }));
 
-    expect(out.every((point) => point.A !== null)).toBe(true);
+    expect(at(out, 60)!.A).toBeNull();
+    expect(at(out, 180)!.A).toBe(13);
   });
 
-  it("breaks once the gap exceeds 6x interval", () => {
-    // 空缺 = 7 倍 interval（> 桥接阈值 6×=360s）→ 真实较长中断，必须插 null 断点。
+  it("breaks across a long outage", () => {
     const points: TimedMetricPoint[] = [
       { time: 0, A: 10 },
       { time: 420, A: 14 }, // 中间漏采 6 次 → 空缺 = 7 倍 interval
@@ -182,8 +183,124 @@ describe("insertMetricGapSentinels — three-state ping semantics", () => {
     expect(out.some((point) => point.A === null)).toBe(true);
   });
 
+  it.each([60, 300, 900, 3600])("keeps regular %i-second aggregate buckets connected", (interval) => {
+    const points = [
+      { time: 0, A: 10 },
+      { time: interval, A: 11 },
+      { time: interval * 2, A: 12 },
+    ];
+
+    expect(insertMetricGapSentinels(points, opts({ A: interval }))).toEqual(points);
+  });
+
+  it.each([60, 300, 900, 3600])("breaks at a missing %i-second aggregate bucket", (interval) => {
+    const out = insertMetricGapSentinels([
+      { time: 0, A: 10 },
+      { time: interval * 2, A: 12 },
+    ], opts({ A: interval }));
+
+    expect(at(out, interval)!.A).toBeNull();
+    expect(out[0].A).toBe(10);
+    expect(out[out.length - 1].A).toBe(12);
+  });
+
+  it.each([1200, 1800])("breaks a %i-second gap in five-minute aggregate data", (gap) => {
+    const out = insertMetricGapSentinels([
+      { time: 0, A: 10 },
+      { time: gap, A: 12 },
+    ], opts({ A: 300 }));
+
+    expect(at(out, 300)!.A).toBeNull();
+  });
+
+  it("allows timestamp jitter within one sampling interval's tolerance", () => {
+    const points = [
+      { time: 0, A: 10 },
+      { time: 75, A: 11 },
+      { time: 120, A: 12 },
+    ];
+
+    expect(insertMetricGapSentinels(points, opts({ A: 60 }))).toEqual(points);
+  });
+
+  it("breaks immediately beyond the timestamp tolerance", () => {
+    const out = insertMetricGapSentinels([
+      { time: 0, A: 10 },
+      { time: 76, A: 12 },
+    ], opts({ A: 60 }));
+
+    expect(at(out, 60)!.A).toBeNull();
+  });
+
+  it("breaks only the task missing one sample without overwriting a nearby task", () => {
+    const out = insertMetricGapSentinels([
+      { time: 0, A: 10 },
+      { time: 30, B: 20 },
+      { time: 65, B: 21 },
+      { time: 120, A: 12 },
+      { time: 125, B: 22 },
+    ], opts({ A: 60, B: 60 }));
+
+    expect(at(out, 65)).toMatchObject({ A: null, B: 21 });
+    expect(out.every((point) => point.B !== null)).toBe(true);
+    expect(at(out, 120)!.A).toBe(12);
+  });
+
+  it("bounds sentinel growth and preserves the gap through reduction and smoothing", () => {
+    const out = insertMetricGapSentinels([
+      { time: 0, A: 10 },
+      { time: 86400 * 90, A: 12 },
+    ], opts({ A: 60 }));
+    const reduced = downsampleAligned(out.map((point) => point.time), [out.map((point) => point.A)], 2, true);
+
+    expect(out).toHaveLength(3);
+    expect(smoothByCount(reduced.perTask, 13)[0]).toContain(null);
+  });
+
+  it("marks the entire missing interval across another task's off-phase anchors", () => {
+    const points: TimedMetricPoint[] = [
+      { time: 0, A: 10 },
+      ...Array.from({ length: 20 }, (_, index) => ({ time: 30 + index * 60, B: 20 + index })),
+      { time: 1200, A: 12 },
+    ];
+
+    const out = insertMetricGapSentinels(points, opts({ A: 60, B: 60 }));
+
+    expect(out).toHaveLength(points.length);
+    for (let index = 0; index < 20; index += 1) {
+      expect(at(out, 30 + index * 60)).toMatchObject({ A: null, B: 20 + index });
+    }
+    expect(at(out, 0)!.A).toBe(10);
+    expect(at(out, 1200)!.A).toBe(12);
+    expect(out.every((point) => point.B !== null)).toBe(true);
+  });
+
+  it("shares breaks across new sentinel anchors with different task intervals", () => {
+    const out = insertMetricGapSentinels([
+      { time: 0, A: 10, B: 20 },
+      { time: 300, A: 12, B: 22 },
+    ], opts({ A: 60, B: 120 }));
+
+    expect(at(out, 60)).toMatchObject({ A: null, B: null });
+    expect(at(out, 120)).toMatchObject({ A: null, B: null });
+    expect(at(out, 300)).toMatchObject({ A: 12, B: 22 });
+  });
+
+  it("keeps a longer outage broken across another task's newly inserted sentinels", () => {
+    const out = insertMetricGapSentinels([
+      { time: 0, A: 10, B: 20 },
+      { time: 240, B: 21 },
+      { time: 600, A: 12, B: 22 },
+    ], opts({ A: 60, B: 120 }));
+
+    expect(at(out, 120)).toMatchObject({ A: null, B: null });
+    expect(at(out, 240)).toMatchObject({ A: null, B: 21 });
+    expect(at(out, 360)).toMatchObject({ A: null, B: null });
+    expect(at(out, 600)).toMatchObject({ A: 12, B: 22 });
+  });
+
   it("breaks only the gapped task on a long outage, sparing co-located anchors", () => {
-    // A 在 60..480 间中断（空缺 7×interval > 阈值），而 B 持续采样。A 的断点必须落到 B 的
+    // A 在 60..480 间缺采样，而 B 持续采样。A 的断点必须落到 B 的
     // anchor 上 (合并而非跳过)，且不能破坏 B 的真实值。
     const points: TimedMetricPoint[] = [
       { time: 0, A: 10, B: 100 },
@@ -309,5 +426,40 @@ describe("历史图接实时样本", () => {
   it("没有实时样本时原样返回历史", () => {
     const history = [point(0, 1)];
     expect(mergeHistoryWithLivePoints(history, [])).toBe(history);
+  });
+});
+
+describe("insertCoverageGapSentinels — 没测 vs 断线", () => {
+  // 后端每 180 秒一行，但只有部分行带 Ping（6 小时档的典型情形）。
+  const rowTimes = Array.from({ length: 10 }, (_, index) => index * 180);
+  const pingPoints: TimedMetricPoint[] = [0, 180, 900, 1080, 1620].map((time) => ({ time, A: 30 }));
+
+  it("后端行连续时，没带 Ping 的行不切断线条", () => {
+    const out = insertCoverageGapSentinels(pingPoints, ["A"], rowTimes, 180);
+    expect(out).toBe(pingPoints);
+    expect(out.some((point) => point.A === null)).toBe(false);
+  });
+
+  it("窗口取首行造成的相位漂移（间隔在 150～300 秒间跳）不算断线", () => {
+    // 探针每 150 秒上报一次，后端 6 小时档每 180 秒窗口取第一行：相邻两行大多隔 150 秒，
+    // 约每 15 分钟有一次隔 300 秒。按 1.25 倍门槛这里会断 24 次。
+    const reports = Array.from({ length: 145 }, (_, index) => index * 150);
+    const sampled: number[] = [];
+    for (let start = 0; start < 6 * 3600; start += 180) {
+      const first = reports.find((time) => time >= start && time < start + 180);
+      if (first != null) sampled.push(first);
+    }
+    const points: TimedMetricPoint[] = sampled.map((time) => ({ time, A: 30 }));
+    const out = insertCoverageGapSentinels(points, ["A"], sampled, 180);
+    expect(out.some((point) => point.A === null)).toBe(false);
+  });
+
+  it("后端一段时间没有行（探针离线）时插入断点", () => {
+    const withOutage = rowTimes.filter((time) => time < 360 || time > 1000);
+    const out = insertCoverageGapSentinels(pingPoints, ["A"], withOutage, 180);
+    const nulls = out.filter((point) => point.A === null).map((point) => point.time);
+    expect(nulls.length).toBeGreaterThan(0);
+    expect(nulls.every((time) => time > 180 && time < 1080)).toBe(true);
+    expect(out.map((point) => point.time)).toEqual([...out.map((point) => point.time)].sort((a, b) => a - b));
   });
 });

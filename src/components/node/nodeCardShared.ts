@@ -3,6 +3,7 @@
 import { formatUptimeDays, trimFixed } from "@/utils/format";
 import { latencyHeatColor, lossHeatColor } from "@/utils/metricTone";
 import type { PingOverviewBucket } from "@/types/cfsm";
+import { t } from "@/i18n";
 
 /** 卡片标签行的完整 tag 列表 tooltip(几种卡片布局共用同一文案)。 */
 export function joinTagTitle(tags: { label: string }[]) {
@@ -18,15 +19,42 @@ export function formatCompactPercent(value: number) {
 
 /** 卡片到期文案:"余 X天";没填到期日期按「永久」显示。 */
 export function formatCompactExpire({ value, unit }: { value: string; unit: string }) {
-  if (value === "—") return "永久";
-  return unit ? `余 ${value}${unit}` : value;
+  if (value === "—") return t("永久");
+  return unit ? t("余 {value}", { value: `${value}${unit}` }) : value;
+}
+
+import { normalizeBillingCycle } from "@/utils/billing";
+
+/** 格式化紧凑卡片隐藏价格时的精简账单周期（如 年付 / 月付，2~3个字符避免超宽截断）。 */
+export function formatCompactBillingCycle(
+  billingCycle: string | number | null | undefined,
+  price?: number | null,
+): string {
+  if (price === -1 || price === 0) return t("免费");
+  const cycle = normalizeBillingCycle(billingCycle);
+  switch (cycle.kind) {
+    case "lifetime":
+      return t("永久");
+    case "month":
+      return t("月付");
+    case "quarter":
+      return t("季付");
+    case "halfYear":
+      return t("半年付");
+    case "year":
+      return (cycle.years ?? 1) === 1 ? t("年付") : t("{n}年付", { n: cycle.years ?? 1 });
+    case "days":
+      return t("{n}天", { n: cycle.days ?? 0 });
+    default:
+      return t("年付");
+  }
 }
 
 /** 非法或非正时长返回空串。 */
 export function formatCompactUptime(seconds: number) {
   if (!Number.isFinite(seconds) || seconds <= 0) return "";
   const uptime = formatUptimeDays(seconds);
-  return `在线：${uptime.value}${uptime.unit}`;
+  return t("在线：{value}", { value: `${uptime.value}${uptime.unit}` });
 }
 
 /** 区分已绑定但无样本与未配置 Ping。 */
@@ -36,14 +64,14 @@ export function pingEmptyLabels(
   pingError = false,
 ): { title: string; text: string } {
   if (hasHomepagePingBinding && pingLoading) {
-    return { title: "正在加载首页 Ping", text: "加载中" };
+    return { title: t("正在加载首页 Ping"), text: t("加载中") };
   }
   if (hasHomepagePingBinding && pingError) {
-    return { title: "首页 Ping 加载失败", text: "加载失败" };
+    return { title: t("首页 Ping 加载失败"), text: t("加载失败") };
   }
   return hasHomepagePingBinding
-    ? { title: "暂无有效样本", text: "无样本" }
-    : { title: "未配置首页 Ping", text: "未配置" };
+    ? { title: t("暂无有效样本"), text: t("无样本") }
+    : { title: t("未配置首页 Ping"), text: t("未配置") };
 }
 
 /** 生成“Debian 12”这类简短系统标签。 */
@@ -61,8 +89,8 @@ export function formatOsLabel(osName: string, rawOs?: string | null): string {
  */
 export function nodeDetailLinkLabels(name: string, osName: string) {
   return {
-    title: `${osName} · 点击查看详情`,
-    ariaLabel: `${name}，系统 ${osName}`,
+    title: t("{os} · 点击查看详情", { os: osName }),
+    ariaLabel: t("{name}，系统 {os}", { name, os: osName }),
   };
 }
 
@@ -117,19 +145,36 @@ export function healthBarInteractionModel(
   };
 }
 
+
+import type {
+  PingLatencyColors,
+  PingLatencyThresholds,
+  PingLossColors,
+  PingLossThresholds,
+} from "@/types/cfsm";
+import { resolveCustomLatencyColor, resolveCustomLossColor } from "@/utils/metricTone";
+
+export interface HealthBarOptions {
+  latencyThresholds?: PingLatencyThresholds;
+  latencyColors?: PingLatencyColors;
+  lossThresholds?: PingLossThresholds;
+  lossColors?: PingLossColors;
+}
+
 const HEALTH_LOSS_BAR_HEIGHT = 0.84;
 const HEALTH_INACTIVE_BAR_HEIGHT = 0.25;
 
 export function healthBarSlotModel(
   bucket: PingOverviewBucket,
   kind: "latency" | "loss",
+  options?: HealthBarOptions,
 ): HealthBarSlotModel {
   // 掉线段不是「没采到」，是节点没了：延迟和丢包都涂满红，两排颜色一致。
   if (bucket.offline) {
     return {
       active: true,
       heightFraction: HEALTH_LOSS_BAR_HEIGHT,
-      color: lossHeatColor(100),
+      color: options?.lossColors?.high || (options?.lossThresholds || options?.lossColors ? resolveCustomLossColor(100, options?.lossThresholds, options?.lossColors) : lossHeatColor(100)),
       alpha: 0.94,
     };
   }
@@ -139,7 +184,7 @@ export function healthBarSlotModel(
       return {
         active: true,
         heightFraction: HEALTH_LOSS_BAR_HEIGHT,
-        color: latencyHeatColor(value),
+        color: options?.latencyThresholds || options?.latencyColors ? resolveCustomLatencyColor(value, options?.latencyThresholds, options?.latencyColors) : latencyHeatColor(value),
         alpha: 0.94,
       };
     }
@@ -155,7 +200,7 @@ export function healthBarSlotModel(
     return {
       active: true,
       heightFraction: HEALTH_LOSS_BAR_HEIGHT,
-      color: lossHeatColor(loss),
+      color: options?.lossThresholds || options?.lossColors ? resolveCustomLossColor(loss, options?.lossThresholds, options?.lossColors) : lossHeatColor(loss),
       alpha: 0.94,
     };
   }

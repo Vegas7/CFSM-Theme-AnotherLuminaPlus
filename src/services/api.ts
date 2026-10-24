@@ -15,6 +15,7 @@ import {
   type SysConfig,
 } from "@/types/cfsm";
 import { getJwtToken } from "@/services/cfsm/config";
+import { readBootServers, saveBootConfig, saveBootServers } from "@/services/bootCache";
 import {
   ApiRequestError,
   cfsmGet,
@@ -34,6 +35,7 @@ import {
 } from "@/services/cfsm/mappers";
 import { seedMeasuredHistory } from "@/services/pingLiveStore";
 import { resolvePreferredAppearance } from "@/utils/themeSettings";
+import { t } from "@/i18n";
 
 export { ApiRequestError, DatabaseUpgradeRequiredError } from "@/services/cfsm/http";
 
@@ -84,8 +86,21 @@ export function normalizeHistoryHours(hours: number): number {
  * 站点配置
  * ------------------------------------------------------------------ */
 
-export async function getSiteConfig(options?: RequestOptions) {
-  return cfsmGet("/api/config", SiteConfigSchema, options);
+let siteConfigPromise: Promise<z.output<typeof SiteConfigSchema>> | null = null;
+
+export async function getSiteConfig(options?: RequestOptions & { skipCache?: boolean }) {
+  if (options?.skipCache || !siteConfigPromise) {
+    siteConfigPromise = cfsmGet("/api/config", SiteConfigSchema, options).catch((err) => {
+      siteConfigPromise = null;
+      throw err;
+    });
+  }
+  return siteConfigPromise;
+}
+
+/** 供 Turnstile 验证或配置失效时主动重置配置缓存。 */
+export function invalidateSiteConfigCache(): void {
+  siteConfigPromise = null;
 }
 
 /**
@@ -111,6 +126,7 @@ function resolveThemeOptions(fetched: Record<string, unknown>): Record<string, u
 /** 测试用。 */
 export function resetRecentThemeOptionsWrite(): void {
   recentThemeOptionsWrite = null;
+  siteConfigPromise = null;
 }
 
 /** `POST /api/theme_options` 的响应体（`{ success, theme_options, message }`）。 */
@@ -155,6 +171,12 @@ export async function saveThemeOptions(
  */
 export async function getPublic(options?: RequestOptions): Promise<PublicConfig> {
   const config = await getSiteConfig(options);
+  const result = buildPublicConfig(config);
+  saveBootConfig(result);
+  return result;
+}
+
+function buildPublicConfig(config: z.output<typeof SiteConfigSchema>): PublicConfig {
   return {
     sitename: config.site_title,
     description: "",
@@ -164,6 +186,9 @@ export async function getPublic(options?: RequestOptions): Promise<PublicConfig>
     turnstile_enabled: config.turnstile_enabled,
     turnstile_site_key: config.turnstile_site_key,
     verified: config.verified,
+    backgroundImage: config.background_image,
+    customHead: config.custom_head,
+    customBody: config.custom_body,
     // 站点级的主题设置（本机覆盖叠在它上面）。刚保存过就先信自己写进去的，见 THEME_OPTIONS_WRITE_TRUST_MS。
     theme_settings: resolveThemeOptions(config.theme_options),
     latencyWindow: config.latency_window,
@@ -192,17 +217,83 @@ export async function getPublic(options?: RequestOptions): Promise<PublicConfig>
 }
 
 /**
- * CF-Server-Monitor 没有 `/api/me`：登录态由 `/api/config` 的 `authorization` 决定，
- * 令牌本身存在 localStorage 里由 `/admin` 登录时写入。
+ * 从 localStorage 中读取管理员自定义昵称（优先 `cfsm_admin_username`）。
+ */
+export function extractUsernameFromStorage(): string {
+  if (typeof window === "undefined" || !window.localStorage) return "";
+  try {
+    const val = window.localStorage.getItem("cfsm_admin_username");
+    if (typeof val === "string") {
+      const sanitized = val.replace(/[\x00-\x1F\x7F]/g, "").trim();
+      if (sanitized && sanitized.toLowerCase() !== "admin" && sanitized.length <= 40) {
+        return sanitized;
+      }
+    }
+  } catch {
+    // 忽略存储访问异常
+  }
+  return "";
+}
+
+/**
+ * 解析当前登录用户的显示名称。
+ * 优先级：Storage 已缓存的自定义用户名 -> 保底 "Admin"。
+ */
+export function resolveAuthUsername(token?: string | null): string {
+  const t = token ?? getJwtToken();
+  if (!t) return "";
+  const fromStorage = extractUsernameFromStorage();
+  if (fromStorage) return fromStorage;
+  return "Admin";
+}
+
+/**
+ * 0 毫秒同步解析初始登录态，直接提供给 TanStack Query initialData，
+ * 彻底杜绝页面首屏网络请求前闪现 "Guest" 的问题。
+ */
+export function getInitialAuth(): Me {
+  const token = getJwtToken();
+  if (!token) {
+    return { logged_in: false, username: "", uuid: "" };
+  }
+  const username = resolveAuthUsername(token);
+  return {
+    logged_in: true,
+    username,
+    uuid: "",
+  };
+}
+
+/**
+ * CF-Server-Monitor 没有 `/api/me`：登录态由 `/api/config` 的 `authorization` 决定。
  */
 export async function getMe(options?: RequestOptions): Promise<Me> {
-  if (!getJwtToken()) {
+  const token = getJwtToken();
+  if (!token) {
     return { logged_in: false, username: "", uuid: "" };
   }
   const config = await getSiteConfig(options);
+  if (!config.authorization) {
+    return { logged_in: false, username: "", uuid: "" };
+  }
+
+  // 若云端主题设置中带有 adminNickname，自动同步到本地 cfsm_admin_username
+  if (config.theme_options && typeof config.theme_options.adminNickname === "string") {
+    const nick = (config.theme_options.adminNickname as string).replace(/[\x00-\x1F\x7F]/g, "").trim();
+    if (nick && nick.length <= 40 && typeof window !== "undefined" && window.localStorage) {
+      try {
+        window.localStorage.setItem("cfsm_admin_username", nick);
+      } catch {
+        // 忽略写入失败
+      }
+    }
+  }
+
+  const username = resolveAuthUsername(token);
+
   return {
-    logged_in: config.authorization,
-    username: config.authorization ? "admin" : "",
+    logged_in: true,
+    username: username || "Admin",
     uuid: "",
   };
 }
@@ -264,7 +355,28 @@ export async function getServersSnapshot(
   options?: Omit<RequestOptions, "base">,
 ): Promise<ServersSnapshot> {
   const results = await cfsmGetAll("/api/servers", ServersResponseSchema, options);
+  const snapshot = buildServersSnapshot(results);
+  // 全部后端都成功才存首屏缓存，免得下次打开先看到缺了一个站的列表。
+  if (!snapshot.partial) {
+    saveBootServers(results.flatMap((result) => (result.data ? [{ base: result.base, data: result.data }] : [])));
+  }
+  return snapshot;
+}
 
+/** 上次存下的节点列表（首屏缓存），没有或不可用时返回 null。见 bootCache。 */
+export function getCachedServersSnapshot(): { snapshot: ServersSnapshot; savedAt: number } | null {
+  const cached = readBootServers<z.output<typeof ServersResponseSchema>>();
+  if (!cached?.results.length) return null;
+  try {
+    return { snapshot: buildServersSnapshot(cached.results), savedAt: cached.savedAt };
+  } catch {
+    return null;
+  }
+}
+
+function buildServersSnapshot(
+  results: Array<{ base: string; data?: z.output<typeof ServersResponseSchema>; error?: unknown }>,
+): ServersSnapshot {
   const servers: CfsmServer[] = [];
   const baseByServerId = new Map<string, string>();
   const regionStats: Record<string, number> = {};
@@ -442,74 +554,9 @@ async function fetchHistoryRows(
   return request;
 }
 
-/** 手动刷新首页延迟条时的并发上限：节点多的站点别一次把请求全打出去。 */
-const PING_HISTORY_REFRESH_CONCURRENCY = 4;
-/** 手动刷新只拉一小时：首页延迟条本来就只画一小时，多拉的行是白读。 */
-const PING_HISTORY_REFRESH_HOURS = 1;
-
-export interface PingHistoryRefreshResult {
-  requested: number;
-  succeeded: number;
-  failed: number;
-}
-
-/**
- * 手动刷新首页延迟条：逐台拉一小时历史回灌本地缓冲。
- *
- * **这是首页唯一允许发起 `/api/history/all` 的入口，且只能由用户点击触发。**
- * 自动轮询仍然禁止 —— 读行量差 60 倍：按线上实测（7 台、上报间隔 30/60 秒）点一次约 780 行，
- * 而每分钟自动拉一次是每小时 4.7 万行。后端对 1 小时档有 60 秒服务端缓存（响应带 `X-Cache`），
- * 连点几下不会真的重复读库。
- *
- * 效果等同于「把每台节点的详情页都点开一遍」：走的是同一个 `fetchHistoryRows` →
- * `backfillPingBuffer` 通道，不是另一套取数逻辑。
- *
- * 绕开前端那 20 秒缓存（`cache: false`）—— 用户按刷新就是想要新的，拿缓存糊弄没有意义。
- */
-export async function refreshPingHistory(
-  serverIds: readonly string[],
-  options?: RequestOptions,
-): Promise<PingHistoryRefreshResult> {
-  const ids = [...new Set(serverIds.filter((id) => typeof id === "string" && id.length > 0))];
-  if (ids.length === 0) return { requested: 0, succeeded: 0, failed: 0 };
-
-  let cursor = 0;
-  let succeeded = 0;
-  let failed = 0;
-
-  async function worker(): Promise<void> {
-    for (;;) {
-      const index = cursor;
-      cursor += 1;
-      const serverId = ids[index];
-      if (serverId === undefined) return;
-      try {
-        await fetchHistoryRows(serverId, PING_HISTORY_REFRESH_HOURS, {
-          ...options,
-          cache: false,
-        });
-        succeeded += 1;
-      } catch {
-        // 单台失败不该拖垮整批：某台节点历史查不到（刚加入、分区 id 没建好）时，
-        // 其余节点照常回灌。
-        failed += 1;
-      }
-    }
-  }
-
-  await Promise.all(
-    Array.from(
-      { length: Math.min(PING_HISTORY_REFRESH_CONCURRENCY, ids.length) },
-      () => worker(),
-    ),
-  );
-
-  return { requested: ids.length, succeeded, failed };
-}
-
 export async function getLoadRecords(
   uuid: string,
-  hours = 6,
+  hours = 0.167,
   options?: RequestOptions,
 ): Promise<LoadRecordsResponse> {
   const rows = await fetchHistoryRows(uuid, hours, options);
@@ -531,7 +578,7 @@ export async function getLoadRecords(
  */
 export async function getPingRecords(
   uuid: string,
-  hours = 6,
+  hours = 0.167,
   options?: RequestOptions,
 ): Promise<PingRecordsResponse> {
   const rows = await fetchHistoryRows(uuid, hours, options);
@@ -545,6 +592,7 @@ export async function getPingRecords(
     records,
     tasks: tasks.length > 0 ? tasks : carrierPingTasks(),
     intervalSeconds: inferIntervalSeconds(rows.map((row) => row.timestamp)),
+    rowTimes: rows.map((row) => row.timestamp).filter((time) => time > 0),
     rangeStartMs: rangeEndMs - normalizeHistoryHours(hours) * 60 * 60 * 1000,
     rangeEndMs,
     stats: buildPingStats(records, uuid),
@@ -616,65 +664,13 @@ function percentile(sortedValues: number[], fraction: number): number | null {
   return sortedValues[index] ?? null;
 }
 
-/** 今日流量：由历史里的上/下行速率按采样间隔积分近似得到。 */
-export interface TodayTrafficEstimate {
-  client: string;
-  up: number;
-  down: number;
-  peakUp: number;
-  peakDown: number;
-  rangeStartMs: number;
-  rangeEndMs: number;
-  samples: number;
-}
-
-export async function getTodayTrafficEstimate(
-  uuid: string,
-  startMs: number,
-  endMs: number,
-  options?: RequestOptions,
-): Promise<TodayTrafficEstimate> {
-  const spanHours = Math.max(0.167, (endMs - startMs) / 3_600_000);
-  const rows = await fetchHistoryRows(uuid, spanHours, options);
-  const inRange = rows.filter((row) => {
-    const time = row.timestamp;
-    return time >= startMs && time <= endMs;
-  });
-
-  let up = 0;
-  let down = 0;
-  let peakUp = 0;
-  let peakDown = 0;
-  for (let i = 0; i < inRange.length; i++) {
-    const row = inRange[i]!;
-    const previous = inRange[i - 1];
-    // 首个样本没有前驱，按 0 计入，避免把整段窗口的流量算在它头上。
-    const deltaSeconds = previous ? Math.max(0, (row.timestamp - previous.timestamp) / 1000) : 0;
-    up += row.net_out_speed * deltaSeconds;
-    down += row.net_in_speed * deltaSeconds;
-    peakUp = Math.max(peakUp, row.net_out_speed);
-    peakDown = Math.max(peakDown, row.net_in_speed);
-  }
-
-  return {
-    client: uuid,
-    up,
-    down,
-    peakUp,
-    peakDown,
-    rangeStartMs: startMs,
-    rangeEndMs: endMs,
-    samples: inRange.length,
-  };
-}
-
 /** 兼容旧调用点：主题设置改为本地保存，不再写回后端。 */
 export function saveThemeSettings(): Promise<void> {
   return Promise.reject(
     new ApiRequestError(
-      "第三方主题不能写入后端设置，请在 /admin#admin 中修改",
+      t("第三方主题不能写入后端设置，请在 /admin#/admin 中修改"),
       403,
-      "/admin#admin",
+      "/admin#/admin",
     ),
   );
 }

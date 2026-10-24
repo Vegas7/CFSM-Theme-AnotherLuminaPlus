@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 const UNITS = ["B", "KB", "MB", "GB", "TB", "PB"] as const;
 const CLOCK_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
@@ -111,12 +112,12 @@ export function formatByteRateLabel(bytesPerSec: number | undefined | null): str
 export function formatUptimeDays(seconds: number): { value: string; unit: string } {
   if (!Number.isFinite(seconds) || seconds <= 0) return { value: "—", unit: "" };
   const days = seconds / 86400;
-  if (days >= 1) return { value: Math.floor(days).toString(), unit: "天" };
+  if (days >= 1) return { value: Math.floor(days).toString(), unit: t("天") };
   const hours = seconds / 3600;
-  if (hours >= 1) return { value: Math.floor(hours).toString(), unit: "小时" };
+  if (hours >= 1) return { value: Math.floor(hours).toString(), unit: t("小时") };
   // 不足 1 分钟向上取整,避免刚上线显示成「0 分钟」而 <=0 又显示「—」的口径分裂。
   const minutes = Math.max(1, Math.floor(seconds / 60));
-  return { value: minutes.toString(), unit: "分钟" };
+  return { value: minutes.toString(), unit: t("分钟") };
 }
 
 // 将 `expired_at` 解析为毫秒；空值、Go 零时和 0/-1 哨兵均表示无到期。
@@ -160,10 +161,10 @@ export function formatExpireDays(
   const days = getExpireDaysRemaining(iso, now);
   const tone = resolveExpireTone(days);
   if (days == null) return { value: "—", unit: "", tone };
-  if (tone === "long") return { value: "长期", unit: "", tone };
-  if (days > 0) return { value: days.toString(), unit: "天", tone };
-  if (days === 0) return { value: "今日", unit: "", tone };
-  return { value: "已过期", unit: "", tone };
+  if (tone === "long") return { value: t("长期"), unit: "", tone };
+  if (days > 0) return { value: days.toString(), unit: t("天"), tone };
+  if (days === 0) return { value: t("今日"), unit: "", tone };
+  return { value: t("已过期"), unit: "", tone };
 }
 
 function inferPlainTagColor(label: string): string {
@@ -180,27 +181,85 @@ function inferPlainTagColor(label: string): string {
   return "violet";
 }
 
-/** 把 `tag1<color>;tag2<color2>` 解析成 [{ label, color }]。 */
-/**
- * 分隔符同时认逗号和分号。
- *
- * CF-Server-Monitor 后台那个「标签」输入框的提示写的是**英文逗号割开**，而这份代码从 Komari
- * 主题移植过来时只切分号 —— 于是后台按提示填的 `边缘,高带宽` 会整条变成一个标签。
- * 两种都认：分号是 Komari 的习惯（从那边迁过来的站点还留着），逗号是本后端的正式约定。
- * 全角 `，；` 一并认 —— 这个框的语义就是「用符号分隔」，中文输入法误打全角在所难免，
- * 而标签名里本来也不该出现分隔符。
- */
-const TAG_SEPARATORS = /[;,；，]/;
+export const SUPPORTED_TAG_COLORS = new Set([
+  // 红色/粉色系
+  "tomato",
+  "red",
+  "ruby",
+  "crimson",
+  "pink",
+  "plum",
+  // 紫色/蓝色系
+  "purple",
+  "violet",
+  "iris",
+  "indigo",
+  "blue",
+  "cyan",
+  // 绿色系
+  "teal",
+  "jade",
+  "green",
+  "grass",
+  "mint",
+  // 橙黄/棕色系
+  "bronze",
+  "gold",
+  "brown",
+  "orange",
+  "amber",
+  "yellow",
+  "lime",
+  // 中性色系
+  "sky",
+  "gray",
+  "mauve",
+  "slate",
+  "sage",
+  "olive",
+  "sand",
+]);
 
+const COLOR_NAMES_PATTERN = Array.from(SUPPORTED_TAG_COLORS).join("|");
+const SANITIZED_SUFFIX_REGEX = new RegExp(`^(.*?)(${COLOR_NAMES_PATTERN})$`, "i");
+
+/**
+ * 把标签字符串解析成 [{ label, color }]。
+ * 1. 优先支持 CFSM 减号语法：`香港BGP-blue` / `特惠-red`
+ * 2. 兼容被 CFSM 过滤掉尖括号的残留文本：`香港BGPBLUE` -> { label: "香港BGP", color: "blue" }
+ * 3. 兼容标准尖括号语法：`VIP<red>`
+ * 4. 普通纯文字标签，按线路关键词智能推断
+ */
 export function parseTags(raw: string | undefined | null): Array<{ label: string; color: string }> {
   if (!raw) return [];
   return raw
-    .split(TAG_SEPARATORS)
+    .split(/[;,；，]/)
     .map((s) => s.trim())
     .filter(Boolean)
     .map((item) => {
-      const m = item.match(/^(.*?)<([a-zA-Z]+)>$/);
-      if (m) return { label: m[1].trim(), color: m[2].toLowerCase() };
+      // 1. 减号指定颜色语法：`香港BGP-blue`、`特惠-red`
+      const mHyphen = item.match(/^(.*?)-([a-zA-Z]+)$/);
+      if (mHyphen) {
+        const candidate = mHyphen[2].toLowerCase();
+        if (SUPPORTED_TAG_COLORS.has(candidate)) {
+          return { label: mHyphen[1].trim(), color: candidate };
+        }
+      }
+
+      // 2. 兼容标准尖括号语法：`VIP<red>`
+      const mBracket = item.match(/^(.*?)<([a-zA-Z]+)>$/);
+      if (mBracket) {
+        return { label: mBracket[1].trim(), color: mBracket[2].toLowerCase() };
+      }
+
+      // 3. 自动救活：被后端过滤掉尖括号的残留（如 `香港BGPBLUE`、`特惠red`）
+      const mSanitized = item.match(SANITIZED_SUFFIX_REGEX);
+      if (mSanitized && mSanitized[1].trim()) {
+        const candidate = mSanitized[2].toLowerCase();
+        return { label: mSanitized[1].trim(), color: candidate };
+      }
+
+      // 4. 普通纯文字标签，按线路关键词智能推断
       return { label: item, color: inferPlainTagColor(item) };
     });
 }

@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -13,21 +13,22 @@ import {
   HardDrive,
   MemoryStick,
   Network,
+  RefreshCw,
   Unplug,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { Flag } from "@/components/ui/Flag";
 import { OsLogo } from "@/components/ui/OsLogo";
 import { useNodeCardModel } from "@/hooks/useNodeCardModel";
-import { HOMEPAGE_PING_BUCKET_COUNT } from "@/hooks/usePingOverview";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { formatBytes } from "@/utils/format";
-import { speedRateColor, speedRateColorFromBytes } from "@/utils/metricTone";
+import { buildTrafficHeatSpectrum, speedRateColor, speedRateColorFromBytes } from "@/utils/metricTone";
 import { supportsFineHover } from "@/utils/mediaQuery";
 import { formatHealthBucketTooltip } from "./pingBucketText";
 import { resolveTouchBucketIndex, TOUCH_BUCKET_HOLD_MS } from "./touchBucketPick";
 import { MultiPingStatus } from "./MultiPingStatus";
 import {
+  formatCompactBillingCycle,
   formatCompactExpire,
   formatCompactPercent,
   formatCompactUptime,
@@ -50,8 +51,10 @@ import type {
 } from "@/types/cfsm";
 import type { ByteRateDisplay } from "@/utils/format";
 import type { TrafficDisplay } from "@/utils/traffic";
+import { t, useLang } from "@/i18n";
 
 const TRAFFIC_DOT_COUNT = 16;
+const HEALTH_BAR_COUNT = 18;
 
 type CompactNode = NodeInfo & NodeMetrics;
 type CompactTag = { label: string; color: string };
@@ -207,7 +210,7 @@ function HealthBars({
   buckets: PingOverviewBucket[];
   kind: "latency" | "loss";
 }) {
-  const bars = buckets.slice(-HOMEPAGE_PING_BUCKET_COUNT);
+  const bars = buckets.slice(-HEALTH_BAR_COUNT);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -254,7 +257,7 @@ function HealthBars({
       style={{ "--compact-health-tooltip-x": activeLeft } as CSSProperties}
       tabIndex={0}
       role="group"
-      aria-label={`${kind === "latency" ? "延迟" : "丢包"}历史${activeTooltip ? `，${activeTooltip}` : ""}，使用左右方向键查看`}
+      aria-label={t(kind === "latency" ? "延迟历史{tip}，使用左右方向键查看" : "丢包历史{tip}，使用左右方向键查看", { tip: activeTooltip ? `${t("，")}${activeTooltip}` : "" })}
       onFocus={() => {
         if (!supportsFineHover()) return;
         if (selectedIndex == null) selectIndex(bars.length - 1);
@@ -441,13 +444,13 @@ function CompactNodeVitals({
         icon={<Cpu size={12} />}
         label="CPU"
         value={formatCompactPercent(node.cpuPct)}
-        detail={`${node.cpuPct.toFixed(2)}% · ${node.cpu_cores || 0} 核`}
+        detail={`${node.cpuPct.toFixed(2)}% · ${t("{n} 核", { n: node.cpu_cores || 0 })}`}
         fraction={node.cpuPct / 100}
         color="var(--progress-cpu)"
       />
       <CompactGauge
         icon={<MemoryStick size={12} />}
-        label="内存"
+        label={t("内存")}
         value={formatCompactPercent(node.ramPct)}
         detail={`${formatBytes(node.ramUsed)} / ${formatBytes(node.ramTotal)}`}
         fraction={node.ramPct / 100}
@@ -455,7 +458,7 @@ function CompactNodeVitals({
       />
       <CompactGauge
         icon={<HardDrive size={12} />}
-        label="磁盘"
+        label={t("磁盘")}
         value={formatCompactPercent(node.diskPct)}
         detail={`${formatBytes(node.diskUsed)} / ${formatBytes(node.diskTotal)}`}
         fraction={node.diskPct / 100}
@@ -463,7 +466,7 @@ function CompactNodeVitals({
       />
       <CompactGauge
         icon={<Gauge size={12} />}
-        label="负载"
+        label={t("负载")}
         value={node.load1.toFixed(2)}
         detail={`${node.load1.toFixed(2)} / ${node.load5.toFixed(2)} / ${node.load15.toFixed(2)}`}
         fraction={loadFraction}
@@ -484,6 +487,7 @@ function CompactNodeInfoStrip({
   expire,
   expireColor,
   renewalPrice,
+  isPriceVisible = true,
 }: {
   node: CompactNode;
   trafficTrend: { up: TrafficTrendSample[]; down: TrafficTrendSample[] };
@@ -495,6 +499,7 @@ function CompactNodeInfoStrip({
   expire: CompactExpire;
   expireColor: string;
   renewalPrice: string | null;
+  isPriceVisible?: boolean;
 }) {
   const infoTileCount =
     1 + (showTrafficTotal ? 1 : 0) + (showBilling ? 1 : 0) + (showConnections ? 1 : 0);
@@ -505,7 +510,7 @@ function CompactNodeInfoStrip({
       style={{ "--compact-info-columns": infoTileCount } as CSSProperties}
     >
       <CompactInfoTile
-        label="实时速率"
+        label={t("实时速率")}
         color="var(--progress-cpu)"
       >
         <CompactInfoRow
@@ -525,7 +530,7 @@ function CompactNodeInfoStrip({
       {showTrafficTotal && (
         <CompactInfoTile
           // 本计费周期的用量（按重置日清零），和下面流量进度条同一口径，不是开机以来的累计。
-          label="本期流量"
+          label={t("本期流量")}
           color="var(--text-primary)"
         >
           <CompactInfoRow
@@ -533,7 +538,7 @@ function CompactNodeInfoStrip({
               <ArrowUp
                 size={12}
                 strokeWidth={2.5}
-                aria-label="上行"
+                aria-label={t("上行")}
               />
             )}
             value={formatBytes(node.trafficUpMonthly)}
@@ -543,7 +548,7 @@ function CompactNodeInfoStrip({
               <ArrowDown
                 size={12}
                 strokeWidth={2.5}
-                aria-label="下行"
+                aria-label={t("下行")}
               />
             )}
             value={formatBytes(node.trafficDownMonthly)}
@@ -552,7 +557,7 @@ function CompactNodeInfoStrip({
       )}
       {showBilling && (
         <CompactInfoTile
-          label="费用到期"
+          label={t("费用到期")}
           color="var(--status-success)"
         >
           <CompactInfoRow
@@ -560,16 +565,25 @@ function CompactNodeInfoStrip({
             value={formatCompactExpire(expire)}
             color={expireColor}
           />
-          <CompactInfoRow
-            icon={<CircleDollarSign size={12} strokeWidth={2.2} />}
-            // 后端 price 为空/0/-1 都表示免费，小卡片直接写「免费」而不是留白。
-            value={renewalPrice || "免费"}
-            color={renewalPrice ? "var(--status-success)" : "var(--text-tertiary)"}
-          />
+          {isPriceVisible ? (
+            <CompactInfoRow
+              icon={<CircleDollarSign size={12} strokeWidth={2.2} />}
+              // 官方数据规范：0 或 -1 为免费，空白表示未设置（未设置时显示破折号或留空）。
+              value={renewalPrice || (node.price === 0 || node.price === -1 ? t("免费") : "—")}
+              color={renewalPrice || node.price === 0 || node.price === -1 ? "var(--status-success)" : "var(--text-tertiary)"}
+            />
+          ) : (
+            <CompactInfoRow
+              icon={<RefreshCw size={11} strokeWidth={2.2} />}
+              // 当价格不可见时（未向访客公开或管理员临时隐藏），第二行显示极简付费周期（如 年付/月付）
+              value={formatCompactBillingCycle(node.billing_cycle, node.price)}
+              color="var(--text-tertiary)"
+            />
+          )}
         </CompactInfoTile>
       )}
       {showConnections && (
-        <CompactInfoTile label="连接数" color="var(--progress-network)">
+        <CompactInfoTile label={t("连接数")} color="var(--progress-network)">
           <CompactInfoRow
             icon={<Network size={12} strokeWidth={2.1} />}
             label="TCP"
@@ -592,9 +606,11 @@ function CompactNodeInfoStrip({
 function CompactTrafficBar({
   traffic,
   uptimeLabel,
+  trafficHeatSpectrum,
 }: {
   traffic: TrafficDisplay;
   uptimeLabel: string;
+  trafficHeatSpectrum?: string;
 }) {
   // 用量非零但极小时,下限填充"一段的 TRAFFIC_SLIVER_RATIO"(段内一道细边),而不是整段——
   // 否则低用量节点(如 0.01%)会被夸张成快 5.6%。fraction 为 0 时保持全灭。
@@ -605,20 +621,21 @@ function CompactTrafficBar({
   const style = {
     "--compact-gauge-color": traffic.color,
     "--compact-gauge-fill": `${fillFraction * 100}%`,
+    ...(trafficHeatSpectrum ? { "--traffic-heat-spectrum": trafficHeatSpectrum } : {}),
   } as CSSProperties;
 
   return (
     <div
       className="compact-node-traffic"
       style={style}
-      title={`流量 · ${traffic.typeLabel} · ${traffic.detail}${uptimeLabel ? ` · ${uptimeLabel}` : ""}`}
+      title={`${t("流量")} · ${traffic.typeLabel} · ${traffic.detail}${uptimeLabel ? ` · ${uptimeLabel}` : ""}`}
     >
       <div className={clsx("compact-node-traffic-body", uptimeLabel && "has-uptime")}>
         {uptimeLabel ? (
           <>
             <span className="compact-node-traffic-label">
               <Database size={12} strokeWidth={2.1} />
-              <span>流量</span>
+              <span>{t("流量")}</span>
             </span>
             <div className="compact-node-gauge-track" aria-hidden />
             <span className="compact-node-traffic-uptime">{uptimeLabel}</span>
@@ -629,7 +646,7 @@ function CompactTrafficBar({
             <div className="compact-node-traffic-head">
               <span className="compact-node-traffic-label">
                 <Database size={12} strokeWidth={2.1} />
-                <span>流量</span>
+                <span>{t("流量")}</span>
               </span>
               <span className="compact-node-traffic-value">{traffic.detail}</span>
             </div>
@@ -661,6 +678,7 @@ const CompactNodeHealth = memo(function CompactNodeHealth({
   pingLoading: boolean;
   pingError: boolean;
 }) {
+  useLang();
   // 已绑定但无样本时显示"无样本",未绑定时显示"未配置" —— 见 pingEmptyLabels。
   const { text: emptyText } = pingEmptyLabels(
     hasRealHomepagePingBinding,
@@ -673,13 +691,13 @@ const CompactNodeHealth = memo(function CompactNodeHealth({
       data-ping-state={ping.loadState ?? "ready"}
       title={
         pingError && (ping.lastValue != null || ping.loss != null)
-          ? "首页 Ping 刷新失败，显示上次数据"
+          ? t("首页 Ping 刷新失败，显示上次数据")
           : undefined
       }
     >
       <CompactHealthItem
         icon={<Clock3 size={12} />}
-        label="延迟"
+        label={t("延迟")}
         value={ping.lastValue != null ? Math.round(ping.lastValue).toString() : emptyText}
         unit={ping.lastValue != null ? "ms" : undefined}
         color={latencyColor}
@@ -688,7 +706,7 @@ const CompactNodeHealth = memo(function CompactNodeHealth({
       </CompactHealthItem>
       <CompactHealthItem
         icon={<Unplug size={12} />}
-        label="丢包"
+        label={t("丢包")}
         value={ping.loss != null ? ping.loss.toFixed(1) : emptyText}
         unit={ping.loss != null ? "%" : undefined}
         color={lossColor}
@@ -704,11 +722,16 @@ export const CompactNodeCard = memo(function CompactNodeCard({
 }: {
   uuid: string;
 }) {
+  useLang();
   const model = useNodeCardModel(uuid, {
-    pingBucketCount: HOMEPAGE_PING_BUCKET_COUNT,
+    pingBucketCount: HEALTH_BAR_COUNT,
     includeMultiPing: true,
   });
   const themeSettings = useThemeSettings();
+  const trafficHeatSpectrum = useMemo(
+    () => buildTrafficHeatSpectrum(themeSettings.trafficSpectrumColors),
+    [themeSettings.trafficSpectrumColors],
+  );
 
   if (!model.node) {
     return <div className="compact-node-card animate-pulse" aria-busy />;
@@ -724,6 +747,7 @@ export const CompactNodeCard = memo(function CompactNodeCard({
     compactFooterTags: footerTags,
     subtitle,
     renewalPrice,
+    isPriceVisible,
     expire,
     expireColor,
     upRate,
@@ -744,8 +768,12 @@ export const CompactNodeCard = memo(function CompactNodeCard({
   // 开关关闭或节点离线时,完全跳过格式化工作。
   const uptimeLabel = showUptime && !isOffline ? formatCompactUptime(node.uptime) : "";
 
+
   return (
-    <article className={clsx("compact-node-card", isOffline && "is-offline")}>
+    <article
+      id={`node-card-${uuid}`}
+      className={clsx("compact-node-card", isOffline && "is-offline")}
+    >
       <NodeCardHead uuid={node.uuid}>
         <CompactNodeHeader
           node={node}
@@ -765,8 +793,13 @@ export const CompactNodeCard = memo(function CompactNodeCard({
         expire={expire}
         expireColor={expireColor}
         renewalPrice={renewalPrice}
+        isPriceVisible={isPriceVisible}
       />
-      <CompactTrafficBar traffic={traffic} uptimeLabel={uptimeLabel} />
+      <CompactTrafficBar
+        traffic={traffic}
+        uptimeLabel={uptimeLabel}
+        trafficHeatSpectrum={trafficHeatSpectrum}
+      />
       {homepagePingLines.length > 0 ? (
         <MultiPingStatus
           uuid={uuid}

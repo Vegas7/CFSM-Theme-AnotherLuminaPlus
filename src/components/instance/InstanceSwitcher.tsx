@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAllNodeMeta, useHomeNodeSummaries } from "@/hooks/useNode";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { collectMatchingNodeUuids } from "@/utils/nodeIdentity";
+import { t } from "@/i18n";
 
 export function InstanceSwitcher({ currentUuid }: { currentUuid: string }) {
   const allMeta = useAllNodeMeta();
@@ -122,8 +123,8 @@ export function InstanceSwitcher({ currentUuid }: { currentUuid: string }) {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
-        aria-label="切换服务器"
-        title="切换服务器"
+        aria-label={t("切换服务器")}
+        title={t("切换服务器")}
         onClick={() => setOpen((value) => !value)}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -139,7 +140,7 @@ export function InstanceSwitcher({ currentUuid }: { currentUuid: string }) {
           id={listId}
           className="instance-switcher-panel"
           role="listbox"
-          aria-label="服务器"
+          aria-label={t("服务器")}
           ref={listRef}
           onKeyDown={handleListKeyDown}
         >
@@ -148,7 +149,7 @@ export function InstanceSwitcher({ currentUuid }: { currentUuid: string }) {
             const status =
               node.online === true ? "online" : node.online === false ? "offline" : "unknown";
             const statusLabel =
-              node.online === true ? "在线" : node.online === false ? "离线" : "状态未知";
+              node.online === true ? t("在线") : node.online === false ? t("离线") : t("状态未知");
             return (
               <button
                 key={node.uuid}
@@ -163,7 +164,7 @@ export function InstanceSwitcher({ currentUuid }: { currentUuid: string }) {
                 <span className="instance-switcher-dot" data-status={status} aria-hidden />
                 <Flag region={node.region} size={13} />
                 <span className="instance-switcher-name">{node.name}</span>
-                <span className="sr-only">，{statusLabel}</span>
+                <span className="sr-only">, {statusLabel}</span>
                 {isActive && <Check size={14} className="instance-switcher-check" aria-hidden />}
               </button>
             );

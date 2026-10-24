@@ -7,14 +7,15 @@ import {
   useSiteThemeSyncStatus,
 } from "@/hooks/useSiteThemeOptions";
 import { ApiRequestError } from "@/services/cfsm/http";
+import { t } from "@/i18n";
 
 function describeSyncError(error: unknown): string {
   const status = error instanceof ApiRequestError ? error.status : 0;
-  if (status === 401) return "登录态已失效：到 /admin 重新登录后点「重试」，改动先留在本机。";
+  if (status === 401) return t("登录态已失效：到 /admin 重新登录后点「重试」，改动先留在本机。");
   // http 层清掉失效的人机验证凭证后，全局验证弹窗会自己重新出来（见 TurnstileGate）。
-  if (status === 403) return "本站需要人机验证：完成弹出的验证后点「重试」。";
-  if (status === 400) return "配置格式被后端拒绝（invalidThemeOptionsFormat），请把这条信息反馈给作者。";
-  return error instanceof Error && error.message ? error.message : "网络错误，改动先留在本机。";
+  if (status === 403) return t("本站需要人机验证：完成弹出的验证后点「重试」。");
+  if (status === 400) return t("配置格式被后端拒绝（invalidThemeOptionsFormat），请把这条信息反馈给作者。");
+  return error instanceof Error && error.message ? error.message : t("网络错误，改动先留在本机。");
 }
 
 /** 同步成功的提示停留多久。 */
@@ -33,7 +34,9 @@ export function SiteThemeSyncNotice() {
   const [showSuccess, setShowSuccess] = useState(false);
   const previousPhase = useRef(status.phase);
   const { search } = useLocation();
-  const onSettingsPage = new URLSearchParams(search).get("view") === "theme-manage";
+  const onSettingsPage =
+    new URLSearchParams(search).get("view") === "theme-manage" ||
+    (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "theme-manage");
 
   useEffect(() => startSiteThemeAutoSync(), []);
 
@@ -56,8 +59,8 @@ export function SiteThemeSyncNotice() {
       >
         <Cloud size={16} strokeWidth={2} className="realtime-session-prompt-icon" aria-hidden />
         <div className="realtime-session-prompt-body">
-          <strong>改动已同步到后端</strong>
-          <p>所有设备与访客都会用这套配置。</p>
+          <strong>{t("改动已同步到后端")}</strong>
+          <p>{t("所有设备与访客都会用这套配置。")}</p>
         </div>
       </section>
     );
@@ -71,7 +74,7 @@ export function SiteThemeSyncNotice() {
     >
       <CloudAlert size={16} strokeWidth={2} className="realtime-session-prompt-icon" aria-hidden />
       <div className="realtime-session-prompt-body">
-        <strong id={titleId}>设置没能同步到后端</strong>
+        <strong id={titleId}>{t("设置没能同步到后端")}</strong>
         <p>{describeSyncError(status.error)}</p>
       </div>
       <div className="realtime-session-prompt-actions">
@@ -80,14 +83,14 @@ export function SiteThemeSyncNotice() {
           className="control-button realtime-session-prompt-button"
           onClick={() => setDismissedError(status.error)}
         >
-          关闭
+          {t("关闭")}
         </button>
         <button
           type="button"
           className="control-button realtime-session-prompt-button is-primary"
           onClick={retrySiteThemeSync}
         >
-          重试
+          {t("重试")}
         </button>
       </div>
     </section>

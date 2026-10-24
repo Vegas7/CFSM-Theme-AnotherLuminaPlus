@@ -3,12 +3,13 @@ import { normalizeBillingCycle } from "@/utils/billing";
 import { fetchWithTimeout } from "@/utils/abort";
 import { resolveExpireTimestamp } from "@/utils/format";
 import { buildNodeIdentitySet, nodeMatchesIdentitySet, normalizeNodeIdentityList } from "@/utils/nodeIdentity";
+import { t } from "@/i18n";
 
 const COST_TARGET_CURRENCY = "CNY";
 export const DEFAULT_COST_RATE_API_URL = "https://api.frankfurter.dev/v2/rates?base=USD";
 const RATE_CACHE_TTL_MS = 60 * 60 * 1000;
 // Legacy key retained so existing users keep their cached exchange rates after the rename.
-const RATE_CACHE_KEY_PREFIX = "cfsm-luminaplus:cost-rates:";
+export const RATE_CACHE_KEY_PREFIX = "cfsm-luminaplus:cost-rates:";
 const RATE_REQUEST_TIMEOUT_MS = 10_000;
 
 const CURRENCY_ALIASES: Record<string, string> = {
@@ -63,6 +64,8 @@ interface CostSummary {
   totalCny: number;
   monthlyCny: number;
   remainingCny: number;
+  // 总价值合计(全周期价格折算人民币,对齐 Pulse 主题 totalAll)
+  totalOriginalPriceCny: number;
   // 溢价加总:不叠加到 remainingCny,也不参与 totalCny/monthlyCny。
   premiumTotalCny: number;
   premiumMonthlyTotalCny: number;
@@ -439,6 +442,7 @@ export function calculateCostSummary(
   let totalCny = 0;
   let monthlyCny = 0;
   let remainingCny = 0;
+  let totalOriginalPriceCny = 0;
   let premiumTotalCny = 0;
   let premiumMonthlyTotalCny = 0;
   let premiumRemainingTotalCny = 0;
@@ -462,7 +466,7 @@ export function calculateCostSummary(
     );
     const baseDetail = {
       uuid: node.uuid,
-      name: String(name || "未命名服务器"),
+      name: String(name || t("未命名服务器")),
       region: String(node.region || ""),
       expiredAt: String(node.expired_at || ""),
       weight: Number(node.weight) || 0,
@@ -525,6 +529,7 @@ export function calculateCostSummary(
     totalCny += monthly * 12;
     monthlyCny += monthly;
     remainingCny += remaining;
+    totalOriginalPriceCny += converted;
     premiumTotalCny += premium;
     premiumMonthlyTotalCny += premiumMonthly;
     premiumRemainingTotalCny += premiumRemaining;
@@ -543,6 +548,7 @@ export function calculateCostSummary(
     totalCny,
     monthlyCny,
     remainingCny,
+    totalOriginalPriceCny,
     premiumTotalCny,
     premiumMonthlyTotalCny,
     premiumRemainingTotalCny,

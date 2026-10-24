@@ -1,6 +1,8 @@
 import { Component, useEffect, type CSSProperties, type ErrorInfo, type ReactNode } from "react";
 import { isRouteErrorResponse, useRouteError } from "react-router-dom";
 import { readViewModeHint, useViewMode } from "@/hooks/useViewMode";
+import { isChunkLoadError } from "@/utils/safeLazy";
+import { t } from "@/i18n";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -13,7 +15,7 @@ interface ErrorBoundaryState {
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === "string" && error.trim()) return error;
-  return "页面渲染时发生异常";
+  return t("页面渲染时发生异常");
 }
 
 // 只取 path 和 view 标记,不带完整 query/hash:以后这些里可能夹带 token,
@@ -66,7 +68,7 @@ const preStyle: CSSProperties = {
 };
 
 function ErrorFallback({
-  title = "页面出错了",
+  title,
   message,
   diagnostics,
 }: {
@@ -74,20 +76,38 @@ function ErrorFallback({
   message?: string;
   diagnostics?: string;
 }) {
+  const isChunkError = isChunkLoadError(message);
+  const displayTitle = isChunkError ? t("检测到主题新版本") : (title ?? t("页面出错了"));
+  const displayMessage = isChunkError
+    ? t("主题静态资源已更新，正在载入最新版本... 若未自动刷新，请点击下方刷新按钮。")
+    : message || t("可以刷新页面，或返回首页重新进入。");
+
+  useEffect(() => {
+    if (isChunkError && typeof window !== "undefined") {
+      const reloadKey = "cfsm_chunk_reload_boundary";
+      const now = Date.now();
+      const last = Number(sessionStorage.getItem(reloadKey) || "0");
+      if (now - last > 10_000) {
+        sessionStorage.setItem(reloadKey, String(now));
+        window.location.reload();
+      }
+    }
+  }, [isChunkError]);
+
   return (
     <div className="theme-error-shell">
       <section className="theme-error-card" role="alert">
         <div>
           <p className="theme-error-kicker">AnotherLuminaPlus</p>
-          <h1 className="theme-error-title">{title}</h1>
+          <h1 className="theme-error-title">{displayTitle}</h1>
           <p className="theme-error-message">
-            {message || "可以刷新页面，或返回首页重新进入。"}
+            {displayMessage}
           </p>
         </div>
         {diagnostics && (
           <details style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
             <summary style={{ cursor: "pointer", userSelect: "none" }}>
-              诊断信息（反馈时请一并截图或复制）
+              {t("诊断信息（反馈时请一并截图或复制）")}
             </summary>
             <pre style={preStyle}>{diagnostics}</pre>
             <button
@@ -95,16 +115,16 @@ function ErrorFallback({
               className="theme-error-button"
               onClick={() => void copyDiagnostics(diagnostics)}
             >
-              复制诊断信息
+              {t("复制诊断信息")}
             </button>
           </details>
         )}
         <div className="theme-error-actions">
           <button type="button" className="theme-error-button is-primary" onClick={reloadPage}>
-            刷新
+            {t("刷新")}
           </button>
           <a href="/" className="theme-error-button">
-            返回首页
+            {t("返回首页")}
           </a>
         </div>
       </section>
@@ -122,7 +142,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   componentDidCatch(error: Error, info: ErrorInfo) {
     // 类组件里用不了 hook,所以用 readViewModeHint。它给的是 device + override 而非最终解析的 mode,但区分 compact/large 排查问题足够了
     console.error(
-      "[LuminaPlus] render error\n" + buildDiagnostics(error, readViewModeHint()),
+      "[CFSM-Theme-SAO] render error\n" + buildDiagnostics(error, readViewModeHint()),
       info,
     );
   }
@@ -148,14 +168,14 @@ export function RouteErrorFallback() {
   const diagnostics = buildDiagnostics(error, `${device}/${mode}`);
 
   useEffect(() => {
-    console.error("[LuminaPlus] route error\n" + diagnostics);
+    console.error("[CFSM-Theme-SAO] route error\n" + diagnostics);
   }, [diagnostics]);
 
   if (isRouteErrorResponse(error)) {
     return (
       <ErrorFallback
-        title={`${error.status} ${error.statusText || "路由错误"}`}
-        message={typeof error.data === "string" ? error.data : "当前路由加载失败。"}
+        title={`${error.status} ${error.statusText || t("路由错误")}`}
+        message={typeof error.data === "string" ? error.data : t("当前路由加载失败。")}
         diagnostics={diagnostics}
       />
     );

@@ -9,6 +9,7 @@ import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useHourlyClock } from "@/hooks/useClock";
 import { useVisibleNodes } from "@/hooks/useVisibleNodes";
+import { useAuth } from "@/hooks/useAuth";
 import {
   calculateCostSummary,
   formatCnyMoney,
@@ -20,6 +21,7 @@ import { getExpireDaysRemaining, LONG_TERM_EXPIRE_DAYS } from "@/utils/format";
 import {
   getRenewalReminders,
 } from "@/utils/renewalReminder";
+import { t, useLang } from "@/i18n";
 
 type AssetDetail = ReturnType<typeof calculateCostSummary>["details"][number];
 type AssetsSortField =
@@ -57,8 +59,6 @@ const MOBILE_SORT_OPTIONS: Array<{ field: AssetsSortField; label: string }> = [
 ];
 
 const ASSETS_MOBILE_QUERY = "(max-width: 720px)";
-/** 汇率接口失败时的占位，保持引用稳定。 */
-const EMPTY_RATES: Record<string, number> = {};
 
 function sortValue(detail: AssetDetail, field: AssetsSortField): number {
   switch (field) {
@@ -81,11 +81,11 @@ function sortValue(detail: AssetDetail, field: AssetsSortField): number {
 
 function formatCostExpiry(expiredAt: string) {
   const days = getExpireDaysRemaining(expiredAt);
-  if (days == null) return "到期未知";
-  if (days > LONG_TERM_EXPIRE_DAYS) return "长期";
-  if (days < 0) return "已过期";
-  if (days === 0) return "今日到期";
-  return `${days} 天后到期`;
+  if (days == null) return t("到期未知");
+  if (days > LONG_TERM_EXPIRE_DAYS) return t("长期");
+  if (days < 0) return t("已过期");
+  if (days === 0) return t("今日到期");
+  return t("{n} 天后到期", { n: days });
 }
 
 function premiumTone(value: number) {
@@ -99,13 +99,13 @@ function assetsRenewalTone(daysRemaining: number): "critical" | "warning" {
 }
 
 function assetsRenewalLabel(daysRemaining: number) {
-  return daysRemaining < 0 ? "已过期" : "即将到期";
+  return daysRemaining < 0 ? t("已过期") : t("即将到期");
 }
 
 // "¥ 1,234.56" → 货币符号 / 整数位 / 小数位三段,按报表数字惯例分级排印。
 function HeroMoney({ value }: { value: number | null }) {
   if (value == null) {
-    return <span className="assets-hero-value is-pending">计算中</span>;
+    return <span className="assets-hero-value is-pending">{t("计算中")}</span>;
   }
   const [int, frac = "00"] = formatCnyMoney(value).replace("¥", "").trim().split(".");
   return (
@@ -118,6 +118,7 @@ function HeroMoney({ value }: { value: number | null }) {
 }
 
 export function Assets() {
+  const lang = useLang();
   const [sortField, setSortField] = useState<AssetsSortField>("weight");
   const [sortDirection, setSortDirection] = useState<AssetsSortDirection>("asc");
   const isMobileLayout = useMediaQuery(ASSETS_MOBILE_QUERY);
@@ -126,7 +127,8 @@ export function Assets() {
   const forceRateRefresh = useRef(false);
   const nodes = useVisibleNodes();
   // 资产详情页是风险核对入口：这里始终按真实到期数据展示，不读取首页的关闭/稍后偏好。
-  const renewalReminders = useMemo(() => getRenewalReminders(nodes, now), [nodes, now]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+  const renewalReminders = useMemo(() => getRenewalReminders(nodes, now), [nodes, now, lang]);
   const renewalByUuid = useMemo(
     () => new Map(renewalReminders.map((item) => [item.uuid, item])),
     [renewalReminders],
@@ -142,23 +144,19 @@ export function Assets() {
     enabled: themeSettings.isReady && nodes.length > 0,
     retry: 1,
   });
-  // 汇率接口失败也要出统计：人民币定价的节点不需要换算，外币节点单独标「汇率缺失」。
-  // 请求失败、被拦截、或 React Query 判定离线挂起（fetchStatus: "paused"）时查询会一直
-  // 停在 pending，所以判断条件是「没在请求且没有数据」，而不是 isError。
-  const ratesFetching = rateQuery.fetchStatus === "fetching" && !rateQuery.data;
-  const rates = rateQuery.data?.rates ?? (ratesFetching ? null : EMPTY_RATES);
   const summary = useMemo(
     () =>
-      rates
+      rateQuery.data
         ? calculateCostSummary(
             nodes,
             themeSettings.costIgnoredNodes,
-            rates,
+            rateQuery.data.rates,
             themeSettings.costPremiums,
             now,
           )
         : null,
-    [nodes, now, themeSettings.costIgnoredNodes, themeSettings.costPremiums, rates],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+    [nodes, now, themeSettings.costIgnoredNodes, themeSettings.costPremiums, rateQuery.data, lang],
   );
   const detailRows = useMemo(() => {
     const direction = sortDirection === "asc" ? 1 : -1;
@@ -192,6 +190,9 @@ export function Assets() {
     }
   };
 
+  const { data: me } = useAuth();
+  const loggedIn = Boolean(me?.logged_in);
+
   if (!themeSettings.isReady) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -200,8 +201,11 @@ export function Assets() {
     );
   }
 
-  // 入口关掉 = 站长不想暴露资产信息，直连 URL 一并回首页。
-  if (!themeSettings.showCostSummary) {
+  // 两个入口都关闭或对访客隐藏资产时，未登录访客直连 URL 回首页。
+  if (
+    (!themeSettings.showCostSummary && !themeSettings.showCostSummaryFloatingButton) ||
+    (!loggedIn && !themeSettings.showPriceForGuests)
+  ) {
     return <Navigate to="/" replace />;
   }
 
@@ -212,35 +216,35 @@ export function Assets() {
     tone?: string;
     title?: string;
   }> = [
-    { label: "年化总支出", value: summary ? formatCnyMoney(summary.totalCny) : "--" },
-    { label: "月均支出", value: summary ? formatCnyMoney(summary.monthlyCny) : "--" },
+    { label: t("年化总支出"), value: summary ? formatCnyMoney(summary.totalCny) : "--" },
+    { label: t("月均支出"), value: summary ? formatCnyMoney(summary.monthlyCny) : "--" },
     ...(summary != null && hasPremium
       ? [
           {
-            label: "溢价盈亏",
+            label: t("溢价盈亏"),
             value: formatSignedCny(summary.premiumTotalCny),
             tone: premiumTone(summary.premiumTotalCny),
             title:
-              "所有节点「收购溢价」的加总（正数=溢价多花钱，负数=折价少花钱），只反映溢价本身的赚亏，不叠加到剩余价值/年化/月均里",
+              t("所有节点「收购溢价」的加总（正数=溢价多花钱，负数=折价少花钱），只反映溢价本身的赚亏，不叠加到剩余价值/年化/月均里"),
           },
         ]
       : []),
     ...(summary != null && summary.premiumMonthlyTotalCny !== 0
       ? [
           {
-            label: "真实月均",
+            label: t("真实月均"),
             value: formatCnyMoney(summary.effectiveMonthlyCny),
             title:
-              "月均支出 + 溢价月摊（各节点溢价 ÷ 收购日至到期日的月数，无到期按已持有月数；仅计入填写了收购日期的节点），仅作参考，不改变月均支出口径",
+              t("月均支出 + 溢价月摊（各节点溢价 ÷ 收购日至到期日的月数，无到期按已持有月数；仅计入填写了收购日期的节点），仅作参考，不改变月均支出口径"),
           },
         ]
       : []),
     ...(summary != null && hasPremium
       ? [
           {
-            label: "实际剩余价值",
+            label: t("实际剩余价值"),
             value: formatCnyMoney(summary.actualRemainingCny),
-            title: "剩余价值 + 尚未摊销的溢价；固定期限节点的溢价随到期临近衰减，到期后归零",
+            title: t("剩余价值 + 尚未摊销的溢价；固定期限节点的溢价随到期临近衰减，到期后归零"),
           },
         ]
       : []),
@@ -254,7 +258,7 @@ export function Assets() {
       <div className="flex items-center justify-between gap-3">
         <Link to="/" className="instance-page-back">
           <ChevronLeft size={14} />
-          返回
+          {t("返回")}
         </Link>
         <button
           type="button"
@@ -265,27 +269,27 @@ export function Assets() {
           }}
           disabled={rateQuery.isFetching}
           aria-busy={rateQuery.isFetching}
-          aria-label="刷新汇率与统计"
-          title="刷新"
+          aria-label={t("刷新汇率与统计")}
+          title={t("刷新")}
         >
           <RefreshCw size={16} />
         </button>
       </div>
 
       {nodes.length === 0 ? (
-        <div className="flex h-[40vh] flex-col items-center justify-center gap-2 text-[var(--text-tertiary)]">
-          <span className="text-[15px]">暂无节点数据</span>
-          <span className="text-[12px]">等待后端推送或前往管理后台添加</span>
+        <div className="flex h-[40vh] flex-col items-center justify-center gap-2 text-(--text-tertiary)">
+          <span className="text-[15px]">{t("暂无节点数据")}</span>
+          <span className="text-[12px]">{t("等待后端推送或前往管理后台添加")}</span>
         </div>
       ) : (
         <>
-          <section className="assets-hero" aria-label="资产汇总">
+          <section className="assets-hero" aria-label={t("资产汇总")}>
             <span className="assets-hero-mark" aria-hidden>
               ¥
             </span>
             <div className="assets-hero-main">
-              <span className="assets-eyebrow" title="按各节点账单价格折算的剩余价值，不含收购溢价">
-                剩余价值
+              <span className="assets-eyebrow" title={t("按各节点账单价格折算的剩余价值，不含收购溢价")}>
+                {t("剩余价值")}
               </span>
               <HeroMoney value={summary ? summary.remainingCny : null} />
             </div>
@@ -300,16 +304,16 @@ export function Assets() {
           </section>
 
           <div className="assets-section-head">
-            <span className="assets-eyebrow">明细</span>
-            <span className="assets-count">{detailRows.length} 台</span>
+            <span className="assets-eyebrow">{t("明细")}</span>
+            <span className="assets-count">{t("{n} 台", { n: detailRows.length })}</span>
             {renewalReminders.length > 0 && (
               <span className="assets-renewal-inline">
                 <CalendarClock size={12} strokeWidth={2.1} />
-                {renewalReminders.length} 台临期
+                {t("{n} 台临期", { n: renewalReminders.length })}
               </span>
             )}
             <div className="assets-mobile-tools">
-              <div className="cost-summary-sort-tabs" role="group" aria-label="排序字段">
+              <div className="cost-summary-sort-tabs" role="group" aria-label={t("排序字段")}>
                 {MOBILE_SORT_OPTIONS.map((option) => (
                   <button
                     key={option.field}
@@ -319,7 +323,7 @@ export function Assets() {
                     onClick={() => handleSort(option.field)}
                     aria-pressed={sortField === option.field}
                   >
-                    {option.label}
+                    {t(option.label)}
                   </button>
                 ))}
               </div>
@@ -327,8 +331,8 @@ export function Assets() {
                 type="button"
                 className="cost-summary-action is-direction"
                 onClick={() => setSortDirection((value) => (value === "asc" ? "desc" : "asc"))}
-                aria-label={sortDirection === "asc" ? "切换为倒序" : "切换为正序"}
-                title={sortDirection === "asc" ? "正序" : "倒序"}
+                aria-label={sortDirection === "asc" ? t("切换为倒序") : t("切换为正序")}
+                title={sortDirection === "asc" ? t("正序") : t("倒序")}
               >
                 {sortDirection === "asc" ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
               </button>
@@ -359,7 +363,7 @@ export function Assets() {
                             onClick={() => handleSort(column.field)}
                             data-active={sortField === column.field}
                           >
-                            {column.label}
+                            {t(column.label)}
                             {sortField === column.field && directionIcon}
                           </button>
                         </th>
@@ -395,7 +399,7 @@ export function Assets() {
                           {detail.counted ? (
                             `${formatCnyMoney(detail.priceCny)}/${formatBillingCycle(detail.billingCycleDays)}`
                           ) : (
-                            <span className="assets-note-chip">{detail.note}</span>
+                            <span className="assets-note-chip">{t(detail.note)}</span>
                           )}
                         </td>
                         <td data-numeric data-strong>
@@ -413,9 +417,9 @@ export function Assets() {
                         <td data-numeric>
                           {detail.premiumCny !== 0 && detail.amortMonths != null ? (
                             <span
-                              title={`摊销 ${Math.round(detail.amortMonths)} 个月（收购日 → 到期日；无到期按已持有）`}
+                              title={t("摊销 {n} 个月（收购日 → 到期日；无到期按已持有）", { n: Math.round(detail.amortMonths) })}
                             >
-                              {formatSignedCny(detail.premiumMonthlyCny)}/月
+                              {formatSignedCny(detail.premiumMonthlyCny)}/{t("月")}
                             </span>
                           ) : (
                             "—"
@@ -452,7 +456,7 @@ export function Assets() {
                     ? assetsRenewalLabel(reminder.daysRemaining)
                     : undefined;
                   const priceLabel =
-                    detail.note ||
+                    t(detail.note) ||
                     `${formatCnyMoney(detail.priceCny)}/${formatBillingCycle(detail.billingCycleDays)}`;
                   return (
                     <div
@@ -470,7 +474,7 @@ export function Assets() {
                           <Flag region={detail.region} size={12} />
                           <span className="cost-summary-detail-title">{detail.name}</span>
                         </Link>
-                        <strong title="剩余价值">
+                        <strong title={t("剩余价值")}>
                           {detail.counted ? formatCnyMoney(detail.remainingCny) : "—"}
                         </strong>
                       </div>
@@ -482,17 +486,17 @@ export function Assets() {
                             style={
                               { "--cost-premium-color": premiumTone(detail.premiumCny) } as CSSProperties
                             }
-                            title="收购溢价（正数=多花钱溢价买入，负数=折价买入）"
+                            title={t("收购溢价（正数=多花钱溢价买入，负数=折价买入）")}
                           >
-                            {formatSignedCny(detail.premiumCny)} 溢价
+                            {formatSignedCny(detail.premiumCny)} {t("溢价")}
                           </span>
                         )}
                         {detail.premiumCny !== 0 && detail.amortMonths != null && (
                           <span
                             className="cost-summary-premium-chip"
-                            title="溢价月摊 = 收购溢价 ÷ 摊销月数（收购日 → 到期日；无到期按已持有）"
+                            title={t("溢价月摊 = 收购溢价 ÷ 摊销月数（收购日 → 到期日；无到期按已持有）")}
                           >
-                            月摊 {formatSignedCny(detail.premiumMonthlyCny)} · 摊 {Math.round(detail.amortMonths)} 月
+                            {t("月摊 {value} · 摊 {n} 月", { value: formatSignedCny(detail.premiumMonthlyCny), n: Math.round(detail.amortMonths) })}
                           </span>
                         )}
                         <span
@@ -511,24 +515,24 @@ export function Assets() {
             </>
           ) : (
             <div className="cost-summary-empty">
-              {ratesFetching ? "费用明细加载中" : "汇率获取失败，点击右上角刷新重试"}
+              {rateQuery.isError ? t("汇率获取失败，点击右上角刷新重试") : t("费用明细加载中")}
             </div>
           )}
 
           <details className="cost-summary-rate-details">
             <summary>
-              <span>汇率</span>
+              <span>{t("汇率")}</span>
               <strong>
                 {exchangeRateRows.length > 0
                   ? exchangeRateRows
                       .slice(0, 3)
                       .map((item) => `${item.code} ${formatCnyMoney(item.value)}`)
                       .join(" · ")
-                  : "暂无汇率"}
+                  : t("暂无汇率")}
               </strong>
             </summary>
             {exchangeRateRows.length > 0 ? (
-              <div className="cost-summary-rate-list" aria-label="汇率">
+              <div className="cost-summary-rate-list" aria-label={t("汇率")}>
                 {exchangeRateRows.map((item) => (
                   <div className="cost-summary-rate-item" key={item.code}>
                     <span>1 {item.code}</span>
@@ -537,7 +541,7 @@ export function Assets() {
                 ))}
               </div>
             ) : (
-              <div className="cost-summary-empty is-compact">暂无可用汇率</div>
+              <div className="cost-summary-empty is-compact">{t("暂无可用汇率")}</div>
             )}
           </details>
         </>

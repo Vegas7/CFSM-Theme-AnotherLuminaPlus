@@ -22,6 +22,7 @@ import {
   inferIntervalSeconds,
 } from "@/services/cfsm/mappers";
 import { CARRIER_KEYS, CARRIER_LOSS_KEYS } from "@/types/cfsm";
+import { getLang, useLang } from "@/i18n";
 import type {
   CarrierNames,
   CarrierPingSnapshot,
@@ -231,7 +232,8 @@ function getCachedLines(
   if (taskIds.length === 0) return EMPTY_PING_LINES;
   // 线路名进缓存键：站长改过名 / config 晚到时换的是另一份 names 对象，
   // 不进键的话缓存会把旧名字一直顶回去。
-  const key = `${taskIds.join(",")}@${carrierNamesKey(names)}`;
+  // 语言也进键：线路默认名按界面语言翻译，切语言后不能拿旧语言的名字。
+  const key = `${taskIds.join(",")}@${carrierNamesKey(names)}@${getLang()}`;
   if (samples.length === 0) {
     return taskIds.map((taskId) => ({
       ...buildPingOverviewItem(client, taskId, samples, sampleIntervalMs),
@@ -343,12 +345,14 @@ export function useNodePingOverviewLines(
   const samples = usePingSamples(uuid, enabled);
   const taskIds = useNodeMultiPingTaskIds(uuid);
   const carrierNames = useCarrierNames();
+  const lang = useLang();
   return useMemo(
     () =>
       enabled
         ? getCachedLines(uuid, taskIds, samples, undefined, carrierNames)
         : EMPTY_PING_LINES,
-    [carrierNames, enabled, samples, taskIds, uuid],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 里面的文案按界面语言生成，切语言要重算
+    [carrierNames, enabled, samples, taskIds, uuid, lang],
   );
 }
 

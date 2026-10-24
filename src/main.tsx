@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "@fontsource-variable/inter";
 import "./styles/index.css";
 import { App } from "./App";
+import { installSideColumnDetection } from "./utils/duoSideColumn";
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("#root not found");
@@ -16,6 +17,8 @@ async function bootstrap() {
     const { installDevMockApi } = await import("./dev/mockApi");
     installDevMockApi();
   }
+
+  installSideColumnDetection();
 
   createRoot(root).render(
     <StrictMode>

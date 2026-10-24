@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import {
   focusRealtimeNode,
   retainStore,
@@ -22,6 +22,8 @@ import {
   type NodeOnlineSummary,
 } from "@/services/wsStore";
 import type { NodeInfo, NodeMetrics, TrafficTrendSample } from "@/types/cfsm";
+import { useAuth } from "@/hooks/useAuth";
+import { useHiddenNodeUuids } from "@/hooks/useVisibleNodes";
 
 const noopUnsubscribe = () => undefined;
 
@@ -96,6 +98,23 @@ export function useAllNodeMeta(): NodeInfo[] {
     subscribeAllNodes,
     getAllNodeMetaSnapshot,
     getAllNodeMetaSnapshot,
+  );
+}
+
+export function useVisibleNodeUuids(includeHidden = false): string[] {
+  const allNodes = useAllNodeMeta();
+  const { data: me } = useAuth();
+  const hiddenUuids = useHiddenNodeUuids();
+  return useMemo(
+    () =>
+      allNodes
+        .filter(
+          (node) =>
+            (includeHidden || me?.logged_in === true || !node.hidden) &&
+            !hiddenUuids.has(node.uuid),
+        )
+        .map((node) => node.uuid),
+    [allNodes, hiddenUuids, includeHidden, me?.logged_in],
   );
 }
 

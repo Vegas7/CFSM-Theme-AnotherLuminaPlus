@@ -2,13 +2,15 @@ import { memo, useState } from "react";
 import { clsx } from "clsx";
 import { useMetricColorsVersion } from "@/hooks/useMetricColors";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useThemeSettings } from "@/hooks/useThemeSettings";
 import type { HomepagePingDisplayLine } from "@/types/cfsm";
-import { latencyHeatColor, lossHeatColor } from "@/utils/metricTone";
+import { resolveCustomLatencyColor, resolveCustomLossColor } from "@/utils/metricTone";
 import { HealthBucketTooltip } from "./HealthBucketTooltip";
 import { LatencyBars } from "./LatencyBars";
 import { PingLineSwitcher } from "./PingLineSwitcher";
 import { QualityBars } from "./QualityBars";
 import { formatHealthBucketTooltip } from "./pingBucketText";
+import { t, useLang } from "@/i18n";
 
 type MultiPingStatusDensity = "large" | "compact";
 type MultiPingMetric = "latency" | "loss";
@@ -28,25 +30,35 @@ const MultiPingMetricRow = memo(function MultiPingMetricRow({
   density: MultiPingStatusDensity;
   redrawKey: string;
 }) {
+  useLang();
+  const themeSettings = useThemeSettings();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const latencyColor = latencyHeatColor(line.lastValue);
-  const lossColor = lossHeatColor(line.loss);
+  const latencyColor = resolveCustomLatencyColor(
+    line.lastValue,
+    themeSettings.pingLatencyThresholds,
+    themeSettings.pingLatencyColors,
+  );
+  const lossColor = resolveCustomLossColor(
+    line.loss,
+    themeSettings.pingLossThresholds,
+    themeSettings.pingLossColors,
+  );
   const isLoading = line.loadState === "pending";
   const isError = line.loadState === "error";
   const staleError = isError && (line.lastValue != null || line.loss != null);
   const latencyLabel =
     isLoading && line.lastValue == null
-      ? "加载中"
+      ? t("加载中")
       : isError && line.lastValue == null
-        ? "加载失败"
+        ? t("加载失败")
         : line.lastValue == null
-          ? "无样本"
+          ? t("无样本")
           : `${Math.round(line.lastValue)}ms`;
   const lossLabel =
     isLoading && line.loss == null
-      ? "加载中"
+      ? t("加载中")
       : isError && line.loss == null
-        ? "加载失败"
+        ? t("加载失败")
         : line.loss == null
           ? "—"
           : `${line.loss.toFixed(1)}%`;
@@ -74,8 +86,8 @@ const MultiPingMetricRow = memo(function MultiPingMetricRow({
     <div
       className="multi-ping-metric-row"
       data-load-state={line.loadState ?? "ready"}
-      title={`${line.taskName} · 延迟 ${latencyLabel} · 丢包 ${lossLabel}${
-        staleError ? " · 刷新失败，显示上次数据" : ""
+      title={`${t("{name} · 延迟 {latency} · 丢包 {loss}", { name: line.taskName, latency: latencyLabel, loss: lossLabel })}${
+        staleError ? t(" · 刷新失败，显示上次数据") : ""
       }`}
     >
       <div
@@ -97,7 +109,7 @@ const MultiPingMetricRow = memo(function MultiPingMetricRow({
           {value != null && <small>{unit}</small>}
         </strong>
       </div>
-      <span className="multi-ping-buckets">
+      <span className="multi-ping-buckets" title="">
         {metric === "latency" ? (
           <LatencyBars
             buckets={line.buckets}
@@ -136,10 +148,11 @@ const MultiPingMetricColumn = memo(function MultiPingMetricColumn({
   density: MultiPingStatusDensity;
   redrawKey: string;
 }) {
+  useLang();
   return (
     <div
       className="multi-ping-metric-column"
-      aria-label={metric === "latency" ? "延迟" : "丢包"}
+      aria-label={metric === "latency" ? t("延迟") : t("丢包")}
     >
       {lines.map((line, slot) => (
         // 按行号当 key，不按线路 id：访客在这一行换了线路（PingLineSwitcher）后还是同一行、
@@ -169,6 +182,7 @@ export const MultiPingStatus = memo(function MultiPingStatus({
   density: MultiPingStatusDensity;
   className?: string;
 }) {
+  useLang();
   const { resolvedAppearance } = usePreferences();
   const colorsVersion = useMetricColorsVersion();
   const redrawKey = `${resolvedAppearance}:${colorsVersion}`;
@@ -177,7 +191,7 @@ export const MultiPingStatus = memo(function MultiPingStatus({
     <div
       className={clsx("multi-ping-status", `is-${density}`, className)}
       role="group"
-      aria-label="各线路延迟与丢包"
+      aria-label={t("各线路延迟与丢包")}
     >
       <div className="multi-ping-columns">
         <MultiPingMetricColumn

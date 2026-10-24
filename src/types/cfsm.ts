@@ -27,6 +27,27 @@ const nullableNumber = z
   })
   .nullish()
   .catch(null);
+
+/**
+ * 官方 ping/loss 字段三态规范：
+ * - false（或未返回/未配置）：不显示
+ * - null：本轮探测超时（Timeout）
+ * - number（含 0）：有效数据（0% 丢包必须正常显示）
+ */
+export const probeMetricValue = z
+  .union([z.number(), z.string(), z.null(), z.literal(false)])
+  .transform((v) => {
+    if (v === false || v === undefined) return false;
+    if (v === null) return null;
+    if (typeof v === "number") return Number.isFinite(v) ? v : null;
+    const parsed = Number.parseFloat(v);
+    return Number.isFinite(parsed) ? parsed : null;
+  })
+  .nullish()
+  .catch(false);
+
+export type ProbeMetric = z.output<typeof probeMetricValue>;
+
 /** 磁盘 IO；旧探针或全零时后端不会下发该对象。 */
 export const DiskIoSchema = z
   .object({
@@ -55,20 +76,20 @@ export type GpuEntry = z.output<typeof GpuEntrySchema>;
  * `/api/servers` 下发的一小时探测窗口中的一个点。
  *
  * 固定 30 个槽位、每 2 分钟一个，`ping` 与 `loss` 各一个数组。
- * 线路值可能是 `false`（该节点禁用了这条线路），这里统一归一成 null。
+ * 线路值三态：false=未配置/未取样；null=超时；number=正常值。
  */
 export const LatencyPointSchema = z
   .object({
     ts: looseNumber.default(0),
-    ct: nullableNumber,
-    cu: nullableNumber,
-    cm: nullableNumber,
-    bd: nullableNumber,
-    // 后端 2.8.5 Beta4 起多出来的四个自定义槽位。老后端不下发，读出来是 undefined → null。
-    node_1: nullableNumber,
-    node_2: nullableNumber,
-    node_3: nullableNumber,
-    node_4: nullableNumber,
+    ct: probeMetricValue,
+    cu: probeMetricValue,
+    cm: probeMetricValue,
+    bd: probeMetricValue,
+    // 后端 2.8.5 Beta4 起多出来的四个自定义槽位。老后端不下发，读出来是 undefined → false。
+    node_1: probeMetricValue,
+    node_2: probeMetricValue,
+    node_3: probeMetricValue,
+    node_4: probeMetricValue,
   })
   .passthrough();
 
@@ -110,22 +131,22 @@ export const CfsmServerSchema = z
     tcp_conn: looseNumber.default(0),
     udp_conn: looseNumber.default(0),
 
-    ping_ct: nullableNumber,
-    ping_cu: nullableNumber,
-    ping_cm: nullableNumber,
-    ping_bd: nullableNumber,
-    ping_node_1: nullableNumber,
-    ping_node_2: nullableNumber,
-    ping_node_3: nullableNumber,
-    ping_node_4: nullableNumber,
-    loss_ct: nullableNumber,
-    loss_cu: nullableNumber,
-    loss_cm: nullableNumber,
-    loss_bd: nullableNumber,
-    loss_node_1: nullableNumber,
-    loss_node_2: nullableNumber,
-    loss_node_3: nullableNumber,
-    loss_node_4: nullableNumber,
+    ping_ct: probeMetricValue,
+    ping_cu: probeMetricValue,
+    ping_cm: probeMetricValue,
+    ping_bd: probeMetricValue,
+    ping_node_1: probeMetricValue,
+    ping_node_2: probeMetricValue,
+    ping_node_3: probeMetricValue,
+    ping_node_4: probeMetricValue,
+    loss_ct: probeMetricValue,
+    loss_cu: probeMetricValue,
+    loss_cm: probeMetricValue,
+    loss_bd: probeMetricValue,
+    loss_node_1: probeMetricValue,
+    loss_node_2: probeMetricValue,
+    loss_node_3: probeMetricValue,
+    loss_node_4: probeMetricValue,
     // Workers 2.8.3 Beta2 起下发的一小时探测窗口；旧版本没有这两个字段。
     ping: z.array(LatencyPointSchema).optional(),
     loss: z.array(LatencyPointSchema).optional(),
@@ -241,6 +262,10 @@ export const SiteConfigSchema = z
     turnstile_login_enabled: z.boolean().default(false),
     turnstile_site_key: looseString.default(""),
     site_title: looseString.default(""),
+    background_image: looseString.nullish().transform((v) => v ?? ""),
+    custom_head: looseString.nullish().transform((v) => v ?? ""),
+    custom_body: looseString.nullish().transform((v) => v ?? ""),
+    default_language: looseString.nullish().transform((v) => v ?? ""),
     display_mode: looseString.default(""),
     /** 后台「外观设置 → 默认外观」：auto / dark / light。主题设置没写默认外观时拿它垫底。 */
     preferred_theme: looseString.default(""),
@@ -308,22 +333,22 @@ export const HistoryRowSchema = z
     net_out_speed: looseNumber.default(0),
     tcp_conn: looseNumber.default(0),
     udp_conn: looseNumber.default(0),
-    ping_ct: nullableNumber,
-    ping_cu: nullableNumber,
-    ping_cm: nullableNumber,
-    ping_bd: nullableNumber,
-    ping_node_1: nullableNumber,
-    ping_node_2: nullableNumber,
-    ping_node_3: nullableNumber,
-    ping_node_4: nullableNumber,
-    loss_ct: nullableNumber,
-    loss_cu: nullableNumber,
-    loss_cm: nullableNumber,
-    loss_bd: nullableNumber,
-    loss_node_1: nullableNumber,
-    loss_node_2: nullableNumber,
-    loss_node_3: nullableNumber,
-    loss_node_4: nullableNumber,
+    ping_ct: probeMetricValue,
+    ping_cu: probeMetricValue,
+    ping_cm: probeMetricValue,
+    ping_bd: probeMetricValue,
+    ping_node_1: probeMetricValue,
+    ping_node_2: probeMetricValue,
+    ping_node_3: probeMetricValue,
+    ping_node_4: probeMetricValue,
+    loss_ct: probeMetricValue,
+    loss_cu: probeMetricValue,
+    loss_cm: probeMetricValue,
+    loss_bd: probeMetricValue,
+    loss_node_1: probeMetricValue,
+    loss_node_2: probeMetricValue,
+    loss_node_3: probeMetricValue,
+    loss_node_4: probeMetricValue,
     load_avg: looseString.default(""),
     kernel_version: looseString.default(""),
   })
@@ -352,7 +377,7 @@ export interface NodeInfo {
   swap_total: number;
   disk_total: number;
   weight: number;
-  price: number;
+  price: number | null;
   billing_cycle: string;
   auto_renewal: boolean;
   currency: string;
@@ -465,6 +490,62 @@ export const EMPTY_CARRIER_PING: CarrierPingSnapshot = Object.freeze(
   ]),
 ) as CarrierPingSnapshot;
 
+export type MatrixColorTheme =
+  | "default"
+  | "eva"
+  | "cyberpunk"
+  | "divergence";
+
+/** 方格矩阵开屏动效形式：laser-scan (激光横扫)、digital-rain (数码流雨) */
+export type MatrixBootEffect =
+  | "laser-scan"
+  | "digital-rain"
+  | "cyber-glitch"
+  | "divergence-flux";
+
+/** 用户自定义点阵预设（云端存储） */
+
+export interface PingLatencyThresholds {
+  excellent: number;
+  good: number;
+  moderate: number;
+  elevated: number;
+}
+
+export interface PingLatencyColors {
+  excellent: string;
+  good: string;
+  moderate: string;
+  elevated: string;
+  critical: string;
+}
+
+export interface PingLossThresholds {
+  low: number;
+  medium: number;
+}
+
+export interface PingLossColors {
+  zero: string;
+  low: string;
+  medium: string;
+  high: string;
+}
+
+export interface TrafficSpectrumColors {
+  start: string;
+  mid: string;
+  high: string;
+  end: string;
+}
+
+export interface UserMatrixPreset {
+  id: string;
+  name: string;
+  indices: number[];
+  createdAt: number;
+}
+
 export interface ThemeSettings {
   defaultAppearance?: "system" | "light" | "dark";
   desktopNodeViewMode?: "large" | "compact" | "mini" | "list";
@@ -477,11 +558,30 @@ export interface ThemeSettings {
   homepageMultiPingTaskIds?: number[];
   /** 站长在卡片上换好、「保存到后端」写上来的逐节点换线：`{ uuid: { 行号: 线路 id } }`。 */
   homepagePingLineOverrides?: Record<string, Record<string, number>>;
-  fakePingForUnbound?: boolean;
+    fakePingForUnbound?: boolean;
+  pingLatencyThresholds?: Partial<PingLatencyThresholds>;
+  pingLatencyColors?: Partial<PingLatencyColors>;
+  pingLossThresholds?: Partial<PingLossThresholds>;
+  pingLossColors?: Partial<PingLossColors>;
+  trafficSpectrumColors?: Partial<TrafficSpectrumColors>;
   showHomeOverview?: boolean;
   showGroupTabs?: boolean;
   showRegionBar?: boolean;
   showCardGroup?: boolean;
+  /** 首页右侧集群状态卡片的展示模式：经典上下双层（classic）、机架方格矩阵（nodes）。 */
+  clusterOverviewMode?: "classic" | "nodes";
+  /** 机架方格矩阵配色风格。 */
+  matrixColorTheme?: MatrixColorTheme;
+  /** 模拟数据填充空闲机位插槽。 */
+  matrixMockFill?: boolean;
+  /** 是否启用方格矩阵 SAO 主题开场动画（默认开启）。 */
+  matrixBootAnimation?: boolean;
+  /** 开屏动效形式：laser-scan (激光横扫)、digital-rain (数码流雨)。 */
+  matrixBootEffect?: MatrixBootEffect;
+  /** 自定义方格矩阵开场点阵图案（0~99的像素序号数组），为 null 或空时回退为默认 SAO。 */
+  matrixCustomPattern?: number[] | null;
+  /** 云端保存的用户自定义点阵预设列表（跨设备漫游）。 */
+  matrixUserPresets?: UserMatrixPreset[];
   homeGroupOrder?: string[];
   /** 首页地区栏的顺序（地区代码），在首页直接拖动得到；没列进去的按默认规则排在后面。 */
   homeRegionOrder?: string[];
@@ -491,10 +591,8 @@ export interface ThemeSettings {
   showCostSummary?: boolean;
   showCostSummaryFloatingButton?: boolean;
   showOverviewRatings?: boolean;
-  showTrafficRating?: boolean;
   showBandwidthRating?: boolean;
   showAssetRating?: boolean;
-  trafficRatingLabels?: string;
   bandwidthRatingLabels?: string;
   assetRatingLabels?: string;
   compactShowTrafficTotal?: boolean;
@@ -509,7 +607,7 @@ export interface ThemeSettings {
     number | { amount?: number; paidCny?: number; acquiredAt?: string }
   >;
   costRateApiUrl?: string;
-  surfaceOpacity?: number;
+  showPriceForGuests?: boolean;
 }
 
 /** 图表用的一行历史负载记录，单位与 NodeMetrics 一致。 */
@@ -572,6 +670,8 @@ export interface PingRecordsResponse {
   records: PingRecord[];
   tasks: PingTask[];
   intervalSeconds?: number;
+  /** 后端返回的全部历史行时间（毫秒），含没带 Ping 的行；图表据此区分「没测」和「断线」。 */
+  rowTimes?: number[];
   rangeStartMs?: number;
   rangeEndMs?: number;
   stats?: PingTaskStats[];
@@ -668,6 +768,9 @@ export interface PublicConfig {
   turnstile_enabled: boolean;
   turnstile_site_key: string;
   verified: boolean;
+  backgroundImage?: string;
+  customHead?: string;
+  customBody?: string;
   theme_settings: Record<string, unknown>;
   sys: SysConfig;
   /** 后端下发的首页延迟窗口口径；缺席时前端从数据自推跨度。见 `SiteConfigSchema.latency_window`。 */

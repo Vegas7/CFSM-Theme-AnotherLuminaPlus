@@ -1,4 +1,5 @@
-import { memo, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   Cpu,
@@ -22,6 +23,7 @@ import { useMetricColorsVersion } from "@/hooks/useMetricColors";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { formatBytes } from "@/utils/format";
 import {
+  buildTrafficQuotaSegmentColors,
   speedRateColor,
   trafficQuotaSegmentColor,
 } from "@/utils/metricTone";
@@ -45,6 +47,7 @@ import { formatHealthBucketTooltip } from "./pingBucketText";
 import { clsx } from "clsx";
 import type { NodeInfo, NodeMetrics, PingOverviewBucket, PingOverviewItem, TrafficTrendSample } from "@/types/cfsm";
 import type { ByteRateDisplay } from "@/utils/format";
+import { t, useLang } from "@/i18n";
 
 type NodeCardNode = NodeInfo & NodeMetrics;
 type DisplayStat = { value: string; unit: string };
@@ -55,11 +58,16 @@ export const NodeCard = memo(function NodeCard({
 }: {
   uuid: string;
 }) {
+  useLang();
   const { resolvedAppearance } = usePreferences();
   // 自定义配色改动时 version 自增，拼进 redrawKey 让 canvas 进度条即时重画（含离线静态卡）。
   const colorsVersion = useMetricColorsVersion();
   const redrawKey = `${resolvedAppearance}:${colorsVersion}`;
   const themeSettings = useThemeSettings();
+  const trafficSegmentColors = useMemo(
+    () => buildTrafficQuotaSegmentColors(themeSettings.trafficSpectrumColors),
+    [themeSettings.trafficSpectrumColors],
+  );
   const model = useNodeCardModel(uuid, { includeMultiPing: true });
 
   if (!model.node) {
@@ -86,6 +94,7 @@ export const NodeCard = memo(function NodeCard({
     uptime,
     renewalPrice: metaRenewalPrice,
     showCardPrice,
+    isPriceVisible,
     latencyColor,
     lossColor,
     loadFraction,
@@ -99,12 +108,13 @@ export const NodeCard = memo(function NodeCard({
     isOffline,
     osName,
   } = model;
-  // 「卡片显示价格」关掉后不渲染价格 chip。
-  const renewalPrice = showCardPrice ? metaRenewalPrice : null;
+  const renewalPrice = showCardPrice && Boolean(isPriceVisible) ? metaRenewalPrice : null;
   const showConnections = themeSettings.isReady && themeSettings.showConnections;
+
 
   return (
     <article
+      id={`node-card-${uuid}`}
       className={clsx("server-card", isOffline && "is-offline")}
     >
       <div className="server-card-content">
@@ -135,19 +145,20 @@ export const NodeCard = memo(function NodeCard({
             remainingLabel={traffic.remainingLabel}
             detail={traffic.detail}
             typeLabel={traffic.typeLabel}
+            segmentColors={trafficSegmentColors}
           />
 
           {showConnections && (
             <div className="card-metric-section server-card-meta-grid">
               <FooterStat
                 icon={<Network size={13} strokeWidth={2} />}
-                label="TCP 连接"
+                label={t("TCP 连接")}
                 value={node.connectionsTcp.toLocaleString()}
                 color="var(--progress-network)"
               />
               <FooterStat
                 icon={<Network size={13} strokeWidth={2} />}
-                label="UDP 连接"
+                label={t("UDP 连接")}
                 value={node.connectionsUdp.toLocaleString()}
                 color="var(--progress-network)"
               />
@@ -254,14 +265,14 @@ function NodeMetricSection({
         label="CPU"
         valueText={node.cpuPct.toFixed(2)}
         unit="%"
-        detailText={`${node.cpu_cores || 0} 核`}
+        detailText={t("{n} 核", { n: node.cpu_cores || 0 })}
         fraction={node.cpuPct / 100}
         redrawKey={redrawKey}
         paint="var(--progress-cpu)"
       />
       <MetricBar
         icon={<MemoryStick size={13} strokeWidth={2} />}
-        label="内存"
+        label={t("内存")}
         valueText={node.ramPct.toFixed(2)}
         unit="%"
         detailText={`${formatBytes(node.ramUsed)} / ${formatBytes(node.ramTotal)}`}
@@ -271,7 +282,7 @@ function NodeMetricSection({
       />
       <MetricBar
         icon={<HardDrive size={13} strokeWidth={2} />}
-        label="磁盘"
+        label={t("磁盘")}
         valueText={node.diskPct.toFixed(1)}
         unit="%"
         detailText={`${formatBytes(node.diskUsed)} / ${formatBytes(node.diskTotal)}`}
@@ -281,7 +292,7 @@ function NodeMetricSection({
       />
       <MetricBar
         icon={<Gauge size={13} strokeWidth={2} />}
-        label="负载"
+        label={t("负载")}
         valueText={node.load1.toFixed(2)}
         // 1 / 5 / 15 分钟负载，和小卡 / 迷你卡气泡里同一个写法；原来这一行空着，和左边磁盘的「已用 / 总量」对不齐。
         detailText={`${node.load1.toFixed(2)} / ${node.load5.toFixed(2)} / ${node.load15.toFixed(2)}`}
@@ -375,27 +386,31 @@ const NodeTrafficQuota = memo(function NodeTrafficQuota({
   remainingLabel,
   detail,
   typeLabel,
+  segmentColors,
 }: {
   litCount: number;
   remainingLabel: string;
   detail: string;
   typeLabel: string;
+  segmentColors?: string[];
 }) {
+  useLang();
+  const colors = segmentColors ?? TRAFFIC_QUOTA_SEGMENT_COLORS;
   return (
     <div
       className="card-metric-section traffic-quota"
-      title={`流量阈值 · ${typeLabel}`}
+      title={t("流量阈值 · {type}", { type: typeLabel })}
     >
       <div className="traffic-quota-head">
         <span className="traffic-quota-label">
           <Database size={13} strokeWidth={2} />
-          <span>剩余流量</span>
+          <span>{t("剩余流量")}</span>
           <strong className="traffic-quota-remain">{remainingLabel}</strong>
         </span>
         <span className="traffic-quota-usage">{detail}</span>
       </div>
       <div className="traffic-quota-track" aria-hidden>
-        {TRAFFIC_QUOTA_SEGMENT_COLORS.map((color, i) => {
+        {colors.map((color, i) => {
           // litCount === -1:哨兵值,第 0 段画成段内一道细边(细边宽度 = TRAFFIC_SLIVER_RATIO),
           // 而不是点亮/熄灭一整段。见 trafficQuotaLitCount 顶部注释。
           const background =
@@ -435,6 +450,7 @@ const NodeHealthSection = memo(function NodeHealthSection({
   latencyColor: string;
   lossColor: string;
 }) {
+  useLang();
   const [hoveredLatencyIndex, setHoveredLatencyIndex] = useState<number | null>(null);
   const [hoveredLossIndex, setHoveredLossIndex] = useState<number | null>(null);
   const onLatencyHover = useCallback((index: number | null) => {
@@ -467,14 +483,14 @@ const NodeHealthSection = memo(function NodeHealthSection({
         <div className="server-health-head">
           <div className="server-health-label">
             <Clock3 size={13} strokeWidth={2} />
-            <span>延迟</span>
+            <span>{t("延迟")}</span>
           </div>
           <span
             className="server-health-value tabular"
             style={{ color: latencyColor }}
             title={
               pingError && ping.lastValue != null
-                ? "首页 Ping 刷新失败，显示上次数据"
+                ? t("首页 Ping 刷新失败，显示上次数据")
                 : undefined
             }
           >
@@ -498,7 +514,7 @@ const NodeHealthSection = memo(function NodeHealthSection({
               onHoverIndex={onLatencyHover}
             />
           ) : (
-            <div className="server-health-placeholder">未配置首页 Ping</div>
+            <div className="server-health-placeholder">{t("未配置首页 Ping")}</div>
           )}
           <HealthBucketTooltip
             text={latencyTooltip}
@@ -511,14 +527,14 @@ const NodeHealthSection = memo(function NodeHealthSection({
         <div className="server-health-head">
           <div className="server-health-label">
             <Unplug size={13} strokeWidth={2} />
-            <span>丢包率</span>
+            <span>{t("丢包率")}</span>
           </div>
           <span
             className="server-health-value tabular"
             style={{ color: lossColor }}
             title={
               pingError && ping.loss != null
-                ? "首页 Ping 刷新失败，显示上次数据"
+                ? t("首页 Ping 刷新失败，显示上次数据")
                 : undefined
             }
           >
@@ -542,7 +558,7 @@ const NodeHealthSection = memo(function NodeHealthSection({
               onHoverIndex={onLossHover}
             />
           ) : (
-            <div className="server-health-placeholder">未配置首页 Ping</div>
+            <div className="server-health-placeholder">{t("未配置首页 Ping")}</div>
           )}
           <HealthBucketTooltip
             text={lossTooltip}
@@ -574,12 +590,56 @@ function FooterPriceChip({ renewalPrice, titled }: { renewalPrice: string; title
   return (
     <span
       className="dstatus-price-chip"
-      title={titled ? `续费价格 ${renewalPrice}` : undefined}
+      title={titled ? t("续费价格 {price}", { price: renewalPrice }) : undefined}
     >
       <CircleDollarSign size={12} strokeWidth={2.2} />
       {renewalPrice}
     </span>
   );
+}
+
+/**
+ * 页脚标签行「能放下几个标签」的测量，所有大卡共用一个 ResizeObserver。
+ *
+ * 以前每张卡在 useLayoutEffect 里同步读 offsetWidth：卡片设了 content-visibility:auto，屏幕外的
+ * 卡片本来不排版，这一读就逼浏览器把它们全排一遍 —— 首屏几十张卡时这是加载最慢的一步。
+ * ResizeObserver 对被跳过渲染的元素不回调，等卡片滚到可见附近、真正排版之后才来；回调发生在排版
+ * 之后、绘制之前，读尺寸不会再触发重排。同一批回调里先把所有卡都量完，再用一次 flushSync 统一提交，
+ * 首帧画出来的就是排好的标签，也不会每提交一张卡、下一张读尺寸时又重排一次。
+ */
+type FooterFit = () => void;
+const footerFits = new Map<Element, FooterFit>();
+let footerObserver: ResizeObserver | null = null;
+let footerFontsHooked = false;
+
+function observeFooterRow(row: Element, fit: FooterFit) {
+  if (typeof ResizeObserver === "undefined") {
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }
+  footerObserver ??= new ResizeObserver((entries) => {
+    const fits = entries
+      .map((entry) => footerFits.get(entry.target))
+      .filter((item): item is FooterFit => Boolean(item));
+    if (fits.length > 0) flushSync(() => fits.forEach((item) => item()));
+  });
+  if (!footerFontsHooked) {
+    footerFontsHooked = true;
+    // 字体换上后标签变宽，行宽却没变、观察器不会回调：重新观察一遍，已渲染的卡会立刻再量一次。
+    void document.fonts?.ready.then(() => {
+      for (const element of footerFits.keys()) {
+        footerObserver?.unobserve(element);
+        footerObserver?.observe(element);
+      }
+    });
+  }
+  footerFits.set(row, fit);
+  footerObserver.observe(row);
+  return () => {
+    footerFits.delete(row);
+    footerObserver?.unobserve(row);
+  };
 }
 
 function NodeCardFooter({
@@ -608,11 +668,14 @@ function NodeCardFooter({
     const measure = measureRef.current;
     if (!row || !measure) return;
 
-    // chip 间距是个固定的 CSS token,每次 effect 跑读一次就够,不必每个 resize tick 都读。
-    const styles = window.getComputedStyle(measure);
-    const gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
+    // chip 间距是个固定的 CSS token，第一次量的时候读一次就够（读计算样式同样会触发排版，不在这里读）。
+    let gap: number | null = null;
 
     const updateVisibleTags = () => {
+      if (gap === null) {
+        const styles = window.getComputedStyle(measure);
+        gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
+      }
       const availableWidth = row.clientWidth;
       const children = Array.from(measure.children) as HTMLElement[];
       const tagWidths = children.slice(0, footerTags.length).map((child) => child.offsetWidth);
@@ -636,27 +699,7 @@ function NodeCardFooter({
       );
     };
 
-    updateVisibleTags();
-
-    let cancelled = false;
-    const observer =
-      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateVisibleTags);
-    if (observer) {
-      observer.observe(row);
-    } else {
-      window.addEventListener("resize", updateVisibleTags);
-    }
-    // 字体替换会在首次绘制后改变 tag 宽度;字体就绪后重新测量一次,
-    // 但若卡片在 promise resolve 前已卸载则跳过。
-    document.fonts?.ready.then(() => {
-      if (!cancelled) updateVisibleTags();
-    });
-
-    return () => {
-      cancelled = true;
-      observer?.disconnect();
-      if (!observer) window.removeEventListener("resize", updateVisibleTags);
-    };
+    return observeFooterRow(row, updateVisibleTags);
   }, [footerTags, renewalPrice]);
 
   return (
@@ -664,14 +707,14 @@ function NodeCardFooter({
       <div className="server-card-meta-grid">
         <FooterStat
           icon={<RefreshCw size={13} strokeWidth={2} />}
-          label="在线"
+          label={t("在线")}
           value={uptime.value}
           unit={uptime.unit}
           color="var(--progress-cpu)"
         />
         <FooterStat
           icon={<Calendar size={13} strokeWidth={2} />}
-          label="到期"
+          label={t("到期")}
           value={expire.value}
           unit={expire.unit}
           color={expireColor}
@@ -727,7 +770,7 @@ function TrafficStat({
       <div className="traffic-stat-head">
         <div className="traffic-stat-label">
           <span style={{ color }}>{icon}</span>
-          <span style={{ color: speedColor }}>{direction}</span>
+          <span style={{ color: speedColor }}>{t(direction)}</span>
         </div>
         <span className="traffic-stat-value tabular" style={{ color: speedColor }}>
           {rate.value}
@@ -739,8 +782,8 @@ function TrafficStat({
         <span
           className="traffic-stat-live"
           data-live={live ? "true" : "false"}
-          title={live ? (active ? "实时" : "空闲") : "离线"}
-          aria-label={live ? (active ? "实时" : "空闲") : "离线"}
+          title={live ? (active ? t("实时") : t("空闲")) : t("离线")}
+          aria-label={live ? (active ? t("实时") : t("空闲")) : t("离线")}
         >
           <span
             className="traffic-stat-live-dot"
@@ -748,13 +791,13 @@ function TrafficStat({
               background: speedColor,
             }}
           />
-          {live && <span>{active ? "实时" : "空闲"}</span>}
+          {live && <span>{active ? t("实时") : t("空闲")}</span>}
         </span>
       </div>
-      <div className="traffic-stat-foot" title={`本周期${totalLabel}（按重置日清零）`}>
+      <div className="traffic-stat-foot" title={t("本周期{label}（按重置日清零）", { label: t(totalLabel) })}>
         <div className="traffic-stat-total-label">
           <GlobeArrow direction={totalLabel} color={color} />
-          <span>本期{totalLabel}</span>
+          <span>{totalLabel === "入站" ? t("本期入站") : t("本期出站")}</span>
         </div>
         <span className="tabular">{total}</span>
       </div>
@@ -839,13 +882,13 @@ function GlobeArrow({
         <ArrowDown
           size={9}
           strokeWidth={2.4}
-          className="absolute -right-[2px] bottom-[-1px]"
+          className="absolute -right-0.5 -bottom-px"
         />
       ) : (
         <ArrowUp
           size={9}
           strokeWidth={2.4}
-          className="absolute -right-[2px] bottom-[-1px]"
+          className="absolute -right-0.5 -bottom-px"
         />
       )}
     </span>

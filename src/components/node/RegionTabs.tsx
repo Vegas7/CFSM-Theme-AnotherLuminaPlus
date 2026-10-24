@@ -8,6 +8,7 @@ import {
 } from "react";
 import { Flag } from "@/components/ui/Flag";
 import { HOME_ALL_REGION, type HomeRegionOption } from "@/utils/homeNodes";
+import { t } from "@/i18n";
 
 /** 鼠标按下后移动超过这个距离才算拖动；没到就是普通点击（筛选地区）。 */
 const MOUSE_DRAG_THRESHOLD_PX = 5;
@@ -362,7 +363,7 @@ export function RegionTabs({
   }, [order, draggingCode, controller]);
 
   return (
-    <section className="home-region-bar" aria-label="地区筛选">
+    <section className="home-region-bar" aria-label={t("地区筛选")}>
       <div
         ref={containerRef}
         className="home-region-chips"

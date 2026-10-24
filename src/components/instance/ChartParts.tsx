@@ -44,8 +44,8 @@ export function SwitchToggle({
       aria-pressed={active}
       title={title}
     >
+      {/* 开关本身就表示开 / 关，不再另写「开启 / 关闭」，标题行右侧一组控件才排得进一行；读屏靠 aria-pressed。 */}
       <span className="instance-switch-copy">{label}</span>
-      {/* 开关状态由拨钮位置和 aria-pressed 表达，不再重复一遍「开启/关闭」文字 */}
       <span className="instance-switch-track" aria-hidden>
         <span className="instance-switch-thumb" />
       </span>

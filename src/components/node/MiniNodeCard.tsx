@@ -33,6 +33,7 @@ import {
 import { formatHealthBucketTooltip } from "./pingBucketText";
 import { formatBytes, type ByteRateDisplay } from "@/utils/format";
 import type { NodeInfo, NodeMetrics, PingOverviewItem, PingOverviewBucket } from "@/types/cfsm";
+import { t, useLang } from "@/i18n";
 
 // 迷你卡固定为巡检布局，不跟随紧凑卡的可选指标开关；数据仍走共享模型。
 
@@ -85,7 +86,7 @@ function MiniChips({
   return (
     <div className="mini-node-chip-row" data-detail-click="off">
       {renewalPrice && (
-        <span className="mini-node-price-tag" title={`续费价格 ${renewalPrice}`}>
+        <span className="mini-node-price-tag" title={t("续费价格 {price}", { price: renewalPrice })}>
           <CircleDollarSign size={11} strokeWidth={2.2} />
           {renewalPrice}
         </span>
@@ -172,13 +173,13 @@ function MiniVitals({
         label="CPU"
         valueText={node.cpuPct.toFixed(node.cpuPct >= 10 ? 0 : 1)}
         unit="%"
-        detail={`${node.cpuPct.toFixed(2)}% · ${node.cpu_cores || 0} 核`}
+        detail={`${node.cpuPct.toFixed(2)}% · ${t("{n} 核", { n: node.cpu_cores || 0 })}`}
         fraction={node.cpuPct / 100}
         paint="var(--progress-cpu)"
       />
       <MiniMetricBar
         icon={<MemoryStick size={12} strokeWidth={2} />}
-        label="内存"
+        label={t("内存")}
         valueText={node.ramPct.toFixed(node.ramPct >= 10 ? 0 : 1)}
         unit="%"
         detail={`${formatBytes(node.ramUsed)} / ${formatBytes(node.ramTotal)}`}
@@ -187,7 +188,7 @@ function MiniVitals({
       />
       <MiniMetricBar
         icon={<HardDrive size={12} strokeWidth={2} />}
-        label="磁盘"
+        label={t("磁盘")}
         valueText={node.diskPct.toFixed(node.diskPct >= 10 ? 0 : 1)}
         unit="%"
         detail={`${formatBytes(node.diskUsed)} / ${formatBytes(node.diskTotal)}`}
@@ -196,7 +197,7 @@ function MiniVitals({
       />
       <MiniMetricBar
         icon={<Gauge size={12} strokeWidth={2} />}
-        label="负载"
+        label={t("负载")}
         valueText={node.load1.toFixed(2)}
         detail={`${node.load1.toFixed(2)} / ${node.load5.toFixed(2)} / ${node.load15.toFixed(2)}`}
         fraction={loadFraction}
@@ -248,32 +249,32 @@ function MiniFlow({
 }) {
   return (
     <div className="mini-node-flow">
-      <div className="mini-node-flow-group" aria-label="实时网速">
+      <div className="mini-node-flow-group" aria-label={t("实时网速")}>
         <MiniFlowRow
           icon={<ArrowUp size={12} strokeWidth={2.4} />}
           value={upRate.value}
           unit={upRate.unit}
           color={speedRateColor(upRate.unit)}
-          title="实时上行"
+          title={t("实时上行")}
         />
         <MiniFlowRow
           icon={<ArrowDown size={12} strokeWidth={2.4} />}
           value={downRate.value}
           unit={downRate.unit}
           color={speedRateColor(downRate.unit)}
-          title="实时下行"
+          title={t("实时下行")}
         />
       </div>
-      <div className="mini-node-flow-group" aria-label="本期流量">
+      <div className="mini-node-flow-group" aria-label={t("本期流量")}>
         <MiniFlowRow
           icon={<ArrowUp size={12} strokeWidth={2.2} />}
           value={formatBytes(node.trafficUpMonthly)}
-          title="本期上行"
+          title={t("本期上行")}
         />
         <MiniFlowRow
           icon={<ArrowDown size={12} strokeWidth={2.2} />}
           value={formatBytes(node.trafficDownMonthly)}
-          title="本期下行"
+          title={t("本期下行")}
         />
       </div>
     </div>
@@ -382,6 +383,7 @@ const MiniHealth = memo(function MiniHealth({
   pingLoading: boolean;
   pingError: boolean;
 }) {
+  useLang();
   const { text: emptyText } = pingEmptyLabels(
     hasRealHomepagePingBinding,
     pingLoading,
@@ -393,7 +395,7 @@ const MiniHealth = memo(function MiniHealth({
       data-ping-state={ping.loadState ?? "ready"}
       title={
         pingError && (ping.lastValue != null || ping.loss != null)
-          ? "首页 Ping 刷新失败，显示上次数据"
+          ? t("首页 Ping 刷新失败，显示上次数据")
           : undefined
       }
     >
@@ -401,7 +403,7 @@ const MiniHealth = memo(function MiniHealth({
         <div className="mini-node-health-head">
           <span className="mini-node-health-label">
             <Clock3 size={12} strokeWidth={2} />
-            延迟
+            {t("延迟")}
           </span>
           <strong className="mini-node-health-value tabular" style={{ color: latencyColor }}>
             {ping.lastValue != null ? (
@@ -420,7 +422,7 @@ const MiniHealth = memo(function MiniHealth({
         <div className="mini-node-health-head">
           <span className="mini-node-health-label">
             <Unplug size={12} strokeWidth={2} />
-            丢包
+            {t("丢包")}
           </span>
           <strong className="mini-node-health-value tabular" style={{ color: lossColor }}>
             {ping.loss != null ? (
@@ -444,6 +446,7 @@ export const MiniNodeCard = memo(function MiniNodeCard({
 }: {
   uuid: string;
 }) {
+  useLang();
   const model = useNodeCardModel(uuid, {
     pingBucketCount: HOMEPAGE_PING_BUCKET_COUNT,
   });
@@ -458,6 +461,7 @@ export const MiniNodeCard = memo(function MiniNodeCard({
     pingBuckets,
     footerTags,
     renewalPrice,
+    isPriceVisible,
     latencyColor,
     lossColor,
     loadFraction,
@@ -477,7 +481,12 @@ export const MiniNodeCard = memo(function MiniNodeCard({
           node={node}
           osName={osName}
         />
-        <MiniChips tags={footerTags} renewalPrice={renewalPrice} ipv4={node.ipv4} ipv6={node.ipv6} />
+        <MiniChips
+          tags={footerTags}
+          renewalPrice={isPriceVisible ? renewalPrice : null}
+          ipv4={node.ipv4}
+          ipv6={node.ipv6}
+        />
       </NodeCardHead>
       <MiniVitals node={node} loadFraction={loadFraction} />
       <MiniFlow node={node} upRate={upRate} downRate={downRate} />

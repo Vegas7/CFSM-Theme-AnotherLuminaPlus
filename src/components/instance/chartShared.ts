@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type uPlot from "uplot";
+import { t } from "@/i18n";
 
 // 共享的图表配色。LoadChart 按指标 (cpu/memory/…) 取色，PingChart 按 task 循环取色；
 // 两者都取自这一处单一来源，避免 hex 值在两个图表间漂移。
@@ -74,13 +75,15 @@ interface TimeRangeOption {
 
 // load 和 ping 共用同一套历史区间预设；唯一区别是是否在前面加 "实时" 选项，这由
 // buildHistoryRangeOptions 的 includeRealtime 标志处理，而非改预设列表本身。
-// 取值必须落在 CF-Server-Monitor `/api/history/all` 支持的档位上（最长 7 天）。
+// 取值落在 CF-Server-Monitor `/api/history/all` 允许的标准档位（最长 7 天）。后端还支持 10 分钟、
+// 30 分钟，但分得太细不好选，不放出来；负载要看最近几分钟用「实时」档。
 const TIME_RANGE_OPTIONS: TimeRangeOption[] = [
   { label: "1 小时", value: 1 },
   { label: "6 小时", value: 6 },
   { label: "12 小时", value: 12 },
   { label: "1 天", value: 24 },
   { label: "2 天", value: 48 },
+  { label: "4 天", value: 96 },
   { label: "7 天", value: 168 },
 ];
 
@@ -89,10 +92,10 @@ const PING_TIME_RANGE_OPTIONS: TimeRangeOption[] = [...TIME_RANGE_OPTIONS];
 function formatRangeLabel(hours: number) {
   if (hours % 24 === 0) {
     const days = hours / 24;
-    return `${days} 天`;
+    return t("{n} 天", { n: days });
   }
 
-  return `${hours} 小时`;
+  return t("{n} 小时", { n: hours });
 }
 
 function buildHistoryRangeOptions(

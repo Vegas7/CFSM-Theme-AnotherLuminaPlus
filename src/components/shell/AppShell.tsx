@@ -1,39 +1,53 @@
+import { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { Lock } from "lucide-react";
-import { BackgroundLayer } from "./BackgroundLayer";
+import { Lock, WifiOff, RotateCw, ArrowRight } from "lucide-react";
 import { TurnstileGate } from "./TurnstileGate";
-import { SiteFooter } from "./SiteFooter";
 import { RealtimeSessionPrompt } from "./RealtimeSessionPrompt";
 import { SiteThemeSyncNotice } from "./SiteThemeSyncNotice";
 import { Spinner } from "@/components/ui/Spinner";
 import { useAppearance } from "@/hooks/useAppearance";
 import { useAuth } from "@/hooks/useAuth";
 import { usePublicConfig } from "@/hooks/usePublicConfig";
-import { useSiteMetadata } from "@/hooks/useSiteMetadata";
+import { useSiteMetadata, readStoredSiteMetadata } from "@/hooks/useSiteMetadata";
 import { useTurnstileVerificationRequired } from "@/hooks/useTurnstileVerification";
 import { useMetricColorsSync } from "@/hooks/useMetricColors";
 import { useNodeStoreStatus } from "@/hooks/useNode";
 import { getAdminUrl } from "@/services/cfsm/config";
-
+import { HomeSkeleton } from "./HomeSkeleton";
+import { t, useLang } from "@/i18n";
 export function AppShell() {
+  useLang();
   useAppearance();
   useSiteMetadata();
   useMetricColorsSync();
+
   const { pathname, search } = useLocation();
   const publicConfig = usePublicConfig();
   const auth = useAuth();
+  const cachedMeta = readStoredSiteMetadata();
+  const siteName =
+    publicConfig.data?.sitename?.trim() ||
+    cachedMeta.siteName ||
+    (publicConfig.isPending ? "" : "CF-Server-Monitor");
   const needsVerification = useTurnstileVerificationRequired();
   const normalizedPath = (pathname.replace(/\/+$/, "") || "/").toLowerCase();
   const isDataRoute =
     normalizedPath === "/" ||
     normalizedPath === "/assets" ||
-    normalizedPath === "/traffic" ||
-    normalizedPath.startsWith("/server/");
+    normalizedPath.startsWith("/server/") ||
+    normalizedPath.startsWith("/instance/");
   const isCheckingAccess =
     isDataRoute &&
     (publicConfig.isPending ||
       (publicConfig.data?.private_site === true && auth.isPending));
-  const accessError = isDataRoute && publicConfig.isError && !publicConfig.data;
+  const isMockError =
+    new URLSearchParams(search).get("mock_error") === "1" ||
+    new URLSearchParams(search).get("mock-error") === "1" ||
+    (typeof window !== "undefined" &&
+      (new URLSearchParams(window.location.search).get("mock_error") === "1" ||
+        new URLSearchParams(window.location.search).get("mock-error") === "1"));
+  const accessError =
+    isMockError || (isDataRoute && publicConfig.isError && !publicConfig.data);
   const isPrivateVisitor =
     isDataRoute &&
     publicConfig.data?.private_site === true &&
@@ -44,8 +58,10 @@ export function AppShell() {
   // 10、15、25 秒往上涨，最长 80 秒）。不挂的话 store 根本不启动，验证一过页面挂上来就是一次全新的首屏同步。
   // 用了一小时凭证过期、中途重新弹验证时同理：页面先卸掉（实时连接跟着断，弹窗挡着也看不见），过了再重新拉。
   const awaitingVerification = isDataRoute && needsVerification;
-  const isHomeDashboard =
-    normalizedPath === "/" && new URLSearchParams(search).get("view") !== "theme-manage";
+  const isThemeManage =
+    new URLSearchParams(search).get("view") === "theme-manage" ||
+    (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "theme-manage");
+  const isHomeDashboard = normalizedPath === "/" && !isThemeManage;
   const canHydrateHome =
     isHomeDashboard &&
     !isCheckingAccess &&
@@ -56,16 +72,32 @@ export function AppShell() {
   const isCheckingHomeData =
     canHydrateHome && !homeStoreStatus.hydrated && !homeStoreStatus.nodeInfoError;
   const isCheckingShell = isCheckingAccess || isCheckingHomeData;
+
   return (
     <div className="relative flex min-h-screen flex-col">
-      <BackgroundLayer />
       <TurnstileGate />
-      <main className="app-main flex-1 px-3 pb-8 sm:px-5 md:px-6 lg:px-8">
-        <div className="mx-auto w-full max-w-[1720px]">
+      {/* SAO 风格顶部导航 Bar 框架 */}
+      <header className="mao-top-nav-bar">
+        <div className="mx-auto flex h-14 w-full max-w-430 items-center justify-between px-3 sm:px-5 md:px-6 lg:px-8">
+          <div className="mao-nav-brand-left flex items-center gap-2.5">
+            <SiteLogo />
+            <span className="mao-nav-title" title={siteName}>
+              {siteName}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 min-w-9" />
+        </div>
+      </header>
+      <main className="app-main flex-1 px-3 pb-8 pt-6 sm:px-5 md:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-430">
           {isCheckingShell ? (
-            <div className="flex min-h-[60vh] items-center justify-center">
-              <Spinner size={24} />
-            </div>
+            isHomeDashboard && !isPrivateVisitor ? (
+              <HomeSkeleton />
+            ) : (
+              <div className="flex min-h-[60vh] items-center justify-center">
+                <Spinner size={24} />
+              </div>
+            )
           ) : accessError ? (
             <AccessError onRetry={() => void publicConfig.refetch()} />
           ) : awaitingVerification ? (
@@ -78,49 +110,138 @@ export function AppShell() {
           )}
         </div>
       </main>
-      <SiteFooter />
       <RealtimeSessionPrompt />
       <SiteThemeSyncNotice />
     </div>
   );
 }
 
-function AccessError({ onRetry }: { onRetry: () => void }) {
+/**
+ * 页头站点图标：和浏览器标签页同一个图标 —— 后端把后台「外观设置」里的站点图标写进页面的
+ * `<link rel="icon">`（见后端 injectFavicon），这里直接读它。没配图标时那条链接指向后端默认的
+ * /favicon.ico，同样是站点自己的图标。读不到或图片加载失败才退回 SAO 的螺旋图形。
+ */
+function readSiteIconHref(): string | null {
+  if (typeof document === "undefined") return null;
+  const link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+  const href = link?.getAttribute("href")?.trim();
+  return href ? link!.href : null;
+}
+
+function SiteLogo() {
+  const [src] = useState(readSiteIconHref);
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt=""
+        width={20}
+        height={20}
+        className="size-5 shrink-0 rounded-[4px] object-contain"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-      <div className="space-y-2">
-        <div className="text-[15px] font-semibold text-[var(--text-primary)]">
-          无法读取站点配置
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-(--text-primary)"
+      aria-hidden
+    >
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+      <path d="M16.924 11.132a5 5 0 1 0 -4.056 5.792" />
+      <path d="M3 12a9 9 0 1 0 9 -9" />
+    </svg>
+  );
+}
+
+function AccessError({ onRetry }: { onRetry: () => void }) {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.has("mock_error") || sp.has("mock-error")) {
+        sp.delete("mock_error");
+        sp.delete("mock-error");
+        const nextUrl =
+          window.location.pathname + (sp.toString() ? `?${sp.toString()}` : "");
+        window.location.href = nextUrl;
+        return;
+      }
+      window.location.reload();
+    } else {
+      onRetry();
+    }
+  };
+
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center py-10">
+      <section className="access-error-card" role="alert" aria-live="assertive">
+        <div className="access-error-icon-wrap" aria-hidden="true">
+          <WifiOff size={22} strokeWidth={2} />
         </div>
-        <p className="text-[13px] text-[var(--text-secondary)]">请检查网络后重试。</p>
-      </div>
-      <button type="button" onClick={onRetry} className="control-button px-4 py-2 text-[13px] font-medium">
-        重试
-      </button>
+        <div className="space-y-1.5">
+          <h2 className="access-error-title">{t("无法读取站点配置")}</h2>
+          <p className="access-error-desc">
+            {t("与监控服务通信失败或接口未响应，请检查网络连接后重试。")}
+          </p>
+        </div>
+        <div className="access-error-actions">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="access-error-refresh-btn"
+          >
+            <RotateCw
+              size={14}
+              className={refreshing ? "animate-spin" : ""}
+              aria-hidden="true"
+            />
+            <span>{refreshing ? t("正在刷新…") : t("刷新页面")}</span>
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
 
 function PrivateSiteGate() {
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-      <div className="grid h-12 w-12 place-items-center rounded-full bg-[var(--surface-elev)] text-[var(--text-tertiary)]">
-        <Lock size={22} strokeWidth={2} />
-      </div>
-      <div className="space-y-2">
-        <div className="text-[15px] font-semibold text-[var(--text-primary)]">站点已设为私有</div>
-        <p className="max-w-[32rem] text-[13px] text-[var(--text-secondary)]">
-          登录后即可查看节点数据。
-        </p>
-      </div>
-      <a
-        href={getAdminUrl()}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="control-button px-4 py-2 text-[13px] font-medium"
-      >
-        前往登录
-      </a>
+    <div className="flex min-h-[60vh] items-center justify-center py-10">
+      <section className="access-error-card" role="alert">
+        <div className="access-error-icon-wrap is-lock" aria-hidden="true">
+          <Lock size={22} strokeWidth={2} />
+        </div>
+        <div className="space-y-1.5">
+          <h2 className="access-error-title">{t("站点已设为私有")}</h2>
+          <p className="access-error-desc">
+            {t("该探针已被站长设为私有访问，登录后即可查看节点实时状态。")}
+          </p>
+        </div>
+        <div className="access-error-actions">
+          <a
+            href={getAdminUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="access-error-refresh-btn"
+          >
+            <span>{t("前往登录")}</span>
+            <ArrowRight size={14} aria-hidden="true" />
+          </a>
+        </div>
+      </section>
     </div>
   );
 }

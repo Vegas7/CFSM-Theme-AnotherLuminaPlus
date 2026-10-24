@@ -109,9 +109,36 @@ function applyResolvedAppearance(resolvedAppearance: ResolvedAppearance) {
   const root = document.documentElement;
   root.dataset.appearance = resolvedAppearance;
   root.style.colorScheme = resolvedAppearance;
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-  if (meta) {
-    meta.content = resolvedAppearance === "dark" ? "#000000" : "#F5F5F7";
+  const isDark = resolvedAppearance === "dark";
+  const color = isDark ? "#09090b" : "#f4f5f7";
+
+  root.style.backgroundColor = color;
+  if (document.body) {
+    document.body.style.backgroundColor = color;
+    document.body.style.colorScheme = resolvedAppearance;
+  }
+
+  // Directly update the sticky navbar so Safari can immediately sample the
+  // correct solid background colour for the status-bar / Dynamic Island tint.
+  const navBar = document.querySelector<HTMLElement>(".mao-top-nav-bar");
+  if (navBar) {
+    navBar.style.backgroundColor = color;
+  }
+
+  // Keep theme-color meta in sync for Android Chrome / older Safari.
+  const existingMetas = document.querySelectorAll('meta[name="theme-color"]');
+  existingMetas.forEach((el) => el.remove());
+  const meta = document.createElement("meta");
+  meta.name = "theme-color";
+  meta.content = color;
+  document.head.appendChild(meta);
+
+  // Sync apple status-bar style so iOS Dynamic Island / status bar tint follows theme.
+  const statusMeta = document.querySelector<HTMLMetaElement>(
+    'meta[name="apple-mobile-web-app-status-bar-style"]',
+  );
+  if (statusMeta) {
+    statusMeta.content = isDark ? "black-translucent" : "default";
   }
 }
 

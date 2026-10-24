@@ -10,12 +10,13 @@ const ALL_STEPS = [
   { label: "12 小时", value: 12 },
   { label: "1 天", value: 24 },
   { label: "2 天", value: 48 },
+  { label: "4 天", value: 96 },
   { label: "7 天", value: 168 },
 ];
 
 describe("detail chart time ranges", () => {
   it("offers every backend-supported step to a logged-in admin", () => {
-    // 后端 /api/history/all 最长支持 7 天，没有更长的档位可选。
+    // 后端 /api/history/all 最长支持 7 天；10 / 30 分钟两档不放出来。
     expect(buildPingTimeRangeOptions(168)).toEqual(ALL_STEPS);
     expect(buildLoadTimeRangeOptions(168)).toEqual([
       { label: "实时", value: 0 },

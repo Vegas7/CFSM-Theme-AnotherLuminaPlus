@@ -6,36 +6,6 @@ export type TimedMetricPoint = {
   [key: string]: number | null | undefined;
 };
 
-// 每个检测到的 gap 最多插入的 null 标记点数上限，避免长时间中断把对齐数组撑成上千个点。
-const MAX_SENTINELS_PER_GAP = 6;
-
-// 空缺超过「桥接阈值」才算真实中断、插 null 断点；更小的空缺留给 uPlot 跨过，避免漏采把线切碎。
-// 阈值：周期 × 6，再钳到 [2min, 30min]。
-const GAP_BREAK_INTERVAL_MULTIPLIER = 6;
-const GAP_BREAK_MIN_SECONDS = 120; // 下限 2min：短周期任务偶尔抖动不至于一漏就断
-const GAP_BREAK_MAX_SECONDS = 1800; // 上限 30min：再长的洞一定断，不画跨越超长空缺的假线
-
-// 在升序 `times` 上二分查找与 `target` 相差在 `tolerance` 内的下标，没有则返回 -1。
-// 用于把断点 null 合并到已有的他 task anchor 上，而不是新建一个近重复列。
-function findPointNearTime(times: number[], target: number, tolerance: number) {
-  let low = 0;
-  let high = times.length - 1;
-
-  while (low <= high) {
-    const mid = Math.floor((low + high) / 2);
-    const value = times[mid];
-    if (Math.abs(value - target) <= tolerance) {
-      return mid;
-    }
-    if (value < target) {
-      low = mid + 1;
-    } else {
-      high = mid - 1;
-    }
-  }
-
-  return -1;
-}
 
 function median(values: number[]) {
   if (values.length === 0) return 0;
@@ -185,48 +155,43 @@ export function insertMetricGapSentinels(
     options?.defaultInterval ?? detectTypicalIntervalSeconds(existingTimes);
   const toleranceRatio = options?.matchToleranceRatio ?? 0.25;
   const sentinels = new Map<number, TimedMetricPoint>();
+  const gapsByKey = new Map<string, Array<{ start: number; end: number }>>();
 
   for (const key of keys) {
-    const validTimes = sortedPoints
-      .filter((point) => typeof point[key] === "number" && Number.isFinite(point[key]))
-      .map((point) => point.time);
-    if (validTimes.length < 2) continue;
+    const validIndexes = sortedPoints.flatMap((point, index) =>
+      typeof point[key] === "number" && Number.isFinite(point[key]) ? [index] : [],
+    );
+    if (validIndexes.length < 2) continue;
 
     const configuredInterval = intervals.get(key);
     const interval =
       typeof configuredInterval === "number" && configuredInterval > 0
         ? configuredInterval
-        : detectTypicalIntervalSeconds(validTimes, defaultInterval);
+        : detectTypicalIntervalSeconds(validIndexes.map((index) => sortedPoints[index].time), defaultInterval);
     if (!Number.isFinite(interval) || interval <= 0) continue;
 
     const tolerance = Math.max(1, interval * toleranceRatio);
-    const breakThreshold = Math.min(
-      GAP_BREAK_MAX_SECONDS,
-      Math.max(GAP_BREAK_MIN_SECONDS, interval * GAP_BREAK_INTERVAL_MULTIPLIER),
-    );
-    for (let index = 1; index < validTimes.length; index += 1) {
-      const previous = validTimes[index - 1];
-      const current = validTimes[index];
+    const breakThreshold = interval + tolerance;
+    for (let index = 1; index < validIndexes.length; index += 1) {
+      const previousIndex = validIndexes[index - 1];
+      const currentIndex = validIndexes[index];
+      const previous = sortedPoints[previousIndex].time;
+      const current = sortedPoints[currentIndex].time;
       if (current - previous <= breakThreshold) continue;
+      const gaps = gapsByKey.get(key) ?? [];
+      gaps.push({ start: previous, end: current });
+      gapsByKey.set(key, gaps);
 
-      // 一个 null 就足以断线。把当前 task 在 gap 内标为断开：若此处已有别的 task 的 anchor，
-      // 就把 null 设到它上面 (不新建近重复列)；否则加一个本 task 的哨兵——合并而非覆盖，这样多个
-      // task 同时中断也都能保留。每个 gap 有上限，避免长时间中断把点数撑爆。
-      let added = 0;
-      for (
-        let expected = previous + interval;
-        expected < current - tolerance && added < MAX_SENTINELS_PER_GAP;
-        expected += interval
-      ) {
-        const nearIdx = findPointNearTime(existingTimes, expected, tolerance);
-        if (nearIdx >= 0) {
-          sortedPoints[nearIdx][key] = null;
-        } else {
-          const sentinel = sentinels.get(expected) ?? { time: expected };
-          sentinel[key] = null;
-          sentinels.set(expected, sentinel);
-        }
-        added += 1;
+      // 缺口内的已有锚点和新增断点都要标空，否则 uPlot 只裁掉部分空白，仍会画出跨缺口的线段。
+      // 没有锚点时每个缺口只补一个断点，避免按缺测时长扩张数组。
+      for (let pointIndex = previousIndex + 1; pointIndex < currentIndex; pointIndex += 1) {
+        sortedPoints[pointIndex][key] = null;
+      }
+      if (currentIndex === previousIndex + 1) {
+        const expected = previous + interval;
+        const sentinel = sentinels.get(expected) ?? { time: expected };
+        sentinel[key] = null;
+        sentinels.set(expected, sentinel);
       }
     }
   }
@@ -235,7 +200,62 @@ export function insertMetricGapSentinels(
     return sortedPoints;
   }
 
-  return normalizePoints([...sortedPoints, ...sentinels.values()], true).points;
+  const sentinelPoints = [...sentinels.values()].sort((left, right) => left.time - right.time);
+  for (const [key, gaps] of gapsByKey) {
+    let gapIndex = 0;
+    for (const point of sentinelPoints) {
+      while (gapIndex < gaps.length && point.time >= gaps[gapIndex].end) gapIndex += 1;
+      const gap = gaps[gapIndex];
+      if (gap && point.time > gap.start) point[key] = null;
+    }
+  }
+
+  return normalizePoints([...sortedPoints, ...sentinelPoints], true).points;
+}
+
+/**
+ * 按「后端有没有返回行」判断断点，而不是按某条线路有没有值。
+ *
+ * 长区间历史是后端每个采样窗口取第一行（`ROW_NUMBER() ... PARTITION BY ts/interval`），而探针不是每次
+ * 上报都带 Ping：取到的那行正好没测 Ping 时，这条线路在这个窗口就没有值。窗口长度和上报节奏一错相，
+ * 「有 Ping 的行」会一簇一簇地出现（6 小时档最明显），按线路自身的间隔判断就会把线切成碎段。
+ * 这类缺值只是没测、不是断线，应该跨过去；真正的断线是后端那段时间一行都没有（探针离线），
+ * 或者明确的超时（记录值为 null，本来就是断点）。
+ *
+ * `coverageTimes` 是后端返回的全部行时间（秒）。断线门槛放宽到 `interval` 的 2.5 倍：每个窗口取的是
+ * 窗口里的第一行，探针上报间隔不整除窗口长度时（比如每 65 秒报一次、窗口 180 秒），相邻两行的间隔
+ * 会在「窗口 − 上报间隔」到「窗口 + 上报间隔」之间来回跳，最多接近两个窗口长；按 1.25 倍算会把
+ * 正常的相位漂移当成断线。超过门槛时在缺口里补一个全部线路为 null 的点，并把缺口内已有的点也标空。
+ */
+export function insertCoverageGapSentinels(
+  points: TimedMetricPoint[],
+  keys: string[],
+  coverageTimes: number[],
+  interval: number,
+): TimedMetricPoint[] {
+  if (points.length < 2 || keys.length === 0 || !(interval > 0)) return points;
+  const times = [...new Set(coverageTimes)].filter(Number.isFinite).sort((a, b) => a - b);
+  if (times.length < 2) return points;
+  const breakThreshold = interval * 2.5;
+  const gaps: Array<{ start: number; end: number }> = [];
+  for (let index = 1; index < times.length; index += 1) {
+    if (times[index] - times[index - 1] > breakThreshold) {
+      gaps.push({ start: times[index - 1], end: times[index] });
+    }
+  }
+  if (gaps.length === 0) return points;
+
+  const nullPoint = (time: number): TimedMetricPoint => {
+    const point: TimedMetricPoint = { time };
+    for (const key of keys) point[key] = null;
+    return point;
+  };
+  const out = points.map((point) => {
+    const inGap = gaps.some((gap) => point.time > gap.start && point.time < gap.end);
+    return inGap ? nullPoint(point.time) : point;
+  });
+  for (const gap of gaps) out.push(nullPoint(gap.start + Math.min(interval, (gap.end - gap.start) / 2)));
+  return out.sort((left, right) => left.time - right.time);
 }
 
 export function interpolateMetricGaps(

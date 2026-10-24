@@ -1,5 +1,4 @@
-import { getExpireDaysRemaining, LONG_TERM_EXPIRE_DAYS } from "@/utils/format";
-
+import { t } from "@/i18n";
 const INT_PRICE_FORMATTER = new Intl.NumberFormat("zh-CN", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2,
@@ -11,12 +10,6 @@ const DECIMAL_PRICE_FORMATTER = new Intl.NumberFormat("zh-CN", {
 
 function formatPriceNumber(value: number) {
   return (Number.isInteger(value) ? INT_PRICE_FORMATTER : DECIMAL_PRICE_FORMATTER).format(value);
-}
-
-function isLongTermExpire(value: string | number | null | undefined) {
-  if (value == null) return false;
-  const days = getExpireDaysRemaining(value);
-  return days != null && days > LONG_TERM_EXPIRE_DAYS;
 }
 
 type BillingCycleKind = "month" | "quarter" | "halfYear" | "year" | "lifetime";
@@ -129,17 +122,17 @@ export function formatBillingCycle(value: string | number | null | undefined) {
   const cycle = normalizeBillingCycle(value);
   switch (cycle.kind) {
     case "lifetime":
-      return "永久";
+      return t("永久");
     case "month":
-      return "月";
+      return t("月");
     case "quarter":
-      return "季";
+      return t("季");
     case "halfYear":
-      return "半年";
+      return t("半年");
     case "year":
-      return (cycle.years ?? 1) === 1 ? "年" : `${cycle.years}年`;
+      return (cycle.years ?? 1) === 1 ? t("年") : t("{n}年", { n: cycle.years ?? 1 });
     case "days":
-      return `${cycle.days}天`;
+      return t("{n}天", { n: cycle.days });
   }
 }
 
@@ -147,16 +140,14 @@ export function formatRenewalPrice({
   price,
   currency,
   billing_cycle,
-  expired_at,
 }: {
-  price: number;
+  price?: number | null;
   currency: string;
   billing_cycle?: string | number | null;
   expired_at?: string | number | null;
 }) {
-  if (!Number.isFinite(price)) return null;
-  if (price === -1) return "免费";
-  if (price === 0) return isLongTermExpire(expired_at) ? "免费" : null;
+  if (price === null || price === undefined || !Number.isFinite(price)) return null;
+  if (price === -1 || price === 0) return t("免费");
   if (price < 0) return null;
 
   const symbol = currency?.trim() || "¥";
