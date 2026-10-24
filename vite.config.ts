@@ -88,6 +88,30 @@ function themeVersionMeta(version: string): Plugin {
   };
 }
 
+const APPLE_TOUCH_ICON_SRC = "/src/assets/apple-touch-icon.png";
+
+/**
+ * 把主屏幕图标（apple-touch-icon）以 data: 直接内联进 index.html。
+ *
+ * iOS 添加到主屏幕时会单独请求图标，而后端按「站点配置的主题 / 预览 Cookie」决定 `/assets/` 来自哪个主题：
+ * 预览时那次请求不一定带着预览 Cookie 和登录态，会落到站点配置的另一个主题上 404，iOS 就退回成站点标题首字母。
+ * 内联后不再发请求，与后端怎么解析 `/assets/` 无关（后端 CSP 的 img-src 允许 data:）。
+ * Vite 自己不会内联 `<link rel="apple-touch-icon">`，所以在 HTML 处理之前先换掉。
+ */
+function inlineAppleTouchIcon(): Plugin {
+  return {
+    name: "cfsm-inline-apple-touch-icon",
+    transformIndexHtml: {
+      order: "pre",
+      handler(html) {
+        const file = path.resolve(process.cwd(), `.${APPLE_TOUCH_ICON_SRC}`);
+        const dataUri = `data:image/png;base64,${fs.readFileSync(file).toString("base64")}`;
+        return html.replace(`href="${APPLE_TOUCH_ICON_SRC}"`, () => `href="${dataUri}"`);
+      },
+    },
+  };
+}
+
 /**
  * 把 `.env` 里的 API_BASE 写进 dev server 服务的 `<meta name="apiBase">`。
  */
@@ -120,6 +144,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       devHostAssets(),
       themeVersionMeta(pkg.version),
+      inlineAppleTouchIcon(),
       devApiBaseMeta(apiBase),
     ],
     // CF-Server-Monitor 的主题构建产物只能是 index.html + assets/，相对路径引用
@@ -132,9 +157,6 @@ export default defineConfig(({ mode }) => {
     build: {
       target: ["es2022", "chrome111", "safari16.2", "firefox113"],
       assetsDir: "assets",
-      // 主屏幕图标必须是真实文件：iOS 不一定认 data: 地址，所以它不参与小文件内联。
-      assetsInlineLimit: (filePath) =>
-        filePath.replace(/\\/g, "/").endsWith("/apple-touch-icon.png") ? false : undefined,
       rollupOptions: {
         output: {
           manualChunks(id) {
