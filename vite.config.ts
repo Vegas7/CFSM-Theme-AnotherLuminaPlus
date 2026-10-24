@@ -132,6 +132,9 @@ export default defineConfig(({ mode }) => {
     build: {
       target: ["es2022", "chrome111", "safari16.2", "firefox113"],
       assetsDir: "assets",
+      // 主屏幕图标必须是真实文件：iOS 不一定认 data: 地址，所以它不参与小文件内联。
+      assetsInlineLimit: (filePath) =>
+        filePath.replace(/\\/g, "/").endsWith("/apple-touch-icon.png") ? false : undefined,
       rollupOptions: {
         output: {
           manualChunks(id) {

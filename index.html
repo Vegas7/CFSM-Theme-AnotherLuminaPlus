@@ -17,7 +17,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="CFSM-Theme-SAO" />
-    <link rel="apple-touch-icon" href="/favicon.ico" />
+    <!--
+      添加到主屏幕（PWA）的图标：内置 CFSM-SAO 页头的螺旋图标（iOS 只认 PNG，180×180、不透明）。
+      用白底黑标：iOS 只取这一张、不认 prefers-color-scheme，深色外观由系统按浅色图标自动生成；
+      透明底会被 iOS 填成黑色，黑标就看不见了。
+      后台「外观设置」配了站点图标时，后端会把这条替换成站点图标。
+    -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/src/assets/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon.ico" />
     <meta property="og:title" content="CFSM-Theme-SAO" />
     <meta property="og:description" content="A restrained modern theme for CF-Server-Monitor." />
