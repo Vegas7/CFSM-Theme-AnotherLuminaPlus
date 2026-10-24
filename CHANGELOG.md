@@ -3,6 +3,16 @@
 每个版本的第一行会被 CI 取出来，作为产物提交的说明 —— 也就是主题商店里显示的更新日志。
 发新版时先改 `package.json` 的 `version`，再在这里加一段。
 
+## v1.9.3
+
+重写 README、补上对各位原作者的致谢，更新主题商店封面
+
+- **README 重写**：按现在的功能（SAO 外观、四种卡片、中英文切换、iPhone Duo 适配）重新介绍；
+  重点感谢 CFSM-Theme-LuminaPlus（volcano-1025）、CFSM-SAO（WAOR）与 Komari-Theme-LuminaPlus（codex & shark & shanyang）。
+  主题商店里已上架本主题，安装说明同步更新；去掉已不存在的「首页延迟手动刷新按钮」等过时内容。
+- **主题商店封面换成 SAO 外观**（`docs/preview.png`）。
+- 主题本身的代码与 v1.9.2 相同。
+
 ## v1.9.2
 
 适配 iPhone Duo 主屏幕 App：快捷按钮放进侧边透明栏，页头横线不再被摄像头挡住
