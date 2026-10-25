@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { CalendarClock, ChevronDown, ChevronLeft, ChevronUp, RefreshCw } from "lucide-react";
+import { CalendarClock, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { PageBack } from "@/components/shell/PageBack";
 import { Flag } from "@/components/ui/Flag";
 import { Spinner } from "@/components/ui/Spinner";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
@@ -256,13 +257,11 @@ export function Assets() {
   return (
     <div className="assets-page flex flex-col gap-4 py-2">
       <div className="flex items-center justify-between gap-3">
-        <Link to="/" className="instance-page-back">
-          <ChevronLeft size={14} />
-          {t("返回")}
-        </Link>
+        <PageBack />
         <button
           type="button"
-          className={`cost-summary-action${rateQuery.isFetching ? " is-spinning" : ""}`}
+          // 侧栏模式下左边的返回移到侧栏里，ml-auto 让刷新按钮仍靠右
+          className={`cost-summary-action ml-auto${rateQuery.isFetching ? " is-spinning" : ""}`}
           onClick={() => {
             forceRateRefresh.current = true;
             void rateQuery.refetch();

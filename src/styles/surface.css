@@ -582,105 +582,148 @@
 .sim-col-right .app-main { padding-right: max(var(--app-gutter), 84px); }
 .sim-col-left .app-main { padding-left: max(var(--app-gutter), 84px); }
 
-/* 侧栏按钮用 iOS 26 的 Liquid Glass：半透明底 + 高斯模糊提饱和 + 顶部内高光 + 镜面渐变描边。
-   按钮为 Apple 标准的 44pt 点按区域，图标 20pt；一组按钮放在同一枚竖向玻璃胶囊里（胶囊宽 48），
-   展开 / 收起按钮是单独的一枚 48pt 玻璃圆钮，与胶囊同宽对齐。 */
+/* 侧栏按钮按 iOS 26 系统 App 在 Duo 侧栏里的按钮还原（对照真机截图量出来的）：
+   - 位置：与侧栏顶部的系统图标（时间、Wi-Fi）同一条中线 —— 中线离侧栏外缘 48px（84px 宽的侧栏里偏向内容一侧），
+     不在侧栏正中；最下面一枚按钮离屏幕底边 24px，按钮之间隔 12px。整组从底部往上排：
+     子页面的返回圆钮 → 按钮栏 → 展开 / 收起圆钮；顶部 174px 以内留给侧栏里的系统图标。
+   - 尺寸：圆钮与竖向按钮栏都是 48pt 宽；按钮栏里每项 42×52、间距无缝。
+   - 样式：Liquid Glass 实色感的深灰底（深色 #1f1f1f 左右）铺满到边缘，只有顶部一道很淡的高光、底部一道更淡的反光，
+     没有整圈描边；按钮栏里选中的一项是更深的竖向胶囊 + 系统蓝图标，未选中为白色图标。 */
 :root {
-  --lg-fill: rgba(255, 255, 255, 0.58);
-  --lg-rim: rgba(255, 255, 255, 0.85);
+  --lg-fill: rgba(255, 255, 255, 0.8);
+  --lg-hi: rgba(255, 255, 255, 1);
+  --lg-lo: rgba(0, 0, 0, 0.04);
   --lg-edge: rgba(0, 0, 0, 0.06);
-  --lg-hi: rgba(255, 255, 255, 0.95);
-  --lg-spec: rgba(255, 255, 255, 0.95);
-  --lg-shadow: 0 6px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --lg-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --lg-label: #1c1c1e;
+  --lg-tint: #007aff;
+  --lg-selected: rgba(120, 120, 128, 0.16);
   --lg-press: rgba(0, 0, 0, 0.06);
   --lg-blur: blur(20px) saturate(180%);
+  /* 侧栏按钮的中线离侧栏外缘 48px：48pt 宽的按钮离外缘 col - 60 */
+  --col-btn-r: max(0px, calc(var(--col-r) - 60px));
+  --col-btn-l: max(0px, calc(var(--col-l) - 60px));
 }
 :root[data-appearance="dark"] {
-  --lg-fill: rgba(44, 44, 48, 0.55);
-  --lg-rim: rgba(255, 255, 255, 0.16);
-  --lg-edge: rgba(0, 0, 0, 0.5);
-  --lg-hi: rgba(255, 255, 255, 0.22);
-  --lg-spec: rgba(255, 255, 255, 0.42);
-  --lg-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
-  --lg-press: rgba(255, 255, 255, 0.1);
+  --lg-fill: rgba(44, 44, 46, 0.72);
+  --lg-hi: rgba(255, 255, 255, 0.2);
+  --lg-lo: rgba(255, 255, 255, 0.07);
+  --lg-edge: transparent;
+  --lg-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --lg-label: #f5f5f7;
+  --lg-tint: #0a84ff;
+  --lg-selected: rgba(0, 0, 0, 0.62);
+  --lg-press: rgba(255, 255, 255, 0.08);
 }
 /* 不支持 backdrop-filter 时退化为更不透明的底色，保证图标可读 */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root { --lg-fill: rgba(255, 255, 255, 0.94); }
-  :root[data-appearance="dark"] { --lg-fill: rgba(44, 44, 48, 0.95); }
+  :root { --lg-fill: rgba(255, 255, 255, 0.96); }
+  :root[data-appearance="dark"] { --lg-fill: #1f1f1f; }
 }
 
 .has-side-column .floating-controls {
-  --fc-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  --fc-bottom: 24px;
   top: auto;
   bottom: var(--fc-bottom);
-  right: max(0px, calc((var(--col-r) - 48px) / 2));
+  right: var(--col-btn-r);
 }
 .has-side-column.side-left .floating-controls {
   right: auto;
-  left: max(0px, calc((var(--col-l) - 48px) / 2));
+  left: var(--col-btn-l);
+}
+/* 外屏向右（顺时针）横放时摄像头在侧栏底部：按钮栏整体上移避让（96px 为摄像头区域预留） */
+.has-side-column.cam-bottom .floating-controls {
+  --fc-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
 }
 
-/* 玻璃胶囊（按钮组）与玻璃圆钮（展开 / 收起） */
+/* 玻璃按钮栏、玻璃圆钮（展开 / 收起、页面返回）共用一套底 */
 .has-side-column .floating-controls-actions,
-.has-side-column .floating-controls-trigger {
+.has-side-column .floating-controls-trigger,
+.has-side-column .floating-controls-back {
   border: 0;
   background: var(--lg-fill);
   -webkit-backdrop-filter: var(--lg-blur);
   backdrop-filter: var(--lg-blur);
   box-shadow:
     inset 0 1px 0 var(--lg-hi),
-    inset 0 0 0 1px var(--lg-rim),
-    inset 0 0 0 1.5px var(--lg-edge),
+    inset 0 -1px 0 var(--lg-lo),
+    0 0 0 0.5px var(--lg-edge),
     var(--lg-shadow);
+  color: var(--lg-label);
 }
-/* 镜面高光边：左上、右下更亮的渐变描边 */
-.has-side-column .floating-controls-actions::before,
-.has-side-column .floating-controls-trigger::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  pointer-events: none;
-  background: linear-gradient(135deg, var(--lg-spec), transparent 32%, transparent 68%, var(--lg-spec));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+
+/* 整组竖排、贴底：浮层底边固定在 --fc-bottom，内容多了就往上长，返回圆钮始终紧贴在按钮栏上方 */
+.has-side-column .floating-controls-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.has-side-column .floating-controls.has-back {
+  --fc-back: 60px;
 }
 .has-side-column .floating-controls-actions {
+  position: static;
+  flex-direction: column;
   gap: 0;
-  padding: 2px;
+  padding: 3px;
   border-radius: 24px;
+  max-width: none;
+  /* 顶部 174px 留给侧栏里的系统图标，再扣展开圆钮 48 + 间距 12、返回圆钮 48 + 间距 12；
+     按钮多到放不下时可在按钮栏里上下滑动 */
+  max-height: calc(100vh - var(--fc-bottom) - 234px - var(--fc-back, 0px));
+  max-height: calc(100dvh - var(--fc-bottom) - 234px - var(--fc-back, 0px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  transform: translateY(0) scale(1);
+  transform-origin: center bottom;
+  transition:
+    max-height 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    margin 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 160ms ease,
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+/* 收起：按钮栏高度收成 0，并吃掉它下面那道 12px 间距，返回圆钮落到展开圆钮正上方 */
+.has-side-column .floating-controls.is-collapsed .floating-controls-actions {
+  max-width: none;
+  max-height: 0;
+  padding-block: 0;
+  margin-bottom: -12px;
+  overflow-y: hidden;
+  transform: translateY(18px) scale(0.96);
 }
 .has-side-column .floating-controls-actions .control-button {
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
+  width: 42px;
+  min-width: 42px;
+  height: 52px;
+  flex: 0 0 52px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 21px;
   background: transparent;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   box-shadow: none;
-  color: var(--text-primary);
+  color: var(--lg-label);
 }
-.has-side-column .floating-controls-trigger {
+.has-side-column .floating-controls-trigger,
+.has-side-column .floating-controls-back {
   width: 48px;
   min-width: 48px;
   height: 48px;
   flex: 0 0 48px;
-  color: var(--text-primary);
+  border-radius: 999px;
 }
 .has-side-column .floating-controls-actions .control-button svg,
-.has-side-column .floating-controls-trigger svg {
-  width: 20px;
-  height: 20px;
-  stroke-width: 1.8;
+.has-side-column .floating-controls-trigger svg,
+.has-side-column .floating-controls-back svg {
+  width: 21px;
+  height: 21px;
+  stroke-width: 2;
 }
 .has-side-column .floating-controls-actions .control-button,
-.has-side-column .floating-controls-trigger {
+.has-side-column .floating-controls-trigger,
+.has-side-column .floating-controls-back {
   transition:
     transform 180ms cubic-bezier(0.3, 0.7, 0.4, 1.4),
     background-color 200ms ease,
@@ -689,22 +732,27 @@
 .has-side-column .floating-controls-actions .control-button:hover {
   background: var(--lg-press);
   border-color: transparent;
+  color: var(--lg-label);
 }
-.has-side-column .floating-controls-trigger:hover {
+.has-side-column .floating-controls-trigger:hover,
+.has-side-column .floating-controls-back:hover {
   background: var(--lg-fill);
+  color: var(--lg-label);
 }
 .has-side-column .floating-controls-actions .control-button:active,
-.has-side-column .floating-controls-trigger:active {
-  transform: scale(0.94);
+.has-side-column .floating-controls-trigger:active,
+.has-side-column .floating-controls-back:active {
+  transform: scale(0.92);
 }
 .has-side-column .floating-controls-actions .control-button:active {
   background: var(--lg-press);
 }
-/* 已切换的按钮：iOS 工具栏的选中样式，着色图标 + 浅着色底 */
+/* 已切换的按钮：iOS 按钮栏的选中样式 —— 更深的竖向胶囊 + 系统蓝图标 */
 .has-side-column .floating-controls-actions .control-toggle.is-active {
-  background: color-mix(in srgb, var(--accent-500) 16%, transparent);
+  background: var(--lg-selected);
   border-color: transparent;
-  color: var(--accent-500);
+  box-shadow: none;
+  color: var(--lg-tint);
 }
 .has-side-column .floating-controls.has-warning .floating-controls-trigger {
   box-shadow:
@@ -715,37 +763,6 @@
 .has-side-column .floating-controls-warning-dot {
   top: 9px;
   right: 9px;
-}
-/* 外屏向右（顺时针）横放时摄像头在侧栏底部：按钮栏整体上移避让（96px 为摄像头区域预留） */
-.has-side-column.cam-bottom .floating-controls {
-  --fc-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
-}
-.has-side-column .floating-controls-actions {
-  top: auto;
-  right: auto;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  flex-direction: column;
-  max-width: none;
-  /* 顶部给状态栏图标留约 100px（另扣圆钮 48 + 间距 10）；按钮多到放不下时可在胶囊里上下滑动 */
-  max-height: calc(100vh - var(--fc-bottom) - 158px);
-  max-height: calc(100dvh - var(--fc-bottom) - 158px);
-  overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-width: none;
-  transform: translateX(-50%) translateY(0) scale(1);
-  transform-origin: center bottom;
-  transition:
-    max-height 220ms cubic-bezier(0.32, 0.72, 0, 1),
-    opacity 160ms ease,
-    transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-.has-side-column .floating-controls.is-collapsed .floating-controls-actions {
-  max-width: none;
-  max-height: 0;
-  padding-block: 0;
-  overflow-y: hidden;
-  transform: translateX(-50%) translateY(18px) scale(0.96);
 }
 .has-side-column .floating-controls-inner > .metric-color-picker,
 .has-side-column .floating-controls-sync-warning {
