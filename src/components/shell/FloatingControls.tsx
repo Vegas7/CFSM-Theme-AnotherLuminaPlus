@@ -88,10 +88,13 @@ interface ControlAction {
 export function FloatingControls({
   onExpandedChange,
   backTo,
+  homeActions = true,
 }: {
   onExpandedChange?: (expanded: boolean) => void;
   /** 子页面（详情页、资产页）在侧栏模式下用：按钮栏上方多一枚返回圆钮，跳到这个地址。 */
   backTo?: string;
+  /** 是否显示只作用于首页卡片的按钮（切换卡片视图、隐藏价格与资产）；详情页用不上。 */
+  homeActions?: boolean;
 }) {
   const { appearance, setAppearance } = usePreferences();
   const { mode, nextMode, toggleMode } = useViewMode();
@@ -155,17 +158,19 @@ export function FloatingControls({
       active: appearance !== "system",
       onSelect: cycleAppearance,
     });
-    actions.push({
-      key: "view",
-      priority: 1,
-      icon: VIEW_MODE_META[nextMode].icon,
-      label: t("切换卡片视图"),
-      title: t("临时切换到{view}", { view: t(VIEW_MODE_META[nextMode].label) }),
-      active: isReducedView,
-      pressed: isReducedView,
-      onSelect: toggleMode,
-    });
-    if (showPriceToggle) {
+    if (homeActions) {
+      actions.push({
+        key: "view",
+        priority: 1,
+        icon: VIEW_MODE_META[nextMode].icon,
+        label: t("切换卡片视图"),
+        title: t("临时切换到{view}", { view: t(VIEW_MODE_META[nextMode].label) }),
+        active: isReducedView,
+        pressed: isReducedView,
+        onSelect: toggleMode,
+      });
+    }
+    if (homeActions && showPriceToggle) {
       actions.push({
         key: "price",
         priority: 2,
