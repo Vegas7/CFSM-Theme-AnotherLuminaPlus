@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCameraAtColumnBottom, pickSideColumn } from "@/utils/duoSideColumn";
+import { columnVisibleCount, isCameraAtColumnBottom, pickSideColumn } from "@/utils/duoSideColumn";
 
 const insets = (left: number, right: number) => ({ top: 0, right, bottom: 0, left });
 
@@ -38,5 +38,25 @@ describe("isCameraAtColumnBottom", () => {
     expect(
       isCameraAtColumnBottom({ side: null, width: 678, height: 466, rotatedClockwise: true }),
     ).toBe(false);
+  });
+});
+
+describe("columnVisibleCount", () => {
+  it("shows every button when they all fit, with no overflow menu", () => {
+    // 外屏竖放的详情页：678 − 24 − 174 − 60 = 420，7 项需要 7×52+6 = 370
+    expect(columnVisibleCount(420, 7)).toBe(7);
+    expect(columnVisibleCount(370, 7)).toBe(7);
+  });
+
+  it("keeps room for the ⋯ button when some buttons overflow", () => {
+    // 外屏横放的详情页：466 − 24 − 174 − 60 = 208，减去「⋯」60 与内边距 6 后放得下 2 项
+    expect(columnVisibleCount(208, 7)).toBe(2);
+    expect(columnVisibleCount(369, 7)).toBe(5);
+  });
+
+  it("never goes below zero or above the number of buttons", () => {
+    expect(columnVisibleCount(40, 7)).toBe(0);
+    expect(columnVisibleCount(-100, 3)).toBe(0);
+    expect(columnVisibleCount(1000, 3)).toBe(3);
   });
 });
