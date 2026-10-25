@@ -1,11 +1,11 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import { useParams } from "react-router-dom";
 import "uplot/dist/uPlot.min.css";
 import { InstanceDetails } from "@/components/instance/InstanceDetails";
 import { PingChart } from "@/components/instance/PingChart";
 import { LoadChart } from "@/components/instance/LoadChart";
 import { RangeSelector } from "@/components/instance/RangeSelector";
+import { PageBack } from "@/components/shell/PageBack";
 import { Spinner } from "@/components/ui/Spinner";
 import {
   buildLoadTimeRangeOptions,
@@ -94,10 +94,7 @@ export function Instance() {
         : null;
     return (
       <div className="flex flex-col gap-5 py-2">
-        <Link to="/" className="instance-page-back">
-          <ChevronLeft size={14} />
-          {t("返回")}
-        </Link>
+        <PageBack />
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
           {message ? (
             <>
@@ -116,13 +113,7 @@ export function Instance() {
 
   return (
     <div className="flex flex-col gap-5 py-2">
-      <Link
-        to="/"
-        className="instance-page-back"
-      >
-        <ChevronLeft size={14} />
-        {t("返回")}
-      </Link>
+      <PageBack />
       <InstanceDetails uuid={uuid} onNodeReady={alignCharts} />
       {/* 负载在上、Ping 在下，同一页直接看，不再分标签切换。各自的时间段选择条放在各自面板的标题区中间，
           两张图的档位互不影响。 */}

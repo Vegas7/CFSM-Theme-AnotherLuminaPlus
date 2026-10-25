@@ -63,8 +63,11 @@ const APPEARANCE_META: Record<
 
 export function FloatingControls({
   onExpandedChange,
+  backTo,
 }: {
   onExpandedChange?: (expanded: boolean) => void;
+  /** 子页面（详情页、资产页）在侧栏模式下用：按钮栏上方多一枚返回圆钮，跳到这个地址。 */
+  backTo?: string;
 }) {
   const { appearance, setAppearance } = usePreferences();
   const { mode, nextMode, toggleMode } = useViewMode();
@@ -92,6 +95,7 @@ export function FloatingControls({
   const showColorPicker = loggedIn;
   const showPriceToggle = loggedIn;
   const showSyncWarning = failureStreak >= 2;
+  const showBack = inSideColumn && Boolean(backTo);
   const hiddenTabIndex = collapsed ? -1 : undefined;
   const ToggleIcon = inSideColumn
     ? collapsed
@@ -146,11 +150,23 @@ export function FloatingControls({
       className={clsx(
         "floating-controls",
         showSyncWarning && "has-warning",
+        showBack && "has-back",
         collapsed ? "is-collapsed" : "is-expanded",
       )}
     >
       <div className="floating-controls-inner">
         <div className="floating-controls-bar">
+          {/* 侧栏模式的返回：紧贴在按钮栏上方，跟着按钮栏一起从底部往上排，不钉在顶部（系统图标变多也挡不住） */}
+          {showBack && backTo && (
+            <Link
+              to={backTo}
+              aria-label={t("返回")}
+              title={t("返回")}
+              className="control-button floating-controls-back grid h-9 w-9 place-items-center"
+            >
+              <ChevronLeft size={16} />
+            </Link>
+          )}
           <div
             className="floating-controls-actions"
             aria-hidden={collapsed}
