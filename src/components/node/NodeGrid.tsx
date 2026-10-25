@@ -1094,9 +1094,13 @@ export function NodeGrid() {
   );
   // 迷你与列表档的控件栏借用小卡列宽，避免跟随密集内容列而被压窄。
   const borrowControlsGrid = isMini || isList;
-  const controlsWrapClassName = borrowControlsGrid
-    ? "grid gap-3 home-controls-bar mb-4"
-    : `${gridWrapClassName} home-controls-bar mb-4`;
+  // 排序控件在这条栏里（没开顶部总览时）就占最后一列，分组标签只占到它前面；否则标签可占满整行。
+  const sortInControlsBar = !showHomeOverview && showHomeSort;
+  const controlsWrapClassName = clsx(
+    borrowControlsGrid ? "grid gap-3" : gridWrapClassName,
+    "home-controls-bar mb-4",
+    sortInControlsBar && "has-sort",
+  );
   const controlsStyle = borrowControlsGrid
     ? {
       gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${GRID_LAYOUT.compact.minColumnWidth}px), 1fr))`,
@@ -1198,7 +1202,7 @@ export function NodeGrid() {
             </div>
           </div>
         )}
-        {((!showHomeOverview && showHomeSort) || showGroupTabs) && (
+        {(sortInControlsBar || showGroupTabs) && (
           <div className={controlsWrapClassName} style={controlsStyle}>
             {showGroupTabs && (
               <GroupTabs
@@ -1207,7 +1211,7 @@ export function NodeGrid() {
                 onSelectGroup={setSelectedGroup}
               />
             )}
-            {!showHomeOverview && showHomeSort && <HomeSortControl state={sort} />}
+            {sortInControlsBar && <HomeSortControl state={sort} />}
           </div>
         )}
         {showRegionBar && (
