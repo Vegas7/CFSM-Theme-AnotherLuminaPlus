@@ -109,6 +109,7 @@ export const EN: Record<string, string> = {
   "后台登录": "Admin login",
   "展开快捷按钮": "Show quick actions",
   "收起快捷按钮": "Hide quick actions",
+  "更多操作": "More actions",
   "实时状态同步异常，当前展示的是最近缓存": "Live sync failed; showing the latest cached data",
   "配色自定义": "Custom colors",
   "全部重置": "Reset all",

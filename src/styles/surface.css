@@ -585,8 +585,11 @@
 /* 侧栏按钮按 iOS 26 系统 App 在 Duo 侧栏里的按钮还原（对照真机截图量出来的）：
    - 位置：与侧栏顶部的系统图标（时间、Wi-Fi）同一条中线 —— 中线离侧栏外缘 48px（84px 宽的侧栏里偏向内容一侧），
      不在侧栏正中；最下面一枚按钮离屏幕底边 24px，按钮之间隔 12px。整组从底部往上排：
-     子页面的返回圆钮 → 按钮栏 → 展开 / 收起圆钮；顶部 174px 以内留给侧栏里的系统图标。
+     子页面的返回圆钮 → 按钮栏；顶部 174px 以内留给侧栏里的系统图标。按钮栏始终展开、没有收起圆钮
+     （系统 App 的侧栏按钮栏也不能收起），省下的高度留给按钮本身。
    - 尺寸：圆钮与竖向按钮栏都是 48pt 宽；按钮栏里每项 42×52、间距无缝。
+   - 放不下的按钮不在按钮栏里滚动，而是收进最下面的「⋯」圆钮：点开是贴在按钮栏旁边的玻璃菜单，
+     每项图标 + 文字（与系统 App 工具栏的溢出菜单一样），由 FloatingControls 按可用高度决定哪些放得下。
    - 样式：Liquid Glass 实色感的深灰底（深色 #1f1f1f 左右）铺满到边缘，只有顶部一道很淡的高光、底部一道更淡的反光，
      没有整圈描边；按钮栏里选中的一项是更深的竖向胶囊 + 系统蓝图标，未选中为白色图标。 */
 :root {
@@ -600,6 +603,7 @@
   --lg-selected: rgba(120, 120, 128, 0.16);
   --lg-press: rgba(0, 0, 0, 0.06);
   --lg-blur: blur(20px) saturate(180%);
+  --lg-menu: rgba(255, 255, 255, 0.9);
   /* 侧栏按钮的中线离侧栏外缘 48px：48pt 宽的按钮离外缘 col - 60 */
   --col-btn-r: max(0px, calc(var(--col-r) - 60px));
   --col-btn-l: max(0px, calc(var(--col-l) - 60px));
@@ -614,6 +618,7 @@
   --lg-tint: #0a84ff;
   --lg-selected: rgba(0, 0, 0, 0.62);
   --lg-press: rgba(255, 255, 255, 0.08);
+  --lg-menu: rgba(30, 30, 32, 0.9);
 }
 /* 不支持 backdrop-filter 时退化为更不透明的底色，保证图标可读 */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -636,10 +641,10 @@
   --fc-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
 }
 
-/* 玻璃按钮栏、玻璃圆钮（展开 / 收起、页面返回）共用一套底 */
+/* 玻璃按钮栏、玻璃返回圆钮共用一套底 */
 .has-side-column .floating-controls-actions,
-.has-side-column .floating-controls-trigger,
-.has-side-column .floating-controls-back {
+.has-side-column .floating-controls-back,
+.has-side-column .floating-controls-more {
   border: 0;
   background: var(--lg-fill);
   -webkit-backdrop-filter: var(--lg-blur);
@@ -669,29 +674,14 @@
   padding: 3px;
   border-radius: 24px;
   max-width: none;
-  /* 顶部 174px 留给侧栏里的系统图标，再扣展开圆钮 48 + 间距 12、返回圆钮 48 + 间距 12；
-     按钮多到放不下时可在按钮栏里上下滑动 */
-  max-height: calc(100vh - var(--fc-bottom) - 234px - var(--fc-back, 0px));
-  max-height: calc(100dvh - var(--fc-bottom) - 234px - var(--fc-back, 0px));
+  /* 顶部 174px 留给侧栏里的系统图标，有返回圆钮时再扣 48 + 间距 12。放不下的按钮由 FloatingControls
+     收进「⋯」菜单，这里的上限只是兜底（量到高度之前的第一帧）。 */
+  max-height: calc(100vh - var(--fc-bottom) - 174px - var(--fc-back, 0px));
+  max-height: calc(100dvh - var(--fc-bottom) - 174px - var(--fc-back, 0px));
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
-  transform: translateY(0) scale(1);
-  transform-origin: center bottom;
-  transition:
-    max-height 220ms cubic-bezier(0.32, 0.72, 0, 1),
-    margin 220ms cubic-bezier(0.32, 0.72, 0, 1),
-    opacity 160ms ease,
-    transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-/* 收起：按钮栏高度收成 0，并吃掉它下面那道 12px 间距，返回圆钮落到展开圆钮正上方 */
-.has-side-column .floating-controls.is-collapsed .floating-controls-actions {
-  max-width: none;
-  max-height: 0;
-  padding-block: 0;
-  margin-bottom: -12px;
-  overflow-y: hidden;
-  transform: translateY(18px) scale(0.96);
+  transform: none;
 }
 .has-side-column .floating-controls-actions .control-button {
   width: 42px;
@@ -706,8 +696,8 @@
   box-shadow: none;
   color: var(--lg-label);
 }
-.has-side-column .floating-controls-trigger,
-.has-side-column .floating-controls-back {
+.has-side-column .floating-controls-back,
+.has-side-column .floating-controls-more {
   width: 48px;
   min-width: 48px;
   height: 48px;
@@ -715,15 +705,15 @@
   border-radius: 999px;
 }
 .has-side-column .floating-controls-actions .control-button svg,
-.has-side-column .floating-controls-trigger svg,
-.has-side-column .floating-controls-back svg {
+.has-side-column .floating-controls-back svg,
+.has-side-column .floating-controls-more svg {
   width: 21px;
   height: 21px;
   stroke-width: 2;
 }
 .has-side-column .floating-controls-actions .control-button,
-.has-side-column .floating-controls-trigger,
-.has-side-column .floating-controls-back {
+.has-side-column .floating-controls-back,
+.has-side-column .floating-controls-more {
   transition:
     transform 180ms cubic-bezier(0.3, 0.7, 0.4, 1.4),
     background-color 200ms ease,
@@ -734,14 +724,14 @@
   border-color: transparent;
   color: var(--lg-label);
 }
-.has-side-column .floating-controls-trigger:hover,
-.has-side-column .floating-controls-back:hover {
+.has-side-column .floating-controls-back:hover,
+.has-side-column .floating-controls-more:hover {
   background: var(--lg-fill);
   color: var(--lg-label);
 }
 .has-side-column .floating-controls-actions .control-button:active,
-.has-side-column .floating-controls-trigger:active,
-.has-side-column .floating-controls-back:active {
+.has-side-column .floating-controls-back:active,
+.has-side-column .floating-controls-more:active {
   transform: scale(0.92);
 }
 .has-side-column .floating-controls-actions .control-button:active {
@@ -753,16 +743,6 @@
   border-color: transparent;
   box-shadow: none;
   color: var(--lg-tint);
-}
-.has-side-column .floating-controls.has-warning .floating-controls-trigger {
-  box-shadow:
-    inset 0 1px 0 var(--lg-hi),
-    inset 0 0 0 1px color-mix(in srgb, var(--status-offline) 45%, transparent),
-    var(--lg-shadow);
-}
-.has-side-column .floating-controls-warning-dot {
-  top: 9px;
-  right: 9px;
 }
 .has-side-column .floating-controls-inner > .metric-color-picker,
 .has-side-column .floating-controls-sync-warning {
@@ -778,6 +758,93 @@
 .has-side-column .metric-color-picker {
   max-height: min(560px, calc(100vh - var(--fc-bottom) - env(safe-area-inset-top, 0px) - 24px));
   max-height: min(560px, calc(100dvh - var(--fc-bottom) - env(safe-area-inset-top, 0px) - 24px));
+}
+
+/* 「⋯」溢出菜单：贴在按钮栏旁边、底边与「⋯」圆钮对齐，像系统 App 的菜单一样从圆钮处弹出 */
+.has-side-column .floating-controls-more.is-open {
+  color: var(--lg-tint);
+}
+.has-side-column .floating-controls-menu {
+  position: absolute;
+  z-index: 2;
+  bottom: 0;
+  right: calc(100% + 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 216px;
+  max-width: min(300px, calc(100vw - var(--col-r) - 24px));
+  max-height: calc(100vh - var(--fc-bottom) - 24px);
+  max-height: calc(100dvh - var(--fc-bottom) - 24px);
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 22px;
+  background: var(--lg-menu);
+  -webkit-backdrop-filter: var(--lg-blur);
+  backdrop-filter: var(--lg-blur);
+  box-shadow:
+    inset 0 1px 0 var(--lg-hi),
+    0 0 0 0.5px var(--lg-edge),
+    0 18px 48px rgba(0, 0, 0, 0.28);
+  transform-origin: right bottom;
+  animation: floating-controls-menu-in 200ms cubic-bezier(0.3, 0.7, 0.4, 1.15);
+}
+.has-side-column.side-left .floating-controls-menu {
+  right: auto;
+  left: calc(100% + 12px);
+  max-width: min(300px, calc(100vw - var(--col-l) - 24px));
+  transform-origin: left bottom;
+}
+.floating-controls-menu-item {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--lg-label);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 160ms ease;
+}
+.floating-controls-menu-item svg {
+  flex: 0 0 auto;
+  stroke-width: 2;
+}
+.floating-controls-menu-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.floating-controls-menu-item:hover,
+.floating-controls-menu-item:focus-visible,
+.floating-controls-menu-item:active {
+  background: var(--lg-press);
+  outline: none;
+}
+.floating-controls-menu-item.is-active svg {
+  color: var(--lg-tint);
+}
+@keyframes floating-controls-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .has-side-column .floating-controls-menu {
+    animation: none;
+  }
 }
 
 /* 主题管理报头:eyebrow + 大标题 + 右侧账目式元信息,和资产页同一套编辑排版语言。 */

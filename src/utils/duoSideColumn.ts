@@ -73,6 +73,22 @@ function rotatedClockwise(): boolean {
   return typeof angle === "number" && angle === 270;
 }
 
+/**
+ * iPhone Duo 侧栏里按钮栏的尺寸，与 surface.css 侧栏一节保持一致：
+ * 顶部 174px 留给系统图标；按钮栏每项 52px、上下内边距共 6px；圆钮 48px，与按钮栏间隔 12px。
+ */
+export const COLUMN_TOP_RESERVE = 174;
+export const COLUMN_ITEM_HEIGHT = 52;
+export const COLUMN_BAR_PADDING = 6;
+export const COLUMN_CIRCLE_SLOT = 48 + 12;
+
+/** 侧栏里按钮栏能放下几项：全部放得下就不要「⋯」；否则留出「⋯」圆钮的位置再算。 */
+export function columnVisibleCount(available: number, total: number): number {
+  if (total * COLUMN_ITEM_HEIGHT + COLUMN_BAR_PADDING <= available) return total;
+  const room = available - COLUMN_CIRCLE_SLOT - COLUMN_BAR_PADDING;
+  return Math.max(0, Math.min(total, Math.floor(room / COLUMN_ITEM_HEIGHT)));
+}
+
 let currentSide: SideColumnSide | null = null;
 const listeners = new Set<() => void>();
 let installed = false;
