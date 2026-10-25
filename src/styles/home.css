@@ -3584,9 +3584,20 @@
   padding-top: 0px;
 }
 
-/* 首页控件条复用卡片网格列定义：分组标签落在第一列，排序控件钉在最后一列。 */
+/* 首页控件条复用卡片网格列定义：排序控件钉在最后一列；分组标签从第一列一直占到排序控件前
+   （没有排序控件时占满整行），标签多到整行放不下才横向滚动，而不是一列宽就开始滚。 */
 .home-controls-bar {
   align-items: center;
+}
+
+.home-controls-bar .home-group-tabs {
+  grid-column: 1 / -1;
+  justify-self: start;
+  max-width: 100%;
+}
+
+.home-controls-bar.has-sort .home-group-tabs {
+  grid-column: 1 / -2;
 }
 
 .home-sort {
