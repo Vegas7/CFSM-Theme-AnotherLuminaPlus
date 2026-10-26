@@ -117,3 +117,29 @@ describe("normalizeThemeSettings", () => {
     expect(normalizeThemeSettings({ adminNickname: "  jerry  " }).adminNickname).toBe("jerry");
   });
 });
+
+describe("overview metric card toggles", () => {
+  const CARD_KEYS = [
+    "showConnectionsOverview",
+    "showCpuOverview",
+    "showRamOverview",
+    "showDiskOverview",
+    "showUptimeOverview",
+    "showAssetOverview",
+  ] as const;
+
+  it("shows every card when nothing is configured", () => {
+    const settings = normalizeThemeSettings({});
+    for (const key of CARD_KEYS) expect(settings[key]).toBe(true);
+  });
+
+  it("hides only the cards switched off", () => {
+    const settings = normalizeThemeSettings({ showCpuOverview: false, showUptimeOverview: false });
+    expect(settings.showCpuOverview).toBe(false);
+    expect(settings.showUptimeOverview).toBe(false);
+    expect(settings.showConnectionsOverview).toBe(true);
+    expect(settings.showRamOverview).toBe(true);
+    expect(settings.showDiskOverview).toBe(true);
+    expect(settings.showAssetOverview).toBe(true);
+  });
+});

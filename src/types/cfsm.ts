@@ -565,6 +565,13 @@ export interface ThemeSettings {
   pingLossColors?: Partial<PingLossColors>;
   trafficSpectrumColors?: Partial<TrafficSpectrumColors>;
   showHomeOverview?: boolean;
+  /** 顶部总览里各张指标卡的开关（未写 = 显示）。 */
+  showAssetOverview?: boolean;
+  showConnectionsOverview?: boolean;
+  showCpuOverview?: boolean;
+  showRamOverview?: boolean;
+  showDiskOverview?: boolean;
+  showUptimeOverview?: boolean;
   showGroupTabs?: boolean;
   showRegionBar?: boolean;
   showCardGroup?: boolean;

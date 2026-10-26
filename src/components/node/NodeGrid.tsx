@@ -213,6 +213,14 @@ function getTimeGreetingInfo(
   };
 }
 
+interface OverviewMetricCards {
+  connections: boolean;
+  cpu: boolean;
+  ram: boolean;
+  disk: boolean;
+  uptime: boolean;
+}
+
 function HomeOverviewCards({
   overview,
   costSummary,
@@ -224,6 +232,7 @@ function HomeOverviewCards({
   assetRatingLabels,
   showDetailButton,
   showAssetCard,
+  metricCards,
   renewalReminderDays,
   renewalNodes,
   dense,
@@ -249,6 +258,8 @@ function HomeOverviewCards({
   assetRatingLabels: string;
   showDetailButton: boolean;
   showAssetCard: boolean;
+  /** 资产总值以外五张指标卡各自显示与否（设置页「首页 → 总览 → 指标卡」）。 */
+  metricCards: OverviewMetricCards;
   renewalReminderDays: number;
   renewalNodes: RenewalReminderSource[];
   username: string;
@@ -264,6 +275,8 @@ function HomeOverviewCards({
 }) {
   const queryClient = useQueryClient();
   const [renewalPopoverOpen, setRenewalPopoverOpen] = useState(false);
+  const statCardCount =
+    Object.values(metricCards).filter(Boolean).length + (showAssetCard ? 1 : 0);
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
   const handleStartEdit = () => {
@@ -353,6 +366,7 @@ function HomeOverviewCards({
     <section
       className={`mao-dashboard-hero home-overview${dense ? " is-dense" : ""}`}
       aria-label={t("首页总览")}
+      data-stat-cards={statCardCount}
       data-palette={matrixColorTheme || "default"}
     >
       {/* 左侧主要区域：问候语 + 6 宫格指标小卡片 */}
@@ -417,9 +431,11 @@ function HomeOverviewCards({
           </p>
         </div>
 
-        {/* 6 宫格指标卡片 */}
-        <div className="mao-stat-grid" data-cards={showAssetCard ? 6 : 5}>
+        {/* 指标卡片（最多 6 张，可在设置里逐张关掉）：data-cards 是实际张数，CSS 按张数排版，避免留空格 */}
+        {statCardCount > 0 && (
+        <div className="mao-stat-grid" data-cards={statCardCount}>
           {/* 1. 活跃连接 (全站活跃连接数) */}
+          {metricCards.connections && (
           <div className="mao-stat-card" data-metric="connections">
             <div className="mao-stat-head">
               <div className="mao-stat-title-wrap">
@@ -437,7 +453,10 @@ function HomeOverviewCards({
             </div>
           </div>
 
+          )}
+
           {/* 2. 平均 CPU */}
+          {metricCards.cpu && (
           <div className="mao-stat-card" data-metric="cpu">
             <div className="mao-stat-head">
               <div className="mao-stat-title-wrap">
@@ -455,7 +474,10 @@ function HomeOverviewCards({
             </div>
           </div>
 
+          )}
+
           {/* 3. 内存用量 */}
+          {metricCards.ram && (
           <div className="mao-stat-card" data-metric="ram">
             <div className="mao-stat-head">
               <div className="mao-stat-title-wrap">
@@ -473,7 +495,10 @@ function HomeOverviewCards({
             </div>
           </div>
 
+          )}
+
           {/* 4. 硬盘用量 */}
+          {metricCards.disk && (
           <div className="mao-stat-card" data-metric="disk">
             <div className="mao-stat-head">
               <div className="mao-stat-title-wrap">
@@ -491,7 +516,10 @@ function HomeOverviewCards({
             </div>
           </div>
 
+          )}
+
           {/* 5. 最近重启 (全网最近重启时长 & 节点名称) */}
+          {metricCards.uptime && (
           <div className="mao-stat-card" data-metric="uptime">
             <div className="mao-stat-head">
               <div className="mao-stat-title-wrap">
@@ -524,6 +552,8 @@ function HomeOverviewCards({
               </span>
             </div>
           </div>
+
+          )}
 
           {/* 6. 资产总值 (右上角钱币图标集成临期提醒悬浮窗) */}
           {showAssetCard && (
@@ -562,6 +592,7 @@ function HomeOverviewCards({
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* 右侧集群状态区域 */}
@@ -890,6 +921,13 @@ export function NodeGrid() {
   const canAccessAssets = loggedIn || themeSettings.showPriceForGuests;
   // 资产总值卡片：访客能不能看价格由 showPriceForGuests 管；整张卡还可以在设置里单独关掉（showAssetOverview）。
   const showAssetCard = showHomeOverview && hasNodes && themeSettings.showAssetOverview;
+  const overviewMetricCards: OverviewMetricCards = {
+    connections: themeSettings.showConnectionsOverview,
+    cpu: themeSettings.showCpuOverview,
+    ram: themeSettings.showRamOverview,
+    disk: themeSettings.showDiskOverview,
+    uptime: themeSettings.showUptimeOverview,
+  };
   const showCostDetailButton =
     showAssetCard && themeSettings.isReady && themeSettings.showCostSummary && canAccessAssets;
   const showCostFloatingButton =
@@ -1131,6 +1169,7 @@ export function NodeGrid() {
           dense={mode === "mini" || mode === "list"}
           showDetailButton={showCostDetailButton}
           showAssetCard={showAssetCard}
+          metricCards={overviewMetricCards}
           renewalReminderDays={
             themeSettings.isReady ? themeSettings.renewalReminderDays : 0
           }
