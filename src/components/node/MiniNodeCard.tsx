@@ -18,7 +18,7 @@ import { IpStackBadges } from "./IpStackBadges";
 import { NodeCardHead } from "./NodeCardHead";
 import { nodeDetailPath } from "./useNodeDetailClick";
 import { HealthBucketTooltip } from "./HealthBucketTooltip";
-import { LatencySparklineChart } from "./LatencySparkline";
+import { PingSparklineChart } from "./PingSparkline";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { MetricDetailTip, useMetricDetailTip } from "./MetricDetailTip";
 import { resolveTouchBucketIndex, TOUCH_BUCKET_HOLD_MS } from "./touchBucketPick";
@@ -420,7 +420,7 @@ const MiniHealth = memo(function MiniHealth({
           </strong>
         </div>
         {pingStyle === "line" ? (
-          <LatencySparklineChart
+          <PingSparklineChart
             className="mini-health-chart-wrap"
             buckets={pingBuckets}
             value={ping.lastValue}
@@ -447,7 +447,17 @@ const MiniHealth = memo(function MiniHealth({
             )}
           </strong>
         </div>
-        <MiniHealthBars kind="loss" buckets={pingBuckets} />
+        {pingStyle === "line" ? (
+          <PingSparklineChart
+            className="mini-health-chart-wrap"
+            buckets={pingBuckets}
+            metric="loss"
+            value={ping.loss}
+            height={16}
+          />
+        ) : (
+          <MiniHealthBars kind="loss" buckets={pingBuckets} />
+        )}
       </div>
     </div>
   );

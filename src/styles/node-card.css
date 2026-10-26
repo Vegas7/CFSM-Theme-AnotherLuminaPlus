@@ -648,6 +648,21 @@
   font-size: 11px;
 }
 
+/* 手机：线路名、延迟两列和间距收窄，把位置让给曲线（大卡在 360px 宽时曲线原来只剩 48px） */
+@media (max-width: 520px) {
+  .multi-ping-line-row,
+  .multi-ping-status.is-line.is-compact .multi-ping-line-row {
+    grid-template-columns: 6px minmax(2.2em, 3.4em) 3.3em minmax(56px, 1fr) auto;
+    gap: 6px;
+  }
+
+  .multi-ping-line-loss,
+  .multi-ping-status.is-line.is-compact .multi-ping-line-loss {
+    min-width: 0;
+    gap: 3px;
+  }
+}
+
 .server-health-block {
   display: flex;
   flex-direction: column;
@@ -673,14 +688,14 @@
   height: 16px;
 }
 
-/* 延迟「曲线」模式（LatencySparkline）：平滑折线 + 同色渐变填充，颜色由 --sparkline-color 给出 */
-.latency-sparkline-wrap {
+/* 延迟「曲线」模式（PingSparkline）：平滑折线 + 同色渐变填充，颜色由 --sparkline-color 给出 */
+.ping-sparkline-wrap {
   position: relative;
   display: block;
   min-width: 0;
 }
 
-.latency-sparkline {
+.ping-sparkline {
   position: relative;
   display: block;
   width: 100%;
@@ -688,31 +703,31 @@
   touch-action: pan-y;
 }
 
-.latency-sparkline svg {
+.ping-sparkline svg {
   display: block;
   overflow: visible;
 }
 
-.latency-sparkline-line {
+.ping-sparkline-line {
   fill: none;
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.latency-sparkline-track {
+.ping-sparkline-track {
   stroke: var(--progress-bg);
   stroke-width: 1;
   stroke-dasharray: 3 3;
 }
 
-.latency-sparkline-guide {
+.ping-sparkline-guide {
   stroke: var(--text-tertiary);
   stroke-width: 1;
   opacity: 0.45;
 }
 
-.latency-sparkline-dot {
+.ping-sparkline-dot {
   position: absolute;
   width: 7px;
   height: 7px;

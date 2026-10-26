@@ -2485,7 +2485,7 @@ export function ThemeManage() {
                     <div>
                       <span className="setting-subhead-title">{t("延迟图形")}</span>
                       <p className="setting-hint mt-1">
-                        {t("点阵：每格一种颜色；曲线：平滑折线，颜色随当前延迟变化，丢包显示为数字。大卡、小卡、迷你卡与列表都会跟着切换。")}
+                        {t("点阵：每格一种颜色；曲线：平滑折线，延迟、丢包各按当前值取色（多线模式下丢包显示为数字）。大卡、小卡、迷你卡与列表都会跟着切换。")}
                       </p>
                     </div>
                     <div className="instance-segmented is-prominent is-even is-stack-mobile">

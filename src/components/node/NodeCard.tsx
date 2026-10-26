@@ -31,7 +31,7 @@ import { Flag } from "@/components/ui/Flag";
 import { OsLogo } from "@/components/ui/OsLogo";
 import { MetricBar } from "./MetricBar";
 import { LatencyBars } from "./LatencyBars";
-import { LatencySparkline } from "./LatencySparkline";
+import { PingSparkline } from "./PingSparkline";
 import { QualityBars } from "./QualityBars";
 import { CanvasStrip, mixSrgbTowardWhite, safeCanvasColor } from "./CanvasStrip";
 import {
@@ -511,7 +511,7 @@ const NodeHealthSection = memo(function NodeHealthSection({
         <div className="server-health-chart-wrap">
           {shouldRenderPingBars ? (
             pingStyle === "line" ? (
-              <LatencySparkline
+              <PingSparkline
                 buckets={pingBuckets}
                 value={ping.lastValue}
                 height={22}
@@ -563,11 +563,21 @@ const NodeHealthSection = memo(function NodeHealthSection({
         </div>
         <div className="server-health-chart-wrap">
           {shouldRenderPingBars ? (
-            <QualityBars
-              buckets={pingBuckets}
-              redrawKey={redrawKey}
-              onHoverIndex={onLossHover}
-            />
+            pingStyle === "line" ? (
+              <PingSparkline
+                buckets={pingBuckets}
+                metric="loss"
+                value={ping.loss}
+                height={22}
+                onHoverIndex={onLossHover}
+              />
+            ) : (
+              <QualityBars
+                buckets={pingBuckets}
+                redrawKey={redrawKey}
+                onHoverIndex={onLossHover}
+              />
+            )
           ) : (
             <div className="server-health-placeholder">{t("未配置首页 Ping")}</div>
           )}

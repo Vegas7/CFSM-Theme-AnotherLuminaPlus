@@ -7,7 +7,7 @@ import type { HomepagePingDisplayLine } from "@/types/cfsm";
 import { resolveCustomLatencyColor, resolveCustomLossColor } from "@/utils/metricTone";
 import { HealthBucketTooltip } from "./HealthBucketTooltip";
 import { LatencyBars } from "./LatencyBars";
-import { LatencySparklineChart } from "./LatencySparkline";
+import { PingSparklineChart } from "./PingSparkline";
 import { PingLineSwitcher } from "./PingLineSwitcher";
 import { QualityBars } from "./QualityBars";
 import { formatHealthBucketTooltip } from "./pingBucketText";
@@ -203,7 +203,7 @@ const MultiPingLineRow = memo(function MultiPingLineRow({
         {latencyText}
         {line.lastValue != null && <small>ms</small>}
       </strong>
-      <LatencySparklineChart
+      <PingSparklineChart
         className="multi-ping-line-chart"
         buckets={line.buckets}
         value={line.lastValue}

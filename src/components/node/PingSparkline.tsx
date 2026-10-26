@@ -10,20 +10,30 @@ import { resolveCustomLatencyColor, resolveCustomLossColor } from "@/utils/metri
 import { supportsFineHover } from "@/utils/mediaQuery";
 import { HealthBucketTooltip } from "./HealthBucketTooltip";
 import { formatHealthBucketTooltip } from "./pingBucketText";
-import { buildSparkline } from "./sparklineGeometry";
+import { buildSparkline, lossSparklineRange } from "./sparklineGeometry";
 import { resolveTouchBucketIndex, TOUCH_BUCKET_HOLD_MS } from "./touchBucketPick";
 
+export type PingSparklineMetric = "latency" | "loss";
+
+/** 这一格在曲线上的值：延迟取 value；丢包要这一格真有探测（total > 0）才算数，没探测的不当 0%。 */
+function bucketValue(bucket: PingOverviewBucket, metric: PingSparklineMetric): number | null {
+  if (metric === "latency") return bucket.value;
+  return bucket.total > 0 && bucket.loss != null && Number.isFinite(bucket.loss) ? bucket.loss : null;
+}
+
 /**
- * 首页延迟的「曲线」模式（设置里「延迟图形 → 曲线」）。
+ * 首页延迟 / 丢包的「曲线」模式（设置里「延迟图形 → 曲线」）。
  *
- * 平滑折线 + 渐变填充，整条的颜色按当前延迟取色（与数值同一套阈值和配色），延迟一变颜色跟着变。
- * 整轮超时、节点掉线的格子在底边画一小段红色，对应点阵模式里涂红的格子。
+ * 平滑折线 + 渐变填充，整条的颜色按当前值取色（延迟、丢包各用自己的阈值和配色），数值一变颜色跟着变。
+ * 延迟按这一行的数据自动缩放；丢包底边固定 0%、顶边至少 5%，没丢包时平平地贴着下方。
+ * 节点掉线的格子在底边画一小段红色；延迟曲线里整轮超时的格子也这样标（丢包曲线里它就是 100% 的尖峰）。
  * 用 SVG 画，不建 canvas：迷你卡一屏几十张，和 MiniHealthBars 一样保持轻量。
  * 悬停 / 触屏点按的口径与点阵模式一致（按整条宽度均分到格，见 touchBucketPick），
  * 外层照旧用 HealthBucketTooltip 显示那一格的数值。
  */
-export const LatencySparkline = memo(function LatencySparkline({
+export const PingSparkline = memo(function PingSparkline({
   buckets,
+  metric = "latency",
   height = 16,
   value,
   onHoverIndex,
@@ -32,8 +42,9 @@ export const LatencySparkline = memo(function LatencySparkline({
   className,
 }: {
   buckets: PingOverviewBucket[];
+  metric?: PingSparklineMetric;
   height?: number;
-  /** 决定曲线颜色的延迟；不传就取最后一个有样本的格子。 */
+  /** 决定曲线颜色的当前值（延迟 ms 或丢包 %）；不传就取最后一个有样本的格子。 */
   value?: number | null;
   onHoverIndex?: (index: number | null) => void;
   latencyThresholds?: PingLatencyThresholds;
@@ -45,8 +56,18 @@ export const LatencySparkline = memo(function LatencySparkline({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const touchHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const values = useMemo(() => buckets.map((bucket) => bucket.value), [buckets]);
-  const geometry = useMemo(() => buildSparkline(values, { height }), [values, height]);
+  const values = useMemo(
+    () => buckets.map((bucket) => bucketValue(bucket, metric)),
+    [buckets, metric],
+  );
+  const geometry = useMemo(
+    () =>
+      buildSparkline(values, {
+        height,
+        range: metric === "loss" ? lossSparklineRange(values) : undefined,
+      }),
+    [values, height, metric],
+  );
 
   const colorValue = useMemo(() => {
     if (value != null) return value;
@@ -59,11 +80,17 @@ export const LatencySparkline = memo(function LatencySparkline({
   const color =
     colorValue == null
       ? "var(--text-tertiary)"
-      : resolveCustomLatencyColor(
-          colorValue,
-          latencyThresholds ?? themeSettings.pingLatencyThresholds,
-          latencyColors ?? themeSettings.pingLatencyColors,
-        );
+      : metric === "loss"
+        ? resolveCustomLossColor(
+            colorValue,
+            themeSettings.pingLossThresholds,
+            themeSettings.pingLossColors,
+          )
+        : resolveCustomLatencyColor(
+            colorValue,
+            latencyThresholds ?? themeSettings.pingLatencyThresholds,
+            latencyColors ?? themeSettings.pingLatencyColors,
+          );
   const failColor = resolveCustomLossColor(
     100,
     themeSettings.pingLossThresholds,
@@ -100,7 +127,7 @@ export const LatencySparkline = memo(function LatencySparkline({
 
   return (
     <span
-      className={["latency-sparkline", className].filter(Boolean).join(" ")}
+      className={["ping-sparkline", className].filter(Boolean).join(" ")}
       style={{ height, "--sparkline-color": color } as CSSProperties}
       onPointerDown={(event) => {
         if (supportsFineHover(event.pointerType)) return;
@@ -137,7 +164,7 @@ export const LatencySparkline = memo(function LatencySparkline({
         </defs>
         {/* 底边一条淡虚线当轨道：还没采到样本的时段（如页面刚打开）看得出是「空」，与点阵模式的灰格对应 */}
         <line
-          className="latency-sparkline-track"
+          className="ping-sparkline-track"
           x1="0"
           x2={geometry.width}
           y1={height - 0.5}
@@ -152,7 +179,7 @@ export const LatencySparkline = memo(function LatencySparkline({
             {geometry.lines.map((d, index) => (
               <path
                 key={`l${index}`}
-                className="latency-sparkline-line"
+                className="ping-sparkline-line"
                 d={d}
                 style={{ stroke: color }}
                 vectorEffect="non-scaling-stroke"
@@ -161,7 +188,8 @@ export const LatencySparkline = memo(function LatencySparkline({
           </>
         )}
         {buckets.map((bucket, index) =>
-          bucket.offline || (bucket.value == null && bucket.total > 0 && (bucket.loss ?? 0) >= 100) ? (
+          bucket.offline ||
+          (metric === "latency" && bucket.value == null && bucket.total > 0 && (bucket.loss ?? 0) >= 100) ? (
             <rect
               key={`f${bucket.index}`}
               x={index * slot + slot * 0.12}
@@ -175,7 +203,7 @@ export const LatencySparkline = memo(function LatencySparkline({
         )}
         {hoveredIndex != null && (
           <line
-            className="latency-sparkline-guide"
+            className="ping-sparkline-guide"
             x1={(hoveredIndex + 0.5) * slot}
             x2={(hoveredIndex + 0.5) * slot}
             y1="0"
@@ -186,7 +214,7 @@ export const LatencySparkline = memo(function LatencySparkline({
       </svg>
       {hoveredPoint && (
         <span
-          className="latency-sparkline-dot"
+          className="ping-sparkline-dot"
           style={{
             left: `${((hoveredIndex! + 0.5) / buckets.length) * 100}%`,
             top: hoveredPoint.y,
@@ -199,24 +227,27 @@ export const LatencySparkline = memo(function LatencySparkline({
 });
 
 /** 曲线 + 那一格数值的气泡，给自己不管悬停状态的地方（小卡、迷你卡、多线行）直接用。 */
-export function LatencySparklineChart({
+export function PingSparklineChart({
   buckets,
+  metric = "latency",
   height,
   value,
   className,
 }: {
   buckets: PingOverviewBucket[];
+  metric?: PingSparklineMetric;
   height?: number;
   value?: number | null;
   className?: string;
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const hoveredBucket = hoveredIndex == null ? null : (buckets[hoveredIndex] ?? null);
-  const tooltip = hoveredBucket ? formatHealthBucketTooltip(hoveredBucket, "latency") : null;
+  const tooltip = hoveredBucket ? formatHealthBucketTooltip(hoveredBucket, metric) : null;
   return (
-    <span className={["latency-sparkline-wrap", className].filter(Boolean).join(" ")}>
-      <LatencySparkline
+    <span className={["ping-sparkline-wrap", className].filter(Boolean).join(" ")}>
+      <PingSparkline
         buckets={buckets}
+        metric={metric}
         height={height}
         value={value}
         onHoverIndex={setHoveredIndex}
