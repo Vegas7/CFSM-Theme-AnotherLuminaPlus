@@ -1,4 +1,5 @@
 import type {
+  HomepagePingStyle,
   PingLatencyColors,
   PingLatencyThresholds,
   PingLossColors,
@@ -191,6 +192,8 @@ export interface ResolvedThemeSettings {
   homepageDefaultPingTaskId: number;
   enableHomepageMultiPing: boolean;
   homepageMultiPingTaskIds: number[];
+  /** 首页延迟的图形：点阵或曲线（见 HomepagePingStyle）。 */
+  homepagePingStyle: HomepagePingStyle;
   homepagePingLineOverrides: PingLineOverridesByNode;
   fakePingForUnbound: boolean;
   pingLatencyThresholds: PingLatencyThresholds;
@@ -260,6 +263,7 @@ export const DEFAULT_THEME_SETTINGS: ResolvedThemeSettings = {
   homepageDefaultPingTaskId: DEFAULT_HOMEPAGE_PING_TASK_ID,
   enableHomepageMultiPing: true,
   homepageMultiPingTaskIds: [...DEFAULT_HOMEPAGE_MULTI_PING_TASK_IDS],
+  homepagePingStyle: "bars",
   homepagePingLineOverrides: EMPTY_PING_LINE_OVERRIDES_BY_NODE,
   fakePingForUnbound: false,
   pingLatencyThresholds: DEFAULT_PING_LATENCY_THRESHOLDS,
@@ -577,6 +581,7 @@ export function normalizeThemeSettings(
     ),
     enableHomepageMultiPing: enabledUnlessFalse(settings?.enableHomepageMultiPing),
     homepageMultiPingTaskIds,
+    homepagePingStyle: settings?.homepagePingStyle === "line" ? "line" : "bars",
     homepagePingLineOverrides: normalizePingLineOverridesByNode(settings?.homepagePingLineOverrides),
     fakePingForUnbound: settings?.fakePingForUnbound === true,
     pingLatencyThresholds: normalizePingLatencyThresholds(settings?.pingLatencyThresholds),

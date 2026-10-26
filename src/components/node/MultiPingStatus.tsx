@@ -7,6 +7,7 @@ import type { HomepagePingDisplayLine } from "@/types/cfsm";
 import { resolveCustomLatencyColor, resolveCustomLossColor } from "@/utils/metricTone";
 import { HealthBucketTooltip } from "./HealthBucketTooltip";
 import { LatencyBars } from "./LatencyBars";
+import { LatencySparklineChart } from "./LatencySparkline";
 import { PingLineSwitcher } from "./PingLineSwitcher";
 import { QualityBars } from "./QualityBars";
 import { formatHealthBucketTooltip } from "./pingBucketText";
@@ -135,6 +136,89 @@ const MultiPingMetricRow = memo(function MultiPingMetricRow({
   );
 });
 
+/**
+ * 「曲线」模式下的一行：圆点 + 线路名 · 当前延迟 · 曲线 · 丢包，一条线路占一行（点阵模式是左右两列）。
+ * 圆点、数值与曲线同色，跟着当前延迟变；丢包只显示数字。
+ */
+const MultiPingLineRow = memo(function MultiPingLineRow({
+  uuid,
+  slot,
+  line,
+  density,
+}: {
+  uuid: string;
+  slot: number;
+  line: HomepagePingDisplayLine;
+  density: MultiPingStatusDensity;
+}) {
+  useLang();
+  const themeSettings = useThemeSettings();
+  const latencyColor = resolveCustomLatencyColor(
+    line.lastValue,
+    themeSettings.pingLatencyThresholds,
+    themeSettings.pingLatencyColors,
+  );
+  const lossColor = resolveCustomLossColor(
+    line.loss,
+    themeSettings.pingLossThresholds,
+    themeSettings.pingLossColors,
+  );
+  const isLoading = line.loadState === "pending";
+  const isError = line.loadState === "error";
+  const staleError = isError && (line.lastValue != null || line.loss != null);
+  const latencyText =
+    isLoading && line.lastValue == null
+      ? "..."
+      : isError && line.lastValue == null
+        ? "!"
+        : line.lastValue == null
+          ? "—"
+          : String(Math.round(line.lastValue));
+  const lossText =
+    isLoading && line.loss == null
+      ? "..."
+      : line.loss == null
+        ? "—"
+        : `${line.loss.toFixed(1)}%`;
+  return (
+    <div
+      className="multi-ping-line-row"
+      data-load-state={line.loadState ?? "ready"}
+      title={`${t("{name} · 延迟 {latency} · 丢包 {loss}", {
+        name: line.taskName,
+        latency: line.lastValue == null ? latencyText : `${latencyText}ms`,
+        loss: lossText,
+      })}${staleError ? t(" · 刷新失败，显示上次数据") : ""}`}
+    >
+      <span
+        className="multi-ping-line-dot"
+        style={{ background: line.lastValue == null ? "var(--text-tertiary)" : latencyColor }}
+        aria-hidden
+      />
+      <PingLineSwitcher uuid={uuid} slot={slot} taskName={line.taskName} />
+      <strong
+        className="multi-ping-value multi-ping-line-value tabular"
+        style={{ color: line.lastValue == null ? "var(--text-tertiary)" : latencyColor }}
+      >
+        {latencyText}
+        {line.lastValue != null && <small>ms</small>}
+      </strong>
+      <LatencySparklineChart
+        className="multi-ping-line-chart"
+        buckets={line.buckets}
+        value={line.lastValue}
+        height={density === "compact" ? 16 : 20}
+      />
+      <span className="multi-ping-line-loss tabular">
+        <span>{t("丢包")}</span>
+        <strong style={{ color: line.loss == null ? "var(--text-tertiary)" : lossColor }}>
+          {lossText}
+        </strong>
+      </span>
+    </div>
+  );
+});
+
 const MultiPingMetricColumn = memo(function MultiPingMetricColumn({
   uuid,
   lines,
@@ -185,7 +269,23 @@ export const MultiPingStatus = memo(function MultiPingStatus({
   useLang();
   const { resolvedAppearance } = usePreferences();
   const colorsVersion = useMetricColorsVersion();
+  const themeSettings = useThemeSettings();
   const redrawKey = `${resolvedAppearance}:${colorsVersion}`;
+
+  if (themeSettings.homepagePingStyle === "line") {
+    return (
+      <div
+        className={clsx("multi-ping-status", "is-line", `is-${density}`, className)}
+        role="group"
+        aria-label={t("各线路延迟与丢包")}
+      >
+        {lines.map((line, slot) => (
+          // 与点阵模式一样按行号当 key，换线路后还是同一行（见 MultiPingMetricColumn）。
+          <MultiPingLineRow key={slot} uuid={uuid} slot={slot} line={line} density={density} />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div

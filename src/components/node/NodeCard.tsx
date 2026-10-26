@@ -31,6 +31,7 @@ import { Flag } from "@/components/ui/Flag";
 import { OsLogo } from "@/components/ui/OsLogo";
 import { MetricBar } from "./MetricBar";
 import { LatencyBars } from "./LatencyBars";
+import { LatencySparkline } from "./LatencySparkline";
 import { QualityBars } from "./QualityBars";
 import { CanvasStrip, mixSrgbTowardWhite, safeCanvasColor } from "./CanvasStrip";
 import {
@@ -451,6 +452,7 @@ const NodeHealthSection = memo(function NodeHealthSection({
   lossColor: string;
 }) {
   useLang();
+  const pingStyle = useThemeSettings().homepagePingStyle;
   const [hoveredLatencyIndex, setHoveredLatencyIndex] = useState<number | null>(null);
   const [hoveredLossIndex, setHoveredLossIndex] = useState<number | null>(null);
   const onLatencyHover = useCallback((index: number | null) => {
@@ -508,11 +510,20 @@ const NodeHealthSection = memo(function NodeHealthSection({
         </div>
         <div className="server-health-chart-wrap">
           {shouldRenderPingBars ? (
-            <LatencyBars
-              buckets={pingBuckets}
-              redrawKey={redrawKey}
-              onHoverIndex={onLatencyHover}
-            />
+            pingStyle === "line" ? (
+              <LatencySparkline
+                buckets={pingBuckets}
+                value={ping.lastValue}
+                height={22}
+                onHoverIndex={onLatencyHover}
+              />
+            ) : (
+              <LatencyBars
+                buckets={pingBuckets}
+                redrawKey={redrawKey}
+                onHoverIndex={onLatencyHover}
+              />
+            )
           ) : (
             <div className="server-health-placeholder">{t("未配置首页 Ping")}</div>
           )}
