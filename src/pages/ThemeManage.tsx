@@ -127,8 +127,9 @@ import {
 } from "@/utils/pingTasks";
 import {
   DEFAULT_THEME_SETTINGS,
+  changedThemeSettings,
   normalizeThemeSettings,
-  withPreferredAppearance,
+  resolveThemeSettings,
   type ResolvedThemeSettings,
 } from "@/utils/themeSettings";
 
@@ -1330,17 +1331,24 @@ export function ThemeManage() {
     retry: false,
   });
 
+  // 表单从实际生效的那份起步（后端 + 本机覆盖），跟首页一致。只看后端的话，本机改过的项在这里
+  // 显示的是后端的值，随便改一项还会把整份后端值写回本机、盖掉别的本机设置。
+  const localThemeSettings = useLocalThemeSettings();
   const sourceThemeSettings = useMemo(
-    () => normalizeThemeSettings(config?.theme_settings),
-    [config?.theme_settings],
+    () =>
+      resolveThemeSettings(config?.theme_settings, localThemeSettings, config?.preferredAppearance),
+    [config?.preferredAppearance, config?.theme_settings, localThemeSettings],
   );
   const sourceSignature = useMemo(
     () => JSON.stringify(pickManagedThemeSettings(sourceThemeSettings)),
     [sourceThemeSettings],
   );
   const lastSeededSignatureRef = useRef<string | null>(null);
+  // 表单上一次落定的样子（载入、自动保存时），自动保存只把相对它改过的项写进本机。
+  const savedBaselineRef = useRef<ThemeSettings>(DEFAULT_THEME_SETTINGS);
 
   const seedDrafts = useCallback((next: ResolvedThemeSettings) => {
+    savedBaselineRef.current = next;
     setDraft(draftFromSettings(next));
   }, []);
 
@@ -1564,7 +1572,6 @@ export function ThemeManage() {
     return count;
   }, [assignedTaskByClientUuid, clientsById]);
 
-  const localThemeSettings = useLocalThemeSettings();
   const allLineOverrides = useAllPingLineOverrides();
   const localLineOverrideCount = Object.keys(allLineOverrides).length;
 
@@ -1576,8 +1583,10 @@ export function ThemeManage() {
     if (draftCostRateApiUrlInvalid || draftMultiPingInvalid) return;
     const save = () => {
       autoSaveRef.current = null;
+      const changed = changedThemeSettings(draftThemeSettings, savedBaselineRef.current);
       lastSeededSignatureRef.current = draftSignature;
-      saveLocalThemeSettings({ ...getLocalThemeSettings(), ...draftThemeSettings });
+      savedBaselineRef.current = draftThemeSettings;
+      saveLocalThemeSettings({ ...getLocalThemeSettings(), ...changed });
       setSavedLocally(true);
     };
     autoSaveRef.current = save;
@@ -1616,11 +1625,7 @@ export function ThemeManage() {
     cancelSiteThemeSync();
     resetLocalThemeSettings();
     clearPingLineOverrides();
-    seedDrafts(
-      normalizeThemeSettings(
-        withPreferredAppearance(config?.preferredAppearance, config?.theme_settings ?? {}),
-      ),
-    );
+    seedDrafts(resolveThemeSettings(config?.theme_settings, {}, config?.preferredAppearance));
     setMessage(t("已丢弃本机设置，改用后端当前的配置"));
     setError(null);
   };
