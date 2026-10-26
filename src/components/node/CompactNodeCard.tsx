@@ -25,7 +25,7 @@ import { formatBytes } from "@/utils/format";
 import { buildTrafficHeatSpectrum, speedRateColor, speedRateColorFromBytes } from "@/utils/metricTone";
 import { supportsFineHover } from "@/utils/mediaQuery";
 import { formatHealthBucketTooltip } from "./pingBucketText";
-import { LatencySparklineChart } from "./LatencySparkline";
+import { PingSparklineChart } from "./PingSparkline";
 import { resolveTouchBucketIndex, TOUCH_BUCKET_HOLD_MS } from "./touchBucketPick";
 import { MultiPingStatus } from "./MultiPingStatus";
 import {
@@ -705,7 +705,7 @@ const CompactNodeHealth = memo(function CompactNodeHealth({
         color={latencyColor}
       >
         {pingStyle === "line" ? (
-          <LatencySparklineChart buckets={pingBuckets} value={ping.lastValue} height={16} />
+          <PingSparklineChart buckets={pingBuckets} value={ping.lastValue} height={16} />
         ) : (
           <HealthBars buckets={pingBuckets} kind="latency" />
         )}
@@ -717,7 +717,11 @@ const CompactNodeHealth = memo(function CompactNodeHealth({
         unit={ping.loss != null ? "%" : undefined}
         color={lossColor}
       >
-        <HealthBars buckets={pingBuckets} kind="loss" />
+        {pingStyle === "line" ? (
+          <PingSparklineChart buckets={pingBuckets} metric="loss" value={ping.loss} height={16} />
+        ) : (
+          <HealthBars buckets={pingBuckets} kind="loss" />
+        )}
       </CompactHealthItem>
     </div>
   );

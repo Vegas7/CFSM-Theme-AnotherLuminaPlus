@@ -12,7 +12,7 @@ import { speedRateColor } from "@/utils/metricTone";
 import { CanvasStrip, fillRoundedRect, safeCanvasColor } from "./CanvasStrip";
 import { LatencyBars } from "./LatencyBars";
 import { HealthBucketTooltip } from "./HealthBucketTooltip";
-import { LatencySparkline } from "./LatencySparkline";
+import { PingSparkline } from "./PingSparkline";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { formatOsLabel, joinTagTitle, nodeDetailLinkLabels } from "./nodeCardShared";
 import { formatHealthBucketTooltip } from "./pingBucketText";
@@ -217,7 +217,7 @@ function ListLatency({
       </span>
       <span className="node-list-latency-bars">
         {pingStyle === "line" ? (
-          <LatencySparkline
+          <PingSparkline
             buckets={buckets}
             value={latency}
             height={16}

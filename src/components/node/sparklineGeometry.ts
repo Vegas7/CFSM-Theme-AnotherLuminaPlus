@@ -1,5 +1,5 @@
 /**
- * 首页延迟「曲线」模式的几何计算（与渲染层无关，便于单测）。
+ * 首页延迟 / 丢包「曲线」模式的几何计算（与渲染层无关，便于单测）。
  *
  * 横轴：每个分桶占 `slot` 宽，点落在格子正中 —— 与点阵模式的柱子一一对应，悬停 / 点按取到的
  * 是同一格（见 touchBucketPick）。纵轴：按这一行自己的最小 / 最大延迟自动缩放，但至少留出
@@ -31,6 +31,8 @@ export interface SparklineOptions {
   padTop?: number;
   /** 底部留给填充渐变的比例（曲线最低点也不贴底）。 */
   bottomRoom?: number;
+  /** 纵轴范围；不传按数据自动缩放（见 sparklineRange）。丢包用 lossSparklineRange 固定从 0 起。 */
+  range?: { lo: number; hi: number } | null;
 }
 
 const DEFAULT_SLOT = 10;
@@ -53,6 +55,16 @@ export function sparklineRange(values: (number | null)[]): { lo: number; hi: num
     hi = mid + minRange / 2;
   }
   return { lo, hi };
+}
+
+/**
+ * 丢包的纵轴：底边固定是 0%，顶边至少 5%。没有丢包时曲线平平地贴着下方，
+ * 有丢包才隆起；整轮超时（100%）照实冲到顶。
+ */
+export function lossSparklineRange(values: (number | null)[]): { lo: number; hi: number } | null {
+  const samples = values.filter(finite);
+  if (samples.length === 0) return null;
+  return { lo: 0, hi: Math.max(5, ...samples) };
 }
 
 /** 单调三次插值（Fritsch–Carlson）：曲线平滑，但不会冲过相邻两点的数值，不画出不存在的尖峰。 */
@@ -110,10 +122,10 @@ export function monotonePath(points: SparklinePoint[], slot = DEFAULT_SLOT): str
 
 export function buildSparkline(
   values: (number | null)[],
-  { height, slot = DEFAULT_SLOT, padTop = 2, bottomRoom = 0.2 }: SparklineOptions,
+  { height, slot = DEFAULT_SLOT, padTop = 2, bottomRoom = 0.2, range: fixedRange }: SparklineOptions,
 ): SparklineGeometry {
   const width = Math.max(1, values.length) * slot;
-  const range = sparklineRange(values);
+  const range = fixedRange === undefined ? sparklineRange(values) : fixedRange;
   const points: (SparklinePoint | null)[] = values.map(() => null);
   const lines: string[] = [];
   const areas: string[] = [];

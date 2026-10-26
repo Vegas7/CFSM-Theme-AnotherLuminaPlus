@@ -715,8 +715,8 @@ export const EN: Record<string, string> = {
   "延迟图形": "Latency graphic",
   "点阵": "Dots",
   "曲线": "Line",
-  "点阵：每格一种颜色；曲线：平滑折线，颜色随当前延迟变化，丢包显示为数字。大卡、小卡、迷你卡与列表都会跟着切换。":
-    "Dots: one colored cell per time slot. Line: a smooth curve whose color follows the current latency, with packet loss shown as a number. Applies to large, small and mini cards and to the list.",
+  "点阵：每格一种颜色；曲线：平滑折线，延迟、丢包各按当前值取色（多线模式下丢包显示为数字）。大卡、小卡、迷你卡与列表都会跟着切换。":
+    "Dots: one colored cell per time slot. Line: smooth curves colored by the current latency and packet loss (in multi-route mode, loss is shown as a number). Applies to large, small and mini cards and to the list.",
   "多线槽位": "Route slots",
   "卡片将依序展示各线路的实时延迟光柱。": "Cards show live latency bars for each route in order.",
   "+ 添加展示线路": "+ Add route",

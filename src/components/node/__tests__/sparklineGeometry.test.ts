@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSparkline, monotonePath, sparklineRange } from "../sparklineGeometry";
+import { buildSparkline, lossSparklineRange, monotonePath, sparklineRange } from "../sparklineGeometry";
 
 /** 从路径里取出所有数字对，检查控制点有没有冲出数据范围。 */
 function pathYs(d: string): number[] {
@@ -70,5 +70,24 @@ describe("monotonePath", () => {
 
   it("draws a short dash for a single sample", () => {
     expect(monotonePath([{ x: 15, y: 8 }])).toBe("M11.5,8L18.5,8");
+  });
+});
+
+describe("loss sparkline", () => {
+  it("anchors the scale at 0% and shows at least 0-5%", () => {
+    expect(lossSparklineRange([0, 0, 0])).toEqual({ lo: 0, hi: 5 });
+    expect(lossSparklineRange([0, 2.1, 0])).toEqual({ lo: 0, hi: 5 });
+    expect(lossSparklineRange([0, 40, 100])).toEqual({ lo: 0, hi: 100 });
+    expect(lossSparklineRange([null, null])).toBeNull();
+  });
+
+  it("keeps a lossless line flat and puts loss above it", () => {
+    const flat = buildSparkline([0, 0, 0], { height: 20, range: lossSparklineRange([0, 0, 0]) });
+    const ys = flat.points.map((point) => point!.y);
+    expect(new Set(ys).size).toBe(1);
+
+    const values = [0, 3, 0];
+    const bumpy = buildSparkline(values, { height: 20, range: lossSparklineRange(values) });
+    expect(bumpy.points[1]!.y).toBeLessThan(bumpy.points[0]!.y);
   });
 });
