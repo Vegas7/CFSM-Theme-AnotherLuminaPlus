@@ -6,7 +6,7 @@ import {
 } from "@/services/themeSettingsStore";
 import {
   normalizeThemeSettings,
-  withPreferredAppearance,
+  resolveThemeSettings,
   type Appearance,
   type ResolvedThemeSettings,
 } from "@/utils/themeSettings";
@@ -38,12 +38,7 @@ function getResolvedThemeSettings(
   cachedRemote = remote;
   cachedLocal = local;
   cachedPreferred = preferred;
-  cachedResolved = normalizeThemeSettings(
-    withPreferredAppearance(preferred, {
-      ...(remote ?? {}),
-      ...local,
-    }) as RawThemeSettings,
-  );
+  cachedResolved = resolveThemeSettings(remote, local, preferred);
   return cachedResolved;
 }
 

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { normalizeThemeSettings } from "@/utils/themeSettings";
+import {
+  changedThemeSettings,
+  normalizeThemeSettings,
+  resolveThemeSettings,
+} from "@/utils/themeSettings";
 
 describe("normalizeThemeSettings", () => {
   it("keeps mini and falls unknown saved view modes back to compact", () => {
@@ -141,5 +145,43 @@ describe("overview metric card toggles", () => {
     expect(settings.showRamOverview).toBe(true);
     expect(settings.showDiskOverview).toBe(true);
     expect(settings.showAssetOverview).toBe(true);
+  });
+});
+
+describe("resolveThemeSettings", () => {
+  it("lays local overrides over the backend settings and the backend default appearance", () => {
+    const resolved = resolveThemeSettings(
+      { showHomeOverview: true, showGroupTabs: false },
+      { showHomeOverview: false },
+      "dark",
+    );
+    expect(resolved.showHomeOverview).toBe(false);
+    expect(resolved.showGroupTabs).toBe(false);
+    expect(resolved.defaultAppearance).toBe("dark");
+
+    expect(resolveThemeSettings({ defaultAppearance: "light" }, {}, "dark").defaultAppearance).toBe(
+      "light",
+    );
+    expect(resolveThemeSettings(undefined, {}, undefined)).toEqual(normalizeThemeSettings({}));
+  });
+});
+
+describe("changedThemeSettings", () => {
+  it("returns only the keys whose normalized value differs from the base", () => {
+    const base = resolveThemeSettings({ showGroupTabs: false }, { showHomeOverview: false }, "dark");
+    const next = { ...base, showRegionBar: !base.showRegionBar };
+    expect(changedThemeSettings(next, base)).toEqual({ showRegionBar: next.showRegionBar });
+    expect(changedThemeSettings({ ...base }, base)).toEqual({});
+  });
+
+  it("ignores key order inside objects", () => {
+    const base = normalizeThemeSettings({
+      costPremiums: { a: { amount: 1 }, b: { amount: 2, paidCny: 15 } },
+    });
+    const reordered = {
+      ...base,
+      costPremiums: Object.fromEntries(Object.entries(base.costPremiums).reverse()),
+    };
+    expect(changedThemeSettings(reordered, base)).toEqual({});
   });
 });

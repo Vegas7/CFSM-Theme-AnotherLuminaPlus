@@ -621,3 +621,55 @@ export function normalizeThemeSettings(
     costRateApiUrl: normalizeCostRateApiUrl(settings?.costRateApiUrl),
   };
 }
+
+type RawThemeSettings = (ThemeSettings & Record<string, unknown>) | null | undefined;
+
+/**
+ * 实际生效的主题设置：后端 theme_options 打底、本机覆盖压上去，默认外观先垫后台「默认外观」。
+ * 首页（useThemeSettings）和设置页的表单都从这里取，两边看到的才是同一份。
+ */
+export function resolveThemeSettings(
+  remote: RawThemeSettings,
+  local: Record<string, unknown>,
+  preferred: Appearance | undefined,
+): ResolvedThemeSettings {
+  return normalizeThemeSettings(
+    withPreferredAppearance(preferred, { ...(remote ?? {}), ...local }) as RawThemeSettings,
+  );
+}
+
+/**
+ * `next` 里跟 `base` 不一样的键（只看 `next` 自己带的键），设置页据此只把改过的项写进本机。
+ * 整份草稿写进去的话，没动过的项也会变成本机覆盖，盖掉别的本机设置，后端以后再改也跟不上。
+ * 两边都先规范化再比，对象的键序不算差异（例如溢价表）。
+ */
+export function changedThemeSettings(
+  next: ThemeSettings,
+  base: ThemeSettings,
+): Record<string, unknown> {
+  const normalizedNext: Record<string, unknown> = {
+    ...normalizeThemeSettings(next as RawThemeSettings),
+  };
+  const normalizedBase: Record<string, unknown> = {
+    ...normalizeThemeSettings(base as RawThemeSettings),
+  };
+  const changed: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(next)) {
+    if (stableJson(normalizedNext[key]) !== stableJson(normalizedBase[key])) {
+      changed[key] = value;
+    }
+  }
+  return changed;
+}
+
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, item: unknown) =>
+    item && typeof item === "object" && !Array.isArray(item)
+      ? Object.fromEntries(
+          Object.entries(item as Record<string, unknown>).sort(([a], [b]) =>
+            a < b ? -1 : a > b ? 1 : 0,
+          ),
+        )
+      : item,
+  );
+}
