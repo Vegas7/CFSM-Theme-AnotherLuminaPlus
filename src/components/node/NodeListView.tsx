@@ -12,6 +12,8 @@ import { speedRateColor } from "@/utils/metricTone";
 import { CanvasStrip, fillRoundedRect, safeCanvasColor } from "./CanvasStrip";
 import { LatencyBars } from "./LatencyBars";
 import { HealthBucketTooltip } from "./HealthBucketTooltip";
+import { LatencySparkline } from "./LatencySparkline";
+import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { formatOsLabel, joinTagTitle, nodeDetailLinkLabels } from "./nodeCardShared";
 import { formatHealthBucketTooltip } from "./pingBucketText";
 import type { PingOverviewTaskLoadState } from "@/types/cfsm";
@@ -187,6 +189,7 @@ function ListLatency({
   redrawKey: string;
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const pingStyle = useThemeSettings().homepagePingStyle;
   const state = resolveListPingState(
     loadState,
     hasRealHomepagePingBinding,
@@ -213,12 +216,21 @@ function ListLatency({
         {latency != null && <small>ms</small>}
       </span>
       <span className="node-list-latency-bars">
-        <LatencyBars
-          buckets={buckets}
-          redrawKey={redrawKey}
-          height={14}
-          onHoverIndex={setHoveredIndex}
-        />
+        {pingStyle === "line" ? (
+          <LatencySparkline
+            buckets={buckets}
+            value={latency}
+            height={16}
+            onHoverIndex={setHoveredIndex}
+          />
+        ) : (
+          <LatencyBars
+            buckets={buckets}
+            redrawKey={redrawKey}
+            height={14}
+            onHoverIndex={setHoveredIndex}
+          />
+        )}
         <HealthBucketTooltip text={tooltip} index={hoveredIndex} count={buckets.length} />
       </span>
     </div>

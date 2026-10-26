@@ -25,6 +25,7 @@ import { formatBytes } from "@/utils/format";
 import { buildTrafficHeatSpectrum, speedRateColor, speedRateColorFromBytes } from "@/utils/metricTone";
 import { supportsFineHover } from "@/utils/mediaQuery";
 import { formatHealthBucketTooltip } from "./pingBucketText";
+import { LatencySparklineChart } from "./LatencySparkline";
 import { resolveTouchBucketIndex, TOUCH_BUCKET_HOLD_MS } from "./touchBucketPick";
 import { MultiPingStatus } from "./MultiPingStatus";
 import {
@@ -679,6 +680,7 @@ const CompactNodeHealth = memo(function CompactNodeHealth({
   pingError: boolean;
 }) {
   useLang();
+  const pingStyle = useThemeSettings().homepagePingStyle;
   // 已绑定但无样本时显示"无样本",未绑定时显示"未配置" —— 见 pingEmptyLabels。
   const { text: emptyText } = pingEmptyLabels(
     hasRealHomepagePingBinding,
@@ -702,7 +704,11 @@ const CompactNodeHealth = memo(function CompactNodeHealth({
         unit={ping.lastValue != null ? "ms" : undefined}
         color={latencyColor}
       >
-        <HealthBars buckets={pingBuckets} kind="latency" />
+        {pingStyle === "line" ? (
+          <LatencySparklineChart buckets={pingBuckets} value={ping.lastValue} height={16} />
+        ) : (
+          <HealthBars buckets={pingBuckets} kind="latency" />
+        )}
       </CompactHealthItem>
       <CompactHealthItem
         icon={<Unplug size={12} />}

@@ -556,6 +556,8 @@ export interface ThemeSettings {
   homepageDefaultPingTaskId?: number;
   enableHomepageMultiPing?: boolean;
   homepageMultiPingTaskIds?: number[];
+  /** 首页延迟的图形：点阵（bars，默认）或曲线（line）。 */
+  homepagePingStyle?: HomepagePingStyle;
   /** 站长在卡片上换好、「保存到后端」写上来的逐节点换线：`{ uuid: { 行号: 线路 id } }`。 */
   homepagePingLineOverrides?: Record<string, Record<string, number>>;
     fakePingForUnbound?: boolean;
@@ -745,6 +747,9 @@ export interface TrafficTrendSample {
   level: number;
   opacity: number;
 }
+
+/** 首页延迟的图形：点阵（按格涂色的柱子）或曲线（平滑折线，颜色随当前延迟变化）。 */
+export type HomepagePingStyle = "bars" | "line";
 
 export interface PingOverviewBucket {
   index: number;

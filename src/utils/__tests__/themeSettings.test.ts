@@ -185,3 +185,17 @@ describe("changedThemeSettings", () => {
     expect(changedThemeSettings(reordered, base)).toEqual({});
   });
 });
+
+describe("homepage ping style", () => {
+  it("defaults to the dot-matrix bars", () => {
+    expect(normalizeThemeSettings({}).homepagePingStyle).toBe("bars");
+  });
+
+  it("accepts the line style and ignores unknown values", () => {
+    expect(normalizeThemeSettings({ homepagePingStyle: "line" }).homepagePingStyle).toBe("line");
+    expect(
+      normalizeThemeSettings({ homepagePingStyle: "wave" } as unknown as Parameters<typeof normalizeThemeSettings>[0])
+        .homepagePingStyle,
+    ).toBe("bars");
+  });
+});

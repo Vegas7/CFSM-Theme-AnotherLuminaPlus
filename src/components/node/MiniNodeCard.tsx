@@ -18,6 +18,8 @@ import { IpStackBadges } from "./IpStackBadges";
 import { NodeCardHead } from "./NodeCardHead";
 import { nodeDetailPath } from "./useNodeDetailClick";
 import { HealthBucketTooltip } from "./HealthBucketTooltip";
+import { LatencySparklineChart } from "./LatencySparkline";
+import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { MetricDetailTip, useMetricDetailTip } from "./MetricDetailTip";
 import { resolveTouchBucketIndex, TOUCH_BUCKET_HOLD_MS } from "./touchBucketPick";
 import { useNodeCardModel } from "@/hooks/useNodeCardModel";
@@ -384,6 +386,7 @@ const MiniHealth = memo(function MiniHealth({
   pingError: boolean;
 }) {
   useLang();
+  const pingStyle = useThemeSettings().homepagePingStyle;
   const { text: emptyText } = pingEmptyLabels(
     hasRealHomepagePingBinding,
     pingLoading,
@@ -416,7 +419,16 @@ const MiniHealth = memo(function MiniHealth({
             )}
           </strong>
         </div>
-        <MiniHealthBars kind="latency" buckets={pingBuckets} />
+        {pingStyle === "line" ? (
+          <LatencySparklineChart
+            className="mini-health-chart-wrap"
+            buckets={pingBuckets}
+            value={ping.lastValue}
+            height={16}
+          />
+        ) : (
+          <MiniHealthBars kind="latency" buckets={pingBuckets} />
+        )}
       </div>
       <div className="mini-node-health-item">
         <div className="mini-node-health-head">

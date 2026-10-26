@@ -562,6 +562,92 @@
   height: 9px;
 }
 
+/* 「曲线」模式：每条线路一行 —— 圆点 + 线路名 · 当前延迟 · 曲线 · 丢包 */
+.multi-ping-status.is-line {
+  display: flex;
+  flex-direction: column;
+  /* 小卡传进来的 compact-node-bottom 自带对齐方式，这里强制每行铺满整宽 */
+  align-items: stretch;
+  gap: 4px;
+}
+
+.multi-ping-line-row {
+  display: grid;
+  grid-template-columns: 7px minmax(2.6em, 4.6em) 4.4em minmax(48px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 0;
+}
+
+.multi-ping-line-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+}
+
+.multi-ping-line-row .multi-ping-name {
+  justify-self: start;
+  max-width: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text-primary);
+}
+
+.multi-ping-line-value {
+  font-size: 13px;
+  text-align: left;
+}
+
+.multi-ping-line-loss {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 5.2em;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.multi-ping-line-loss strong {
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.multi-ping-status.is-line.is-compact {
+  gap: 2px;
+}
+
+.multi-ping-status.is-line.is-compact .multi-ping-line-row {
+  grid-template-columns: 6px minmax(2.2em, 3.6em) 3.8em minmax(36px, 1fr) auto;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.multi-ping-status.is-line.is-compact .multi-ping-line-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.multi-ping-status.is-line.is-compact .multi-ping-name {
+  font-size: 11px;
+}
+
+.multi-ping-status.is-line.is-compact .multi-ping-line-value {
+  font-size: 12px;
+}
+
+.multi-ping-status.is-line.is-compact .multi-ping-line-loss {
+  min-width: 4.4em;
+  font-size: 10px;
+}
+
+.multi-ping-status.is-line.is-compact .multi-ping-line-loss strong {
+  font-size: 11px;
+}
+
 .server-health-block {
   display: flex;
   flex-direction: column;
@@ -585,6 +671,56 @@
   display: block;
   width: 100%;
   height: 16px;
+}
+
+/* 延迟「曲线」模式（LatencySparkline）：平滑折线 + 同色渐变填充，颜色由 --sparkline-color 给出 */
+.latency-sparkline-wrap {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.latency-sparkline {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  touch-action: pan-y;
+}
+
+.latency-sparkline svg {
+  display: block;
+  overflow: visible;
+}
+
+.latency-sparkline-line {
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.latency-sparkline-track {
+  stroke: var(--progress-bg);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.latency-sparkline-guide {
+  stroke: var(--text-tertiary);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+.latency-sparkline-dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 999px;
+  background: var(--sparkline-color);
+  box-shadow: 0 0 0 2px var(--surface-a, #fff);
+  pointer-events: none;
 }
 
 .server-card-footer {

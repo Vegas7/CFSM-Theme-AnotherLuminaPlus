@@ -420,6 +420,7 @@ function pickManagedThemeSettings(settings: ResolvedThemeSettings) {
     homepageDefaultPingTaskId: settings.homepageDefaultPingTaskId,
     enableHomepageMultiPing: settings.enableHomepageMultiPing,
     homepageMultiPingTaskIds: settings.homepageMultiPingTaskIds,
+    homepagePingStyle: settings.homepagePingStyle,
     fakePingForUnbound: settings.fakePingForUnbound,
     pingLatencyThresholds: normalizePingLatencyThresholds(settings.pingLatencyThresholds),
     pingLatencyColors: normalizePingLatencyColors(settings.pingLatencyColors),
@@ -2476,6 +2477,31 @@ export function ThemeManage() {
                         onClick={() => patch("enableHomepageMultiPing", true)}
                       >
                         {t("多线模式")}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="surface-inset flex flex-col gap-3 px-4 py-4">
+                    <div>
+                      <span className="setting-subhead-title">{t("延迟图形")}</span>
+                      <p className="setting-hint mt-1">
+                        {t("点阵：每格一种颜色；曲线：平滑折线，颜色随当前延迟变化，丢包显示为数字。大卡、小卡、迷你卡与列表都会跟着切换。")}
+                      </p>
+                    </div>
+                    <div className="instance-segmented is-prominent is-even is-stack-mobile">
+                      <button
+                        type="button"
+                        data-active={draft.homepagePingStyle === "bars" ? "true" : "false"}
+                        onClick={() => patch("homepagePingStyle", "bars")}
+                      >
+                        {t("点阵")}
+                      </button>
+                      <button
+                        type="button"
+                        data-active={draft.homepagePingStyle === "line" ? "true" : "false"}
+                        onClick={() => patch("homepagePingStyle", "line")}
+                      >
+                        {t("曲线")}
                       </button>
                     </div>
                   </div>
