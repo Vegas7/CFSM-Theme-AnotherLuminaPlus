@@ -623,6 +623,14 @@ export const EN: Record<string, string> = {
   "总览": "Overview",
   "在首页顶部展示监控总览模块。": "Show the overview module at the top of the home page.",
   "资产总值卡": "Total assets card",
+  "指标卡": "Metric cards",
+  "选择总览里显示哪几张指标卡；关掉的不显示，其余卡片自动重新排版。":
+    "Choose which metric cards the overview shows; hidden cards are removed and the rest re-flow automatically.",
+  "全站 TCP / UDP 连接数。": "TCP / UDP connections across all servers.",
+  "在线服务器的平均 CPU 使用率。": "Average CPU usage of online servers.",
+  "所有服务器已用内存与总量。": "Memory used and total across all servers.",
+  "所有服务器已用硬盘与总量。": "Disk used and total across all servers.",
+  "最近一次重启的服务器与距今时长。": "The most recently rebooted server and how long ago.",
   "总览里写着资产总值的那张卡。不想展示开销就关掉，其余指标卡不受影响。":
     "The Total assets card in the overview. Turn it off to hide spending; other cards are unaffected.",
   "权限": "Access",

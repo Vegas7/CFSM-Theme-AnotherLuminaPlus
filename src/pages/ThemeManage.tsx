@@ -427,6 +427,11 @@ function pickManagedThemeSettings(settings: ResolvedThemeSettings) {
     trafficSpectrumColors: normalizeTrafficSpectrumColors(settings.trafficSpectrumColors),
     showHomeOverview: settings.showHomeOverview,
     showAssetOverview: settings.showAssetOverview,
+    showConnectionsOverview: settings.showConnectionsOverview,
+    showCpuOverview: settings.showCpuOverview,
+    showRamOverview: settings.showRamOverview,
+    showDiskOverview: settings.showDiskOverview,
+    showUptimeOverview: settings.showUptimeOverview,
     showGroupTabs: settings.showGroupTabs,
     showRegionBar: settings.showRegionBar,
     showCardGroup: settings.showCardGroup,
@@ -507,22 +512,44 @@ type BooleanDraftKey = {
   [K in keyof ThemeDraft]: ThemeDraft[K] extends boolean ? K : never;
 }[keyof ThemeDraft];
 
+/** 「首页 → 总览」里各张指标卡的开关，顺序与首页总览里的卡片一致。 */
+const OVERVIEW_CARD_TOGGLES: { field: BooleanDraftKey; title: string; desc: string }[] = [
+  { field: "showConnectionsOverview", title: "活跃连接", desc: "全站 TCP / UDP 连接数。" },
+  { field: "showCpuOverview", title: "平均 CPU", desc: "在线服务器的平均 CPU 使用率。" },
+  { field: "showRamOverview", title: "内存用量", desc: "所有服务器已用内存与总量。" },
+  { field: "showDiskOverview", title: "硬盘用量", desc: "所有服务器已用硬盘与总量。" },
+  { field: "showUptimeOverview", title: "最近重启", desc: "最近一次重启的服务器与距今时长。" },
+  {
+    field: "showAssetOverview",
+    title: "资产总值卡",
+    desc: "总览里写着资产总值的那张卡。不想展示开销就关掉，其余指标卡不受影响。",
+  },
+];
+
 const ToggleRow = memo(function ToggleRow({
   field,
   title,
   desc,
   checked,
   onPatch,
+  disabled = false,
 }: {
   field: BooleanDraftKey;
   title: string;
   desc: string;
   checked: boolean;
   onPatch: (key: BooleanDraftKey, value: boolean) => void;
+  /** 上级开关关着时置灰（值保留，打开上级后照旧生效）。 */
+  disabled?: boolean;
 }) {
   useLang();
   return (
-    <label className="surface-inset flex items-center justify-between gap-3 px-4 py-3">
+    <label
+      className={clsx(
+        "surface-inset flex items-center justify-between gap-3 px-4 py-3",
+        disabled && "cursor-not-allowed opacity-50",
+      )}
+    >
       <span className="min-w-0">
         <span className="block setting-subhead-title">{title}</span>
         <span className="mt-1 block setting-hint">{desc}</span>
@@ -530,6 +557,7 @@ const ToggleRow = memo(function ToggleRow({
       <input
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={(event) => onPatch(field, event.target.checked)}
         className="h-4 w-4 shrink-0 accent-(--accent-500)"
       />
@@ -1789,7 +1817,7 @@ export function ThemeManage() {
                 title={t("监控总览")}
                 aside={<Layers size={16} />}
               >
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="flex flex-col gap-4">
                   <ToggleRow
                     field="showHomeOverview"
                     title={t("监控总览")}
@@ -1797,13 +1825,26 @@ export function ThemeManage() {
                     checked={draft.showHomeOverview}
                     onPatch={patch}
                   />
-                  <ToggleRow
-                    field="showAssetOverview"
-                    title={t("资产总值卡")}
-                    desc={t("总览里写着资产总值的那张卡。不想展示开销就关掉，其余指标卡不受影响。")}
-                    checked={draft.showAssetOverview}
-                    onPatch={patch}
-                  />
+                  <div>
+                    <span className="setting-subhead-title block">{t("指标卡")}</span>
+                    <span className="setting-hint mt-1 mb-2 block">
+                      {t("选择总览里显示哪几张指标卡；关掉的不显示，其余卡片自动重新排版。")}
+                    </span>
+                    {/* 与首页总览里卡片的顺序一致 */}
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {OVERVIEW_CARD_TOGGLES.map(({ field, title, desc }) => (
+                        <ToggleRow
+                          key={field}
+                          field={field}
+                          title={t(title)}
+                          desc={t(desc)}
+                          checked={draft[field]}
+                          onPatch={patch}
+                          disabled={!draft.showHomeOverview}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </InstancePanel>
 

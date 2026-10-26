@@ -146,6 +146,17 @@
     grid-template-columns: minmax(0, 1.48fr) minmax(0, 1fr);
     gap: 22px;
   }
+
+  /* 指标卡只剩 0~1 张时左栏撑不起集群卡片的高度（要么只剩问候语、要么一张卡被拉成大方块），
+     改为上下排：问候语（和那一张卡，按正常高度通栏）在上，集群状态通栏在下 */
+  .mao-dashboard-hero[data-stat-cards="0"],
+  .mao-dashboard-hero[data-stat-cards="1"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.mao-dashboard-hero[data-stat-cards="0"] .mao-hero-header {
+  margin-bottom: 0;
 }
 
 .mao-hero-main {
@@ -335,22 +346,71 @@
   width: 100%;
 }
 
-.mao-stat-grid[data-cards="4"] {
+/* 指标卡可在设置里逐张关掉，data-cards 是实际张数。按张数排版，始终铺满、不留空格；
+   两张及以上都保持两行，行高与 6 张时一致，和右侧集群卡片的高度对齐：
+   6 张 3+3；5 张上 3 下 2（下排两张更宽）；4 张 2+2；3 张上 1（通栏）下 2；2 张上下两行通栏；
+   1 张按正常高度通栏（此时整个总览改为上下排，见 .mao-dashboard-hero[data-stat-cards]）。 */
+.mao-stat-grid[data-cards="5"] {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.mao-stat-grid[data-cards="5"] > :nth-child(-n + 3) {
+  grid-column: span 2;
+}
+
+.mao-stat-grid[data-cards="5"] > :nth-child(n + 4) {
+  grid-column: span 3;
+}
+
+.mao-stat-grid[data-cards="4"],
+.mao-stat-grid[data-cards="3"] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.mao-stat-grid[data-cards="3"] > :first-child {
+  grid-column: 1 / -1;
+}
+
+.mao-stat-grid[data-cards="2"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.mao-stat-grid[data-cards="1"] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+}
+
+/* 手机：两列、行高随内容；张数为单数时第一张通栏（5 张 1+2+2、3 张 1+2），2 张并排 */
 @media (max-width: 768px) {
-  .mao-stat-grid {
+  .mao-stat-grid,
+  .mao-stat-grid[data-cards] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: auto;
     gap: 8px;
   }
+
+  /* :nth-child(n) 与桌面端按张数的跨列规则同权重，写在后面才能把它们复位 */
+  .mao-stat-grid[data-cards] > :nth-child(n) {
+    grid-column: auto;
+  }
+
+  .mao-stat-grid[data-cards="5"] > :first-child,
+  .mao-stat-grid[data-cards="3"] > :first-child,
+  .mao-stat-grid[data-cards="1"] > :first-child {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 360px) {
-  .mao-stat-grid {
+  .mao-stat-grid,
+  .mao-stat-grid[data-cards] {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
+  }
+
+  /* :nth-child(n) 与桌面端按张数的跨列规则同权重，写在后面才能把它们复位 */
+  .mao-stat-grid[data-cards] > :nth-child(n) {
+    grid-column: auto;
   }
 }
 

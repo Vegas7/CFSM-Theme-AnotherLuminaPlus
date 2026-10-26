@@ -201,6 +201,12 @@ export interface ResolvedThemeSettings {
   showHomeOverview: boolean;
   /** 顶部总览里的「资产概览」卡（把每月花多少钱亮给所有访客，单独给个开关）。 */
   showAssetOverview: boolean;
+  /** 顶部总览里其余五张指标卡各自的开关：活跃连接、平均 CPU、内存用量、硬盘用量、最近重启。 */
+  showConnectionsOverview: boolean;
+  showCpuOverview: boolean;
+  showRamOverview: boolean;
+  showDiskOverview: boolean;
+  showUptimeOverview: boolean;
   showGroupTabs: boolean;
   showRegionBar: boolean;
   showCardGroup: boolean;
@@ -263,6 +269,11 @@ export const DEFAULT_THEME_SETTINGS: ResolvedThemeSettings = {
   trafficSpectrumColors: DEFAULT_TRAFFIC_SPECTRUM_COLORS,
   showHomeOverview: true,
   showAssetOverview: true,
+  showConnectionsOverview: true,
+  showCpuOverview: true,
+  showRamOverview: true,
+  showDiskOverview: true,
+  showUptimeOverview: true,
   showGroupTabs: true,
   showRegionBar: true,
   showCardGroup: true,
@@ -575,6 +586,11 @@ export function normalizeThemeSettings(
     trafficSpectrumColors: normalizeTrafficSpectrumColors(settings?.trafficSpectrumColors),
     showHomeOverview: enabledUnlessFalse(settings?.showHomeOverview),
     showAssetOverview: enabledUnlessFalse(settings?.showAssetOverview),
+    showConnectionsOverview: enabledUnlessFalse(settings?.showConnectionsOverview),
+    showCpuOverview: enabledUnlessFalse(settings?.showCpuOverview),
+    showRamOverview: enabledUnlessFalse(settings?.showRamOverview),
+    showDiskOverview: enabledUnlessFalse(settings?.showDiskOverview),
+    showUptimeOverview: enabledUnlessFalse(settings?.showUptimeOverview),
     showGroupTabs: enabledUnlessFalse(settings?.showGroupTabs),
     showRegionBar: enabledUnlessFalse(settings?.showRegionBar),
     showCardGroup: enabledUnlessFalse(settings?.showCardGroup),
