@@ -3765,34 +3765,15 @@
   }
 }
 
-/* 迷你档最多 5 列，但任何断点都不允许卡片窄于 260px；断点按页面实际 gutter
-   和列间距反推，避免 1280px 左右被固定列数压到 216px。 */
+/* 迷你档最多 5 列，卡片不窄于 260px：列数按网格自己的宽度算（能放几列放几列，最多 5 列），
+   不按视口断点。原来的 580 / 860 / 1150 / 1440px 断点没算首页面板的左右内边距，每个断点往上
+   二三十像素里会多排一列、把卡片挤出面板 —— iOS 27.2 起 Duo 外屏横放（594px）、内屏横放（806–867px）
+   正好落在里面。每列下限取「(宽 - 4 个间距) / 5」，间距按 1rem 估（比实际的 12 / 14px 略大），保证不会排出第 6 列。 */
 .node-grid-mini {
-  grid-template-columns: repeat(5, minmax(var(--mini-card-min-width, 260px), 1fr));
-}
-
-@media (max-width: 1440px) {
-  .node-grid-mini {
-    grid-template-columns: repeat(4, minmax(var(--mini-card-min-width, 260px), 1fr));
-  }
-}
-
-@media (max-width: 1150px) {
-  .node-grid-mini {
-    grid-template-columns: repeat(3, minmax(var(--mini-card-min-width, 260px), 1fr));
-  }
-}
-
-@media (max-width: 860px) {
-  .node-grid-mini {
-    grid-template-columns: repeat(2, minmax(var(--mini-card-min-width, 260px), 1fr));
-  }
-}
-
-@media (max-width: 580px) {
-  .node-grid-mini {
-    grid-template-columns: minmax(min(100%, var(--mini-card-min-width, 260px)), 1fr);
-  }
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, max(var(--mini-card-min-width, 260px), calc((100% - 4rem) / 5))), 1fr)
+  );
 }
 
 /* 迷你与列表档总览卡使用密集变体。 */

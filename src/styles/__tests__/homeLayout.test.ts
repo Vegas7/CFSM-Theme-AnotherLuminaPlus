@@ -40,11 +40,12 @@ describe("home responsive layout contracts", () => {
     expect(surfaceCss).toMatch(/padding-right:\s*max\(var\(--app-gutter\)/);
   });
 
-  it("enforces the mini card width floor before adding another fixed column", () => {
-    expect(homeCss).toContain("minmax(var(--mini-card-min-width, 260px), 1fr)");
-    for (const breakpoint of [1440, 1150, 860, 580]) {
-      expect(homeCss).toContain(`@media (max-width: ${breakpoint}px)`);
-    }
+  it("sizes mini columns from the grid's own width: 260px floor, at most 5 columns", () => {
+    const rule = homeCss.match(/\.node-grid-mini \{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toContain("auto-fill");
+    expect(rule).toContain("max(var(--mini-card-min-width, 260px), calc((100% - 4rem) / 5))");
+    // 只此一处：不再按视口断点改列数（断点没算面板内边距，会把卡片挤出面板）。
+    expect(homeCss.match(/\.node-grid-mini \{/g)).toHaveLength(1);
   });
 
   it("resets child panels on collapse and keeps home-only routing out of controls", () => {
