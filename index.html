@@ -165,7 +165,17 @@
         document.head.appendChild(meta);
         const statusMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
         if (statusMeta) {
-          statusMeta.content = isDark ? "black-translucent" : "default";
+          // iPhone Duo 不论深浅色都用 black-translucent，页面才能铺到侧栏（Duo 的状态栏）下面；
+          // 与 utils/duoSideColumn.ts 的 isDuoDevice / appleStatusBarStyle 保持一致。
+          const screenShort = Math.min(screen.width, screen.height);
+          const screenLong = Math.max(screen.width, screen.height);
+          const isDuo =
+            /iPhone/.test(navigator.userAgent) &&
+            navigator.maxTouchPoints > 0 &&
+            screenShort > 0 &&
+            screenShort <= 740 &&
+            screenLong / screenShort < 1.6;
+          statusMeta.content = isDark || isDuo ? "black-translucent" : "default";
         }
 
         try {
@@ -187,14 +197,14 @@
         } catch {}
       })();
     </script>
-    <script type="module" crossorigin src="./assets/index-CVWkJO6d.js"></script>
+    <script type="module" crossorigin src="./assets/index-MvGNhFcS.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-Cyuzqnbw.js">
     <link rel="modulepreload" crossorigin href="./assets/query-C_NiE4k5.js">
     <link rel="modulepreload" crossorigin href="./assets/react-CXxcg5zG.js">
     <link rel="modulepreload" crossorigin href="./assets/validation-ByCAF8jQ.js">
     <link rel="modulepreload" crossorigin href="./assets/i18n-CcENM1YQ.js">
     <link rel="stylesheet" crossorigin href="./assets/index-B58uIYEg.css">
-    <meta name="theme-version" content="AnotherLuminaPlus v1.9.17" />
+    <meta name="theme-version" content="AnotherLuminaPlus v1.9.18" />
   </head>
   <body>
     <div id="root" class="relative z-30"></div>
