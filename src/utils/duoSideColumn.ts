@@ -8,10 +8,16 @@
  *   cam-bottom：外屏向右（顺时针）横放时摄像头落在侧栏底部，按钮整体上移避让
  * Safari 里那一列是 Safari 自己的浏览器栏（不透明，页面放不进去），不处理。
  *
- * iOS 27.2 起页面仍然延伸到这一列下面，但系统报的左右安全区只剩二三十像素（实际仍是 84px 宽），
- * 光看安全区会漏检。所以另认 Duo 的屏幕形状：页面铺满整块屏幕、长宽比约 1.45（普通 iPhone 都在 1.77 以上）
- * 就当它有侧栏，侧栏宽度至少按 84px 算（见 surface.css）；在哪一侧先看哪边安全区大，两边都是 0 时
- * 竖持在右、横持按旋转方向。
+ * iOS 27.2 起情况分两种（真机实测）：
+ *   - 页面放在侧栏旁边：页面本身窄 84px（外屏竖放 382×678、内屏横放 867×669），安全区全是 0。
+ *     侧栏在页面之外，什么都不用做，按钮留在右上角。
+ *   - 页面铺到侧栏下面：安全区只报二三十像素甚至 0（实际仍是 84px 宽），光看安全区会漏检。
+ * 两种情况靠页面自己的长宽比区分：铺满时就是整块屏幕的比例（外屏 466×678 ≈ 1.455、内屏 951×669 ≈ 1.42）；
+ * 窄掉 84px 后竖放变长（1.63–1.78）、横放变方（1.28–1.30）。普通 iPhone 都在 1.77 以上。
+ * 不能拿 screen 尺寸比：展开后 screen 仍报外屏的 466×678。
+ * 认出铺满后侧栏宽度至少按 84px 算（见 surface.css）；在哪一侧先看哪边安全区大，两边都是 0 时
+ * 竖持在右、横持按旋转方向（顺时针转在右，实测内屏 window.orientation -90 时侧栏在右）。
+ * 页面放在侧栏旁边还是下面由 iOS 决定，跟状态栏样式有关（见 index.html 的 apple-mobile-web-app-status-bar-style）。
  *
  * 电脑上测试：网址加 ?column（右侧）或 ?column=left 模拟 84px 侧栏，?cam=bottom 模拟摄像头在底部。
  */
@@ -32,15 +38,40 @@ const LANDSCAPE_MIN_INSET = 70;
 /** 外屏横放宽度约 678，内屏横放约 890–951；只有外屏的摄像头在侧栏里，内屏是屏下摄像头。 */
 const OUTER_DISPLAY_MAX_WIDTH = 720;
 /**
- * Duo 的屏幕比普通 iPhone 方得多：外屏 466×678、内屏约 669×951，长宽比约 1.45；
- * 普通 iPhone 都在 1.77 以上。iPad 的屏幕短边至少 744，用屏幕尺寸排除（分屏时窗口也可能很方）。
+ * 页面铺满 Duo 一块屏幕时的长宽比：外屏 466×678 ≈ 1.455、内屏 951×669 ≈ 1.42。
+ * 页面被放到侧栏旁边（窄 84px）时：外屏竖放 382×678 ≈ 1.78、内屏竖放约 585×951 ≈ 1.63、
+ * 外屏横放 594×466 ≈ 1.27、内屏横放 867×669 ≈ 1.30，都落在区间外；普通 iPhone 都在 1.77 以上。
  */
-const DUO_MAX_ASPECT = 1.6;
+const DUO_MIN_ASPECT = 1.38;
+const DUO_MAX_ASPECT = 1.5;
+/** iPad 的屏幕短边至少 744：UA 里没有 iPhone 时用它排除 iPad（分屏时窗口也可能很方）。 */
 const DUO_MAX_SHORT_SIDE = 740;
 
 /**
- * 页面是不是铺满了一块 Duo 的屏幕（延伸到侧栏下面）。Safari 里那一列是不透明的浏览器栏，页面比屏幕窄 84px，
- * 不算；页面若被系统缩到侧栏以外，同样不算。
+ * 这台设备是不是 iPhone Duo：screen 恒报外屏的 466×678（展开后也一样），长宽比约 1.455；
+ * 普通 iPhone 的屏幕都在 1.77 以上，iPad 屏幕短边至少 744。
+ * index.html 的首屏脚本里有一份同样的判断（那里不能 import），改这里要一起改。
+ */
+export function isDuoDevice(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  if (!/iPhone/.test(navigator.userAgent) || navigator.maxTouchPoints <= 0) return false;
+  const short = Math.min(window.screen?.width ?? 0, window.screen?.height ?? 0);
+  const long = Math.max(window.screen?.width ?? 0, window.screen?.height ?? 0);
+  return short > 0 && short <= DUO_MAX_SHORT_SIDE && long / short < 1.6;
+}
+
+/**
+ * 主屏幕 App 的状态栏样式。只有 black-translucent 时 iOS 才让页面铺到状态栏下面；Duo 的状态栏就是侧栏，
+ * iOS 27.2 起用 default 时页面被放到侧栏旁边（窄 84px），侧栏里放不了按钮。所以 Duo 上不论深浅色都用
+ * black-translucent；普通 iPhone 照旧深色 black-translucent、浅色 default（浅色页面上白色状态栏字看不清）。
+ */
+export function appleStatusBarStyle(isDark: boolean): "black-translucent" | "default" {
+  return isDark || isDuoDevice() ? "black-translucent" : "default";
+}
+
+/**
+ * 页面是不是铺满了一块 Duo 的屏幕（延伸到侧栏下面），按页面自己的长宽比判断。
+ * Safari 里那一列是不透明的浏览器栏、主屏幕 App 被系统放在侧栏旁边时，页面都窄 84px，比例对不上，不算。
  */
 export function isDuoFullScreen(input: {
   touchIOS: boolean;
@@ -51,15 +82,14 @@ export function isDuoFullScreen(input: {
   height: number;
 }): boolean {
   if (!input.touchIOS) return false;
-  const screenShort = Math.min(input.screenWidth, input.screenHeight);
-  const screenLong = Math.max(input.screenWidth, input.screenHeight);
   // UA 里没有 iPhone（比如被当成 iPad / 桌面版）时，靠屏幕短边排除真正的 iPad。
+  const screenShort = Math.min(input.screenWidth, input.screenHeight);
   if (!input.isIPhoneUA && screenShort > DUO_MAX_SHORT_SIDE) return false;
   const short = Math.min(input.width, input.height);
   const long = Math.max(input.width, input.height);
-  if (short <= 0 || short > DUO_MAX_SHORT_SIDE || long / short >= DUO_MAX_ASPECT) return false;
-  const portrait = input.height > input.width;
-  return input.width >= (portrait ? screenShort : screenLong) - 2;
+  if (short <= 0 || short > DUO_MAX_SHORT_SIDE) return false;
+  const aspect = long / short;
+  return aspect >= DUO_MIN_ASPECT && aspect <= DUO_MAX_ASPECT;
 }
 
 export function pickSideColumn(input: {
@@ -230,6 +260,11 @@ export function installSideColumnDetection(): void {
       screen: `${window.screen?.width}×${window.screen?.height}`,
       screenAvail: `${window.screen?.availWidth}×${window.screen?.availHeight}`,
       devicePixelRatio: window.devicePixelRatio,
+      statusBarStyle:
+        document.querySelector<HTMLMetaElement>(
+          'meta[name="apple-mobile-web-app-status-bar-style"]',
+        )?.content ?? null,
+      isDuoDevice: isDuoDevice(),
       safeArea: `top ${insets.top} · right ${insets.right} · bottom ${insets.bottom} · left ${insets.left}`,
       orientation: `window.orientation ${String(legacyOrientation)} · screen ${window.screen?.orientation?.type ?? "?"} ${window.screen?.orientation?.angle ?? "?"}`,
       rotatedClockwise: clockwise,
