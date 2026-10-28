@@ -25,6 +25,13 @@
       后台「外观设置」配了站点图标时，后端会把这条替换成站点图标。
     -->
     <link rel="apple-touch-icon" sizes="180x180" href="/src/assets/apple-touch-icon.png" />
+    <!--
+      Web App Manifest：只声明 display: standalone，不写名称、图标和起始页（照旧用页面标题、
+      上面的 apple-touch-icon 和添加时所在的网址）。iOS 27.2 上没有 manifest 的主屏幕 App 在 iPhone Duo 上
+      被放在侧栏旁边（display-mode: standalone 也不成立），试试声明 standalone 能否让页面铺到侧栏下面。
+      构建时由 vite.config.ts 的 inlineManifest 以 data: 内联进来，理由同上面的图标。
+    -->
+    <link rel="manifest" href="/src/manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon.ico" />
     <meta property="og:title" content="CFSM-Theme-SAO" />
     <meta property="og:description" content="A restrained modern theme for CF-Server-Monitor." />

@@ -3,6 +3,17 @@
 每个版本的第一行会被 CI 取出来，作为产物提交的说明 —— 也就是主题商店里显示的更新日志。
 发新版时先改 `package.json` 的 `version`，再在这里加一段。
 
+## v1.9.19
+
+试验：加上 Web App Manifest（display: standalone），看 iOS 27.2 能否让 iPhone Duo 的页面铺到侧栏下面
+
+- v1.9.18 实测：Duo 上改成透明状态栏、重新添加到主屏幕后，页面仍被放在侧栏旁边（窄 84px）。诊断信息里
+  `navigator.standalone` 为 true、`display-mode: standalone` 却不成立 —— iOS 把它当主屏幕 App，但不是
+  standalone 显示模式，多半因为主题只有旧式的 apple-mobile-web-app-capable、没有 manifest。
+- 新增只含 `display: standalone` 的 manifest（以 data: 内联进页面，不另发请求）：不写名称、图标和起始页，
+  主屏幕上的标题、图标和打开的页面都与原来一样。
+- 诊断信息加上当前的 display-mode 与 manifest。需要在主屏幕删掉 App、重新添加一次才会生效。
+
 ## v1.9.18
 
 修复：iPhone Duo 内屏横放时按钮往里偏了一列；Duo 上始终用透明状态栏，让页面铺到侧栏下面
