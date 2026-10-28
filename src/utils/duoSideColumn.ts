@@ -252,6 +252,14 @@ export function installSideColumnDetection(): void {
           ? window.matchMedia("(display-mode: standalone)").matches
           : null,
       isStandalone,
+      displayMode:
+        typeof window.matchMedia === "function"
+          ? (["fullscreen", "standalone", "minimal-ui", "browser"].find(
+              (mode) => window.matchMedia(`(display-mode: ${mode})`).matches,
+            ) ?? "none")
+          : null,
+      manifest:
+        document.querySelector<HTMLLinkElement>('link[rel="manifest"]')?.href.slice(0, 80) ?? null,
       inner: `${width}×${height}`,
       client: `${root.clientWidth}×${root.clientHeight}`,
       visualViewport: window.visualViewport

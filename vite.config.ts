@@ -112,6 +112,27 @@ function inlineAppleTouchIcon(): Plugin {
   };
 }
 
+const MANIFEST_SRC = "/src/manifest.webmanifest";
+
+/**
+ * 把 Web App Manifest 以 data: 内联进 index.html，理由同 inlineAppleTouchIcon：
+ * iOS 添加到主屏幕时单独请求的文件不一定落到当前主题上。
+ */
+function inlineManifest(): Plugin {
+  return {
+    name: "cfsm-inline-manifest",
+    transformIndexHtml: {
+      order: "pre",
+      handler(html) {
+        const file = path.resolve(process.cwd(), `.${MANIFEST_SRC}`);
+        const json = JSON.stringify(JSON.parse(fs.readFileSync(file, "utf8")));
+        const dataUri = `data:application/manifest+json,${encodeURIComponent(json)}`;
+        return html.replace(`href="${MANIFEST_SRC}"`, () => `href="${dataUri}"`);
+      },
+    },
+  };
+}
+
 /**
  * 把 `.env` 里的 API_BASE 写进 dev server 服务的 `<meta name="apiBase">`。
  */
@@ -145,6 +166,7 @@ export default defineConfig(({ mode }) => {
       devHostAssets(),
       themeVersionMeta(pkg.version),
       inlineAppleTouchIcon(),
+      inlineManifest(),
       devApiBaseMeta(apiBase),
     ],
     // CF-Server-Monitor 的主题构建产物只能是 index.html + assets/，相对路径引用
