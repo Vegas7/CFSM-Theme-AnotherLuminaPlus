@@ -3,6 +3,15 @@
 每个版本的第一行会被 CI 取出来，作为产物提交的说明 —— 也就是主题商店里显示的更新日志。
 发新版时先改 `package.json` 的 `version`，再在这里加一段。
 
+## v1.9.20
+
+试验：Web App Manifest 改为同源文件，v1.9.19 内联的那份被后端安全策略拦下了
+
+- v1.9.19 真机上 display-mode 仍是 browser。查站点响应头：CSP 没写 manifest-src，按 default-src 'self'
+  只允许同源文件，`data:` 内联的 manifest 被拦下，iOS 根本没读到。
+- 现在 manifest 作为文件放在 assets/ 下（内容不变，仍只有 display: standalone）。预览主题时这次请求若落到
+  别的主题上只是 404，与没有 manifest 一样，不影响别的功能。需要在主屏幕删掉 App、重新添加一次。
+
 ## v1.9.19
 
 试验：加上 Web App Manifest（display: standalone），看 iOS 27.2 能否让 iPhone Duo 的页面铺到侧栏下面
