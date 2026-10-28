@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { columnVisibleCount, isCameraAtColumnBottom, pickSideColumn } from "@/utils/duoSideColumn";
+import {
+  columnVisibleCount,
+  isCameraAtColumnBottom,
+  isDuoFullScreen,
+  pickSideColumn,
+} from "@/utils/duoSideColumn";
 
 const insets = (left: number, right: number) => ({ top: 0, right, bottom: 0, left });
 
@@ -20,6 +25,91 @@ describe("pickSideColumn", () => {
 
   it("stays off outside the iPhone home-screen app", () => {
     expect(pickSideColumn({ eligible: false, insets: insets(0, 84), portrait: true })).toBeNull();
+  });
+
+  // iOS 27.2：页面仍铺到侧栏下面，但安全区只报二三十像素。
+  it("still finds the column on a full-screen Duo when iOS under-reports the inset", () => {
+    expect(pickSideColumn({ eligible: true, insets: insets(0, 28), portrait: true })).toBeNull();
+    expect(
+      pickSideColumn({ eligible: true, insets: insets(0, 28), portrait: true, duoFullScreen: true }),
+    ).toBe("right");
+    expect(
+      pickSideColumn({ eligible: false, insets: insets(24, 0), portrait: false, duoFullScreen: true }),
+    ).toBe("left");
+  });
+
+  it("falls back to portrait-right and the rotation direction when no inset is reported", () => {
+    const zero = insets(0, 0);
+    expect(pickSideColumn({ eligible: true, insets: zero, portrait: true, duoFullScreen: true })).toBe(
+      "right",
+    );
+    expect(
+      pickSideColumn({
+        eligible: true,
+        insets: zero,
+        portrait: false,
+        duoFullScreen: true,
+        rotatedClockwise: true,
+      }),
+    ).toBe("right");
+    expect(
+      pickSideColumn({
+        eligible: true,
+        insets: zero,
+        portrait: false,
+        duoFullScreen: true,
+        rotatedClockwise: false,
+      }),
+    ).toBe("left");
+  });
+});
+
+describe("isDuoFullScreen", () => {
+  // 展开后 screen 仍报外屏的 466×678（真机实测），所以内屏也用这组 screen。
+  const duo = { touchIOS: true, isIPhoneUA: true, screenWidth: 466, screenHeight: 678 };
+
+  it("recognises a page that runs under the column on either display", () => {
+    expect(isDuoFullScreen({ ...duo, width: 466, height: 678 })).toBe(true);
+    expect(isDuoFullScreen({ ...duo, width: 678, height: 466 })).toBe(true);
+    expect(isDuoFullScreen({ ...duo, width: 669, height: 951 })).toBe(true);
+    expect(isDuoFullScreen({ ...duo, width: 951, height: 669 })).toBe(true);
+  });
+
+  // iOS 27.2 真机：页面被放在侧栏旁边，窄 84px。
+  it("ignores a page that iOS placed beside the column", () => {
+    expect(isDuoFullScreen({ ...duo, width: 382, height: 678 })).toBe(false);
+    expect(isDuoFullScreen({ ...duo, width: 594, height: 466 })).toBe(false);
+    expect(isDuoFullScreen({ ...duo, width: 867, height: 669 })).toBe(false);
+    expect(isDuoFullScreen({ ...duo, width: 585, height: 951 })).toBe(false);
+  });
+
+  it("ignores Safari's narrower page", () => {
+    expect(isDuoFullScreen({ ...duo, width: 382, height: 580 })).toBe(false);
+  });
+
+  it("ignores regular iPhones, iPads and non-touch devices", () => {
+    expect(
+      isDuoFullScreen({ ...duo, screenWidth: 393, screenHeight: 852, width: 393, height: 852 }),
+    ).toBe(false);
+    expect(
+      isDuoFullScreen({ ...duo, screenWidth: 393, screenHeight: 852, width: 852, height: 393 }),
+    ).toBe(false);
+    // iPad 分屏：窗口比例可能落在区间里，但屏幕短边远超 Duo
+    expect(
+      isDuoFullScreen({
+        touchIOS: true,
+        isIPhoneUA: false,
+        screenWidth: 820,
+        screenHeight: 1180,
+        width: 560,
+        height: 800,
+      }),
+    ).toBe(false);
+    expect(isDuoFullScreen({ ...duo, touchIOS: false, width: 466, height: 678 })).toBe(false);
+  });
+
+  it("still works if the Duo stops saying iPhone in its user agent", () => {
+    expect(isDuoFullScreen({ ...duo, isIPhoneUA: false, width: 466, height: 678 })).toBe(true);
   });
 });
 
@@ -60,3 +150,4 @@ describe("columnVisibleCount", () => {
     expect(columnVisibleCount(1000, 3)).toBe(3);
   });
 });
+

@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { InstancePanel } from "@/components/instance/InstancePanel";
+import { SideColumnDiagnostics } from "@/components/shell/SideColumnDiagnostics";
 import { Spinner } from "@/components/ui/Spinner";
 import { Flag } from "@/components/ui/Flag";
 import { MatrixPatternEditor } from "@/components/matrix/MatrixPatternEditor";
@@ -2168,6 +2169,8 @@ export function ThemeManage() {
                   })}
                 </div>
               </InstancePanel>
+
+              <SideColumnDiagnostics />
             </>
           )}
 
