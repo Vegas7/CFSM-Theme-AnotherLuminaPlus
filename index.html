@@ -29,9 +29,10 @@
       Web App Manifest：只声明 display: standalone，不写名称、图标和起始页（照旧用页面标题、
       上面的 apple-touch-icon 和添加时所在的网址）。iOS 27.2 上没有 manifest 的主屏幕 App 在 iPhone Duo 上
       被放在侧栏旁边（display-mode: standalone 也不成立），试试声明 standalone 能否让页面铺到侧栏下面。
-      构建时由 vite.config.ts 的 inlineManifest 以 data: 内联进来，理由同上面的图标。
+      必须是同源文件（构建后在 assets/ 下）：后端 CSP 没写 manifest-src，按 default-src 'self'，
+      data: 内联的 manifest 会被拦下。预览主题时这次请求若落到别的主题上只是 404，与没有 manifest 一样。
     -->
-    <link rel="manifest" href="data:application/manifest+json,%7B%22display%22%3A%22standalone%22%7D" />
+    <link rel="manifest" href="./assets/manifest-DA5WpsIh.json" />
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon.ico" />
     <meta property="og:title" content="CFSM-Theme-SAO" />
     <meta property="og:description" content="A restrained modern theme for CF-Server-Monitor." />
@@ -204,14 +205,14 @@
         } catch {}
       })();
     </script>
-    <script type="module" crossorigin src="./assets/index-BosVRWUR.js"></script>
+    <script type="module" crossorigin src="./assets/index-M8dtMiqA.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-Cyuzqnbw.js">
     <link rel="modulepreload" crossorigin href="./assets/query-C_NiE4k5.js">
     <link rel="modulepreload" crossorigin href="./assets/react-CXxcg5zG.js">
     <link rel="modulepreload" crossorigin href="./assets/validation-ByCAF8jQ.js">
     <link rel="modulepreload" crossorigin href="./assets/i18n-CcENM1YQ.js">
     <link rel="stylesheet" crossorigin href="./assets/index-B58uIYEg.css">
-    <meta name="theme-version" content="AnotherLuminaPlus v1.9.19" />
+    <meta name="theme-version" content="AnotherLuminaPlus v1.9.20" />
   </head>
   <body>
     <div id="root" class="relative z-30"></div>
