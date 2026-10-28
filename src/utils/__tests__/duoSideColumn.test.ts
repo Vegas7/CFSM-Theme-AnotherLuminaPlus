@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  appleStatusBarStyle,
   columnVisibleCount,
   isCameraAtColumnBottom,
   isDuoFullScreen,
@@ -65,19 +66,26 @@ describe("pickSideColumn", () => {
 });
 
 describe("isDuoFullScreen", () => {
+  // 展开后 screen 仍报外屏的 466×678（真机实测），所以内屏也用这组 screen。
   const duo = { touchIOS: true, isIPhoneUA: true, screenWidth: 466, screenHeight: 678 };
 
-  it("recognises the outer and inner displays when the page covers the screen", () => {
+  it("recognises a page that runs under the column on either display", () => {
     expect(isDuoFullScreen({ ...duo, width: 466, height: 678 })).toBe(true);
     expect(isDuoFullScreen({ ...duo, width: 678, height: 466 })).toBe(true);
-    const inner = { ...duo, screenWidth: 669, screenHeight: 951 };
-    expect(isDuoFullScreen({ ...inner, width: 669, height: 951 })).toBe(true);
-    expect(isDuoFullScreen({ ...inner, width: 951, height: 669 })).toBe(true);
+    expect(isDuoFullScreen({ ...duo, width: 669, height: 951 })).toBe(true);
+    expect(isDuoFullScreen({ ...duo, width: 951, height: 669 })).toBe(true);
   });
 
-  it("ignores a page that is narrower than the screen (Safari's opaque column)", () => {
+  // iOS 27.2 真机：页面被放在侧栏旁边，窄 84px。
+  it("ignores a page that iOS placed beside the column", () => {
+    expect(isDuoFullScreen({ ...duo, width: 382, height: 678 })).toBe(false);
+    expect(isDuoFullScreen({ ...duo, width: 594, height: 466 })).toBe(false);
+    expect(isDuoFullScreen({ ...duo, width: 867, height: 669 })).toBe(false);
+    expect(isDuoFullScreen({ ...duo, width: 585, height: 951 })).toBe(false);
+  });
+
+  it("ignores Safari's narrower page", () => {
     expect(isDuoFullScreen({ ...duo, width: 382, height: 580 })).toBe(false);
-    expect(isDuoFullScreen({ ...duo, width: 594, height: 420 })).toBe(false);
   });
 
   it("ignores regular iPhones, iPads and non-touch devices", () => {
@@ -87,15 +95,15 @@ describe("isDuoFullScreen", () => {
     expect(
       isDuoFullScreen({ ...duo, screenWidth: 393, screenHeight: 852, width: 852, height: 393 }),
     ).toBe(false);
-    // iPad 分屏：窗口很方，但屏幕短边远超 Duo
+    // iPad 分屏：窗口比例可能落在区间里，但屏幕短边远超 Duo
     expect(
       isDuoFullScreen({
         touchIOS: true,
         isIPhoneUA: false,
         screenWidth: 820,
         screenHeight: 1180,
-        width: 590,
-        height: 820,
+        width: 560,
+        height: 800,
       }),
     ).toBe(false);
     expect(isDuoFullScreen({ ...duo, touchIOS: false, width: 466, height: 678 })).toBe(false);
@@ -141,5 +149,29 @@ describe("columnVisibleCount", () => {
     expect(columnVisibleCount(40, 7)).toBe(0);
     expect(columnVisibleCount(-100, 3)).toBe(0);
     expect(columnVisibleCount(1000, 3)).toBe(3);
+  });
+});
+
+describe("appleStatusBarStyle", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const stub = (userAgent: string, width: number, height: number) => {
+    vi.stubGlobal("navigator", { userAgent, maxTouchPoints: 5 });
+    vi.stubGlobal("screen", { width, height });
+    vi.stubGlobal("window", { screen: { width, height } });
+  };
+  const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) Version/27.2 Mobile/15E148";
+
+  it("keeps a regular iPhone's light status bar", () => {
+    stub(IPHONE, 393, 852);
+    expect(appleStatusBarStyle(false)).toBe("default");
+    expect(appleStatusBarStyle(true)).toBe("black-translucent");
+  });
+
+  // Duo 的状态栏就是侧栏：只有 black-translucent 时页面才铺到它下面。
+  it("always uses black-translucent on the Duo", () => {
+    stub(IPHONE, 466, 678);
+    expect(appleStatusBarStyle(false)).toBe("black-translucent");
+    expect(appleStatusBarStyle(true)).toBe("black-translucent");
   });
 });

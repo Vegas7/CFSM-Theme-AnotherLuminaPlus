@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { useThemeSettings } from "@/hooks/useThemeSettings";
+import { appleStatusBarStyle } from "@/utils/duoSideColumn";
 import { subscribeMediaQuery } from "@/utils/mediaQuery";
 import { isAppearance, type Appearance } from "@/utils/themeSettings";
 
@@ -138,7 +139,7 @@ function applyResolvedAppearance(resolvedAppearance: ResolvedAppearance) {
     'meta[name="apple-mobile-web-app-status-bar-style"]',
   );
   if (statusMeta) {
-    statusMeta.content = isDark ? "black-translucent" : "default";
+    statusMeta.content = appleStatusBarStyle(isDark);
   }
 }
 
