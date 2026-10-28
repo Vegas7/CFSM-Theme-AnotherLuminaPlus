@@ -576,6 +576,12 @@
   --col-l: env(safe-area-inset-left, 0px);
   --col-r: env(safe-area-inset-right, 0px);
 }
+/* 侧栏实际 84px 宽。iOS 27.2 起系统报的安全区只剩二三十像素，检测到侧栏时至少按 84px 算，
+   页面内容、页头横线和按钮都让开整列。 */
+.has-side-column.side-right { --col-r: max(env(safe-area-inset-right, 0px), 84px); }
+.has-side-column.side-left { --col-l: max(env(safe-area-inset-left, 0px), 84px); }
+.has-side-column.side-right .app-main { padding-right: max(var(--app-gutter), var(--col-r)); }
+.has-side-column.side-left .app-main { padding-left: max(var(--app-gutter), var(--col-l)); }
 /* ?column / ?column=left：在电脑上模拟 84px 的透明侧栏 */
 .sim-col-right { --col-r: 84px; }
 .sim-col-left { --col-l: 84px; }

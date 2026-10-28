@@ -8,9 +8,10 @@
  *   cam-bottom：外屏向右（顺时针）横放时摄像头落在侧栏底部，按钮整体上移避让
  * Safari 里那一列是 Safari 自己的浏览器栏（不透明，页面放不进去），不处理。
  *
- * iOS 27.2 起主屏幕 App 也不再让页面延伸到这一列下面：左右安全区都报 0，页面本身窄 84px
- * （外屏竖放 382、横放 594），这一列在页面之外，页面画不进去。于是这里检测不到侧栏，快捷按钮回到右上角，
- * 与普通 iPhone 一样。代码保留：以后的 iOS 再把这一列还给页面时，按钮会自动回到侧栏里。
+ * iOS 27.2 起页面仍然延伸到这一列下面，但系统报的左右安全区只剩二三十像素（实际仍是 84px 宽），
+ * 光看安全区会漏检。所以另认 Duo 的屏幕形状：页面铺满整块屏幕、长宽比约 1.45（普通 iPhone 都在 1.77 以上）
+ * 就当它有侧栏，侧栏宽度至少按 84px 算（见 surface.css）；在哪一侧先看哪边安全区大，两边都是 0 时
+ * 竖持在右、横持按旋转方向。
  *
  * 电脑上测试：网址加 ?column（右侧）或 ?column=left 模拟 84px 侧栏，?cam=bottom 模拟摄像头在底部。
  */
@@ -30,18 +31,58 @@ const PORTRAIT_MIN_INSET = 40;
 const LANDSCAPE_MIN_INSET = 70;
 /** 外屏横放宽度约 678，内屏横放约 890–951；只有外屏的摄像头在侧栏里，内屏是屏下摄像头。 */
 const OUTER_DISPLAY_MAX_WIDTH = 720;
+/**
+ * Duo 的屏幕比普通 iPhone 方得多：外屏 466×678、内屏约 669×951，长宽比约 1.45；
+ * 普通 iPhone 都在 1.77 以上。iPad 的屏幕短边至少 744，用屏幕尺寸排除（分屏时窗口也可能很方）。
+ */
+const DUO_MAX_ASPECT = 1.6;
+const DUO_MAX_SHORT_SIDE = 740;
+
+/**
+ * 页面是不是铺满了一块 Duo 的屏幕（延伸到侧栏下面）。Safari 里那一列是不透明的浏览器栏，页面比屏幕窄 84px，
+ * 不算；页面若被系统缩到侧栏以外，同样不算。
+ */
+export function isDuoFullScreen(input: {
+  touchIOS: boolean;
+  isIPhoneUA: boolean;
+  screenWidth: number;
+  screenHeight: number;
+  width: number;
+  height: number;
+}): boolean {
+  if (!input.touchIOS) return false;
+  const screenShort = Math.min(input.screenWidth, input.screenHeight);
+  const screenLong = Math.max(input.screenWidth, input.screenHeight);
+  // UA 里没有 iPhone（比如被当成 iPad / 桌面版）时，靠屏幕短边排除真正的 iPad。
+  if (!input.isIPhoneUA && screenShort > DUO_MAX_SHORT_SIDE) return false;
+  const short = Math.min(input.width, input.height);
+  const long = Math.max(input.width, input.height);
+  if (short <= 0 || short > DUO_MAX_SHORT_SIDE || long / short >= DUO_MAX_ASPECT) return false;
+  const portrait = input.height > input.width;
+  return input.width >= (portrait ? screenShort : screenLong) - 2;
+}
 
 export function pickSideColumn(input: {
+  /** iPhone 主屏幕 App：按安全区判断（iOS 27.2 以前系统会报完整的 84px）。 */
   eligible: boolean;
   insets: SafeAreaInsets;
   portrait: boolean;
+  /** 页面铺满 Duo 的屏幕（见 isDuoFullScreen）：安全区报小了也认。 */
+  duoFullScreen?: boolean;
+  rotatedClockwise?: boolean;
 }): SideColumnSide | null {
-  if (!input.eligible) return null;
   const { left, right } = input.insets;
-  const minInset = input.portrait ? PORTRAIT_MIN_INSET : LANDSCAPE_MIN_INSET;
-  if (right >= minInset && right >= left) return "right";
-  if (left >= minInset) return "left";
-  return null;
+  if (input.eligible) {
+    const minInset = input.portrait ? PORTRAIT_MIN_INSET : LANDSCAPE_MIN_INSET;
+    if (right >= minInset && right >= left) return "right";
+    if (left >= minInset) return "left";
+  }
+  if (!input.duoFullScreen) return null;
+  if (right > left) return "right";
+  if (left > right) return "left";
+  // 两边都没报：竖持在右；外屏横放时侧栏在摄像头那一侧 —— 顺时针转摄像头到右下，逆时针到左上。
+  if (input.portrait) return "right";
+  return input.rotatedClockwise ? "right" : "left";
 }
 
 /** 外屏向右（顺时针）横放：摄像头在侧栏底部。 */
@@ -116,6 +157,7 @@ export function installSideColumnDetection(): void {
   if (sim.side) root.classList.add(sim.side === "left" ? "sim-col-left" : "sim-col-right");
 
   const isIPhone = /iPhone/.test(navigator.userAgent) && navigator.maxTouchPoints > 0;
+  const touchIOS = /iPhone|iPad|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 0;
   const isStandalone =
     (navigator as Navigator & { standalone?: boolean }).standalone === true ||
     (typeof window.matchMedia === "function" &&
@@ -141,17 +183,27 @@ export function installSideColumnDetection(): void {
   const update = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
+    const clockwise = rotatedClockwise();
     const side =
       sim.side ??
       pickSideColumn({
         eligible: isIPhone && isStandalone,
         insets: readInsets(),
         portrait: height > width,
+        duoFullScreen: isDuoFullScreen({
+          touchIOS,
+          isIPhoneUA: isIPhone,
+          screenWidth: window.screen?.width ?? 0,
+          screenHeight: window.screen?.height ?? 0,
+          width,
+          height,
+        }),
+        rotatedClockwise: clockwise,
       });
     const camBottom =
       side !== null &&
       (sim.camBottom ||
-        isCameraAtColumnBottom({ side, width, height, rotatedClockwise: rotatedClockwise() }));
+        isCameraAtColumnBottom({ side, width, height, rotatedClockwise: clockwise }));
     root.classList.toggle("has-side-column", side !== null);
     root.classList.toggle("side-left", side === "left");
     root.classList.toggle("side-right", side === "right");
@@ -183,8 +235,9 @@ export function installSideColumnDetection(): void {
   });
   requestAnimationFrame(() => requestAnimationFrame(update));
   for (const ms of [150, 500, 1000, 2000, 3000]) window.setTimeout(update, ms);
-  // 兜底：ResizeObserver 对隐藏的探针不一定触发。只在 iPhone 主屏幕 App 里每秒比对一次，有变化才重新检测。
-  if (isIPhone && isStandalone) {
+  // 兜底：ResizeObserver 对隐藏的探针不一定触发。iOS 触屏设备上每秒比对一次，有变化才重新检测。
+  // 不再要求主屏幕 App：系统换了报法时 standalone 也可能判不准，比对一次的开销可以忽略。
+  if (touchIOS) {
     let lastKey = "";
     window.setInterval(() => {
       const sa = readInsets();
