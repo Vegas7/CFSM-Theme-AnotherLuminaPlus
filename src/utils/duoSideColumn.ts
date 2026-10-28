@@ -137,6 +137,15 @@ export function columnVisibleCount(available: number, total: number): number {
 let currentSide: SideColumnSide | null = null;
 const listeners = new Set<() => void>();
 let installed = false;
+let collectDebug: (() => Record<string, unknown>) | null = null;
+
+/**
+ * 侧栏检测用到的原始数据与结论，设置页的诊断信息据此显示（真机上没法开 Web Inspector 时靠它排查）。
+ * 每次调用都现读，不缓存。
+ */
+export function getSideColumnDebug(): Record<string, unknown> | null {
+  return collectDebug?.() ?? null;
+}
 
 export function getSideColumnSide(): SideColumnSide | null {
   return currentSide;
@@ -180,24 +189,71 @@ export function installSideColumnDetection(): void {
     };
   };
 
-  const update = () => {
+  const readInputs = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
     const clockwise = rotatedClockwise();
+    const insets = readInsets();
+    const duoFullScreen = isDuoFullScreen({
+      touchIOS,
+      isIPhoneUA: isIPhone,
+      screenWidth: window.screen?.width ?? 0,
+      screenHeight: window.screen?.height ?? 0,
+      width,
+      height,
+    });
+    return { width, height, clockwise, insets, duoFullScreen };
+  };
+
+  collectDebug = () => {
+    const { width, height, clockwise, insets, duoFullScreen } = readInputs();
+    const legacyOrientation = (window as Window & { orientation?: unknown }).orientation;
+    const rootStyle = getComputedStyle(root);
+    const main = document.querySelector(".app-main");
+    return {
+      version: document.querySelector<HTMLMetaElement>('meta[name="theme-version"]')?.content ?? "dev",
+      userAgent: navigator.userAgent,
+      maxTouchPoints: navigator.maxTouchPoints,
+      isIPhone,
+      touchIOS,
+      navigatorStandalone: (navigator as Navigator & { standalone?: boolean }).standalone ?? null,
+      displayModeStandalone:
+        typeof window.matchMedia === "function"
+          ? window.matchMedia("(display-mode: standalone)").matches
+          : null,
+      isStandalone,
+      inner: `${width}×${height}`,
+      client: `${root.clientWidth}×${root.clientHeight}`,
+      visualViewport: window.visualViewport
+        ? `${Math.round(window.visualViewport.width)}×${Math.round(window.visualViewport.height)}`
+        : null,
+      screen: `${window.screen?.width}×${window.screen?.height}`,
+      screenAvail: `${window.screen?.availWidth}×${window.screen?.availHeight}`,
+      devicePixelRatio: window.devicePixelRatio,
+      safeArea: `top ${insets.top} · right ${insets.right} · bottom ${insets.bottom} · left ${insets.left}`,
+      orientation: `window.orientation ${String(legacyOrientation)} · screen ${window.screen?.orientation?.type ?? "?"} ${window.screen?.orientation?.angle ?? "?"}`,
+      rotatedClockwise: clockwise,
+      duoFullScreen,
+      simulated: sim.side,
+      side: currentSide,
+      htmlClasses: root.className,
+      colL: rootStyle.getPropertyValue("--col-l").trim(),
+      colR: rootStyle.getPropertyValue("--col-r").trim(),
+      appMainPadding: main
+        ? `${getComputedStyle(main).paddingLeft} / ${getComputedStyle(main).paddingRight}`
+        : null,
+    };
+  };
+
+  const update = () => {
+    const { width, height, clockwise, insets, duoFullScreen } = readInputs();
     const side =
       sim.side ??
       pickSideColumn({
         eligible: isIPhone && isStandalone,
-        insets: readInsets(),
+        insets,
         portrait: height > width,
-        duoFullScreen: isDuoFullScreen({
-          touchIOS,
-          isIPhoneUA: isIPhone,
-          screenWidth: window.screen?.width ?? 0,
-          screenHeight: window.screen?.height ?? 0,
-          width,
-          height,
-        }),
+        duoFullScreen,
         rotatedClockwise: clockwise,
       });
     const camBottom =

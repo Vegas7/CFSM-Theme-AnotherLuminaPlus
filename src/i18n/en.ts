@@ -787,4 +787,8 @@ export const EN: Record<string, string> = {
   "深邃冰火 (冰川蓝 · 暮光紫 · 烈焰橙 · 绝境红)": "Ice & fire (glacier blue · twilight purple · flame orange · crisis red)",
   "深海青翠 (薄荷青 · 蔚蓝海 · 暖杏黄 · 珊瑚红)": "Deep sea (mint · azure · apricot · coral red)",
   "自定义预设": "Custom preset",
+  "诊断": "Diagnostics",
+  "iPhone 侧栏检测": "iPhone side column detection",
+  "iPhone Duo 侧栏不正常时，在主屏幕 App 里打开这一页截图或复制下面的信息。":
+    "If the iPhone Duo side column looks wrong, open this page in the Home Screen app and screenshot or copy the details below.",
 };
