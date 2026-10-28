@@ -17,7 +17,8 @@
  * 不能拿 screen 尺寸比：展开后 screen 仍报外屏的 466×678。
  * 认出铺满后侧栏宽度至少按 84px 算（见 surface.css）；在哪一侧先看哪边安全区大，两边都是 0 时
  * 竖持在右、横持按旋转方向（顺时针转在右，实测内屏 window.orientation -90 时侧栏在右）。
- * 页面放在侧栏旁边还是下面由 iOS 决定，跟状态栏样式有关（见 index.html 的 apple-mobile-web-app-status-bar-style）。
+ * 页面放在侧栏旁边还是下面由 iOS 决定，主题改不了：iOS 27.2 真机上试过透明状态栏（black-translucent）、
+ * 加 manifest 声明 display: standalone 并重新添加到主屏幕，页面都还在侧栏旁边。
  *
  * 电脑上测试：网址加 ?column（右侧）或 ?column=left 模拟 84px 侧栏，?cam=bottom 模拟摄像头在底部。
  */
@@ -48,9 +49,8 @@ const DUO_MAX_ASPECT = 1.5;
 const DUO_MAX_SHORT_SIDE = 740;
 
 /**
- * 这台设备是不是 iPhone Duo：screen 恒报外屏的 466×678（展开后也一样），长宽比约 1.455；
+ * 这台设备是不是 iPhone Duo（诊断信息用）：screen 恒报外屏的 466×678（展开后也一样），长宽比约 1.455；
  * 普通 iPhone 的屏幕都在 1.77 以上，iPad 屏幕短边至少 744。
- * index.html 的首屏脚本里有一份同样的判断（那里不能 import），改这里要一起改。
  */
 export function isDuoDevice(): boolean {
   if (typeof window === "undefined" || typeof navigator === "undefined") return false;
@@ -58,15 +58,6 @@ export function isDuoDevice(): boolean {
   const short = Math.min(window.screen?.width ?? 0, window.screen?.height ?? 0);
   const long = Math.max(window.screen?.width ?? 0, window.screen?.height ?? 0);
   return short > 0 && short <= DUO_MAX_SHORT_SIDE && long / short < 1.6;
-}
-
-/**
- * 主屏幕 App 的状态栏样式。只有 black-translucent 时 iOS 才让页面铺到状态栏下面；Duo 的状态栏就是侧栏，
- * iOS 27.2 起用 default 时页面被放到侧栏旁边（窄 84px），侧栏里放不了按钮。所以 Duo 上不论深浅色都用
- * black-translucent；普通 iPhone 照旧深色 black-translucent、浅色 default（浅色页面上白色状态栏字看不清）。
- */
-export function appleStatusBarStyle(isDark: boolean): "black-translucent" | "default" {
-  return isDark || isDuoDevice() ? "black-translucent" : "default";
 }
 
 /**
@@ -258,8 +249,6 @@ export function installSideColumnDetection(): void {
               (mode) => window.matchMedia(`(display-mode: ${mode})`).matches,
             ) ?? "none")
           : null,
-      manifest:
-        document.querySelector<HTMLLinkElement>('link[rel="manifest"]')?.href.slice(0, 80) ?? null,
       inner: `${width}×${height}`,
       client: `${root.clientWidth}×${root.clientHeight}`,
       visualViewport: window.visualViewport

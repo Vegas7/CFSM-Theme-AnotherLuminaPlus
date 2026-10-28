@@ -1,6 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  appleStatusBarStyle,
   columnVisibleCount,
   isCameraAtColumnBottom,
   isDuoFullScreen,
@@ -152,26 +151,3 @@ describe("columnVisibleCount", () => {
   });
 });
 
-describe("appleStatusBarStyle", () => {
-  afterEach(() => vi.unstubAllGlobals());
-
-  const stub = (userAgent: string, width: number, height: number) => {
-    vi.stubGlobal("navigator", { userAgent, maxTouchPoints: 5 });
-    vi.stubGlobal("screen", { width, height });
-    vi.stubGlobal("window", { screen: { width, height } });
-  };
-  const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) Version/27.2 Mobile/15E148";
-
-  it("keeps a regular iPhone's light status bar", () => {
-    stub(IPHONE, 393, 852);
-    expect(appleStatusBarStyle(false)).toBe("default");
-    expect(appleStatusBarStyle(true)).toBe("black-translucent");
-  });
-
-  // Duo 的状态栏就是侧栏：只有 black-translucent 时页面才铺到它下面。
-  it("always uses black-translucent on the Duo", () => {
-    stub(IPHONE, 466, 678);
-    expect(appleStatusBarStyle(false)).toBe("black-translucent");
-    expect(appleStatusBarStyle(true)).toBe("black-translucent");
-  });
-});
