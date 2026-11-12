@@ -509,7 +509,15 @@ export function CanvasStrip({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, width, height);
+    // 位图最左、最右各留一列设备像素不画。iOS Safari（实测 PWA、非整数缩放的屏幕上）合成画布时
+    // 会按「环绕」采样边缘，位图第一列的颜色渗到最右边，画成一条跟着重绘闪的细色条 —— 第一格亮着的
+    // CPU / 磁盘条右端就是这么多出一截。两端是透明列，渗过去也看不见；只削掉约 1/3 CSS 像素，肉眼无差。
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(1 / dpr, 0, Math.max(0, pixelWidth - 2) / dpr, height);
+    ctx.clip();
     draw(ctx, width, height, interaction);
+    ctx.restore();
   }, [dpr, draw, height, interaction, redrawKey, visible, width]);
 
   const clearTouchHoldTimer = () => {
