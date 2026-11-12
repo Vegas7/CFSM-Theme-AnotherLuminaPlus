@@ -52,9 +52,13 @@ export function InstanceDetails({
 
   return (
     <InstancePanel
-      title={panelTitle}
-      titleIcon={<Flag region={meta.region} size={15} />}
-      titleAction={<InstanceSwitcher currentUuid={uuid} />}
+      titleRow={
+        <InstanceSwitcher
+          currentUuid={uuid}
+          title={panelTitle}
+          titleIcon={<Flag region={meta.region} size={15} />}
+        />
+      }
       description={
         isOnline ? undefined : t("节点当前离线，以下展示最近一次上报的缓存数据。")
       }

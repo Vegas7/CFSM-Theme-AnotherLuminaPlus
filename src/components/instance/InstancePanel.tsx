@@ -9,6 +9,7 @@ export function InstancePanel({
   kicker,
   titleIcon,
   titleAction,
+  titleRow,
   description,
   controls,
   aside,
@@ -16,11 +17,17 @@ export function InstancePanel({
   className,
 }: {
   id?: string;
-  title: string;
+  /** 标题文字；传了 titleRow 时不再使用。 */
+  title?: string;
   kicker?: ReactNode;
   /** 标题前的小图标（详情页用来放节点的国旗，和首页卡片一致）。 */
   titleIcon?: ReactNode;
   titleAction?: ReactNode;
+  /**
+   * 整块标题行的自定义内容。给了就不再渲染 title / titleIcon / titleAction ——
+   * 详情页用它把「国旗 + 服务器名 + 下拉箭头」整块做成切换服务器的触发器。
+   */
+  titleRow?: ReactNode;
   description?: ReactNode;
   /** 标题区正中间的控件（图表面板的时间段选择条）。 */
   controls?: ReactNode;
@@ -34,9 +41,13 @@ export function InstancePanel({
         <div className="instance-panel-headings">
           {kicker != null && <span className="instance-panel-kicker">{kicker}</span>}
           <div className="instance-panel-title-row">
-            {titleIcon != null && <span className="instance-panel-title-icon">{titleIcon}</span>}
-            <h2 className="instance-panel-title">{title}</h2>
-            {titleAction}
+            {titleRow ?? (
+              <>
+                {titleIcon != null && <span className="instance-panel-title-icon">{titleIcon}</span>}
+                {title != null && <h2 className="instance-panel-title">{title}</h2>}
+                {titleAction}
+              </>
+            )}
           </div>
           {description != null && <p className="instance-panel-description">{description}</p>}
         </div>

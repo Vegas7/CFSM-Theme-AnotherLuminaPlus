@@ -1696,6 +1696,7 @@
 
 .instance-panel-headings {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 5px;
 }
@@ -1729,6 +1730,7 @@
 /* 标题 + 紧随其后的内联控件（如服务器切换器）同一行居中对齐 */
 .instance-panel-title-row {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 6px;
 }
@@ -1743,6 +1745,7 @@
 
 .instance-panel-title {
   margin: 0;
+  min-width: 0;
   color: var(--text-primary);
   font-size: 15px;
   font-weight: 640;
@@ -1788,27 +1791,36 @@
   }
 }
 
-/* 详情页标题旁的快速切换服务器下拉 */
+/* 详情页标题里的快速切换服务器下拉：国旗 + 服务器名 + 箭头整块都是触发器，
+   默认看不出按钮，悬停 / 展开时才浮出一层底色。 */
 .instance-switcher {
   position: relative;
   display: inline-flex;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.instance-switcher-trigger,
+.instance-switcher-static {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .instance-switcher-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* 紧凑、轻量：默认透明 ghost，只在 hover/展开时显底，避免和标题文字挤在一起突兀 */
-  width: 22px;
-  height: 22px;
-  padding: 0;
+  /* 负外边距把内边距吃回去：文字仍与面板内容左缘对齐，只有鼠标悬停时才看出这一整块 */
+  margin: -3px -6px;
+  padding: 3px 6px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: 8px;
   background: transparent;
-  color: var(--text-tertiary);
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
   cursor: pointer;
-  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease;
 }
 
 /* 图标块级居中，消除 svg 行内基线带来的偏移 */
@@ -1818,9 +1830,32 @@
 
 .instance-switcher-trigger:hover,
 .instance-switcher-trigger[aria-expanded="true"] {
-  color: var(--text-primary);
-  border-color: var(--border);
+  border-color: color-mix(in srgb, var(--border) 72%, transparent);
   background: var(--hover-bg);
+}
+
+.instance-switcher-trigger:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-500) 72%, transparent);
+  outline-offset: 1px;
+}
+
+/* 服务器名过长时单行省略，不把标题区撑出面板 */
+.instance-switcher-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.instance-switcher-caret {
+  flex: none;
+  color: var(--text-tertiary);
+  transition: color 160ms ease;
+}
+
+.instance-switcher-trigger:hover .instance-switcher-caret,
+.instance-switcher-trigger[aria-expanded="true"] .instance-switcher-caret {
+  color: var(--text-primary);
 }
 
 /* 弹出菜单共享骨架:实例切换器与首页排序控件(home.css 的 .home-sort-*)是同一套 panel/item
@@ -1840,8 +1875,8 @@
 }
 
 .instance-switcher-panel {
-  /* 触发按钮现在紧贴标题（靠左），浮层从按钮左缘向右展开 */
-  left: 0;
+  /* 触发器带 6px 内边距，浮层与悬停时浮出的那一块左缘对齐 */
+  left: -6px;
   min-width: 200px;
   /* 移动端不超出视口宽度 */
   max-width: min(280px, calc(100vw - 32px));

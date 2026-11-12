@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
@@ -15,7 +16,19 @@ import { useThemeSettings } from "@/hooks/useThemeSettings";
 import { collectMatchingNodeUuids } from "@/utils/nodeIdentity";
 import { t } from "@/i18n";
 
-export function InstanceSwitcher({ currentUuid }: { currentUuid: string }) {
+/**
+ * 详情页标题区的切换器：服务器名本身（连同前面的国旗和后面的箭头）就是下拉触发器，
+ * 不再是只能点箭头的小按钮。只有一台（或没有）服务器时退化成普通标题。
+ */
+export function InstanceSwitcher({
+  currentUuid,
+  title,
+  titleIcon,
+}: {
+  currentUuid: string;
+  title: string;
+  titleIcon?: ReactNode;
+}) {
   const allMeta = useAllNodeMeta();
   const summaries = useHomeNodeSummaries();
   const { hiddenNodes } = useThemeSettings();
@@ -80,8 +93,8 @@ export function InstanceSwitcher({ currentUuid }: { currentUuid: string }) {
     target?.focus();
   }, [open]);
 
-  // 只有一个（或没有）节点时没必要显示切换器。
-  if (nodes.length <= 1) return null;
+  // 只有一台（或没有）服务器时没有可切换的目标，标题退化成普通文字。
+  const canSwitch = nodes.length > 1;
 
   const select = (uuid: string) => {
     triggerRef.current?.focus();
@@ -116,26 +129,40 @@ export function InstanceSwitcher({ currentUuid }: { currentUuid: string }) {
 
   return (
     <div className="instance-switcher" ref={rootRef}>
-      <button
-        type="button"
-        ref={triggerRef}
-        className="instance-switcher-trigger"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={listId}
-        aria-label={t("切换服务器")}
-        title={t("切换服务器")}
-        onClick={() => setOpen((value) => !value)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            event.preventDefault();
-            setOpen(true);
-          }
-        }}
-      >
-        {open ? <ChevronUp size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
-      </button>
-      {open && (
+      <h2 className="instance-panel-title">
+        {canSwitch ? (
+          <button
+            type="button"
+            ref={triggerRef}
+            className="instance-switcher-trigger"
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            aria-controls={listId}
+            title={t("切换服务器")}
+            onClick={() => setOpen((value) => !value)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                setOpen(true);
+              }
+            }}
+          >
+            {titleIcon != null && <span className="instance-panel-title-icon">{titleIcon}</span>}
+            <span className="instance-switcher-title">{title}</span>
+            {open ? (
+              <ChevronUp size={14} className="instance-switcher-caret" aria-hidden />
+            ) : (
+              <ChevronDown size={14} className="instance-switcher-caret" aria-hidden />
+            )}
+          </button>
+        ) : (
+          <span className="instance-switcher-static">
+            {titleIcon != null && <span className="instance-panel-title-icon">{titleIcon}</span>}
+            <span className="instance-switcher-title">{title}</span>
+          </span>
+        )}
+      </h2>
+      {open && canSwitch && (
         <div
           id={listId}
           className="instance-switcher-panel"
