@@ -1812,15 +1812,15 @@
   /* 负外边距把内边距吃回去：文字仍与面板内容左缘对齐，只有鼠标悬停时才看出这一整块 */
   margin: -3px -6px;
   padding: 3px 6px;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  border: 0;
+  border-radius: 10px;
   background: transparent;
   color: inherit;
   font: inherit;
   letter-spacing: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease;
+  transition: background 160ms ease;
 }
 
 /* 图标块级居中，消除 svg 行内基线带来的偏移 */
@@ -1828,15 +1828,11 @@
   display: block;
 }
 
+/* 悬停 / 展开的高亮和旁边图表标题行的按钮（.instance-toggle-button）一致：只铺一层 --hover-bg、
+   不描边。聚焦框也交给全局的 :focus-visible，别自成一套。 */
 .instance-switcher-trigger:hover,
 .instance-switcher-trigger[aria-expanded="true"] {
-  border-color: color-mix(in srgb, var(--border) 72%, transparent);
   background: var(--hover-bg);
-}
-
-.instance-switcher-trigger:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent-500) 72%, transparent);
-  outline-offset: 1px;
 }
 
 /* 服务器名过长时单行省略，不把标题区撑出面板 */
