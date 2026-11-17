@@ -23,6 +23,8 @@ interface CanvasStripProps {
     width: number,
     height: number,
     interaction: CanvasStripInteraction,
+    /** 画柱状图时按它把坐标取整到设备像素，否则柱边会跨两列渲染成半透明（见 snapBarRect）。 */
+    dpr: number,
   ) => void;
   getHoverIndex?: (offsetX: number, width: number) => number | null;
   onHoverIndex?: (index: number | null) => void;
@@ -40,6 +42,20 @@ let sharedIntersectionObserver: IntersectionObserver | null = null;
 
 function normalizeWidth(width: number) {
   return Number.isFinite(width) && width > 0 ? Math.round(width * 100) / 100 : 0;
+}
+
+// 位图最左、最右各留一列设备像素不画：iOS Safari（实测 PWA、非整数缩放的屏幕上）合成画布时会按
+// 「环绕」采样边缘，位图第一列的颜色渗到最右边，画成一条跟着重绘闪的细色条 —— 第一格亮着的
+// CPU / 磁盘条右端就是这么多出一截。两端留成透明列就看不见了。
+// 这块留白对绘制和命中检测都要生效：柱子按整条宽度均分时，第一格、最后一格正好压在边缘上，
+// 拿整条宽度画就会被削掉一条 —— dpr=1 时整整 1 CSS 像素，格宽只剩几像素时看着就是少了半格。
+// 所以统一按「可画区域」（两端各退一个设备像素）换算宽度与坐标。
+function resolveDrawArea(width: number, dpr: number, pixelWidth: number) {
+  const edgeInset = Math.min(width / 2, 1 / dpr);
+  // 宽度按位图算（整数设备像素），不是 CSS 宽度：CSS 宽度常带小数，减掉两端各一个设备像素后
+  // 右边界还落在半像素上，最后一根柱子就会被裁剪线削掉那一列 —— 只差百分之几的透明度，
+  // 但边缘因此又不硬了。按位图算，两端留白加起来正好等于位图宽度。
+  return { edgeInset, drawWidth: Math.max(0, pixelWidth / dpr - edgeInset * 2) };
 }
 
 function subscribeToWidth(element: HTMLElement, listener: WidthListener) {
@@ -405,6 +421,8 @@ export function CanvasStrip({
   const [width, setWidth] = useState(0);
   const [visible, setVisible] = useState(() => typeof IntersectionObserver === "undefined");
   const dpr = useSyncExternalStore(subscribeToDpr, currentDpr, () => 1);
+  // 与 draw effect 同一套「可画区域」换算：两端各退一个设备像素，命中检测才和画出来的柱子对齐。
+  const { edgeInset, drawWidth } = resolveDrawArea(width, dpr, Math.max(1, Math.round(width * dpr)));
 
   const commitInteraction = (next: CanvasStripInteraction) => {
     interactionRef.current = next;
@@ -509,16 +527,21 @@ export function CanvasStrip({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, width, height);
-    // 位图最左、最右各留一列设备像素不画。iOS Safari（实测 PWA、非整数缩放的屏幕上）合成画布时
-    // 会按「环绕」采样边缘，位图第一列的颜色渗到最右边，画成一条跟着重绘闪的细色条 —— 第一格亮着的
-    // CPU / 磁盘条右端就是这么多出一截。两端是透明列，渗过去也看不见；只削掉约 1/3 CSS 像素，肉眼无差。
+    // 只让 draw 在「可画区域」里作画（见 resolveDrawArea）。
     ctx.save();
     ctx.beginPath();
-    ctx.rect(1 / dpr, 0, Math.max(0, pixelWidth - 2) / dpr, height);
+    ctx.rect(edgeInset, 0, drawWidth, height);
     ctx.clip();
-    draw(ctx, width, height, interaction);
+    // draw 收到的是可画区域的宽度、坐标也从它左上角起算：柱子按这个宽度均分，
+    // 两端第一格 / 最后一格的边就不会再压在裁剪线上被削掉。
+    ctx.translate(edgeInset, 0);
+    draw(ctx, drawWidth, height, interaction, dpr);
     ctx.restore();
-  }, [dpr, draw, height, interaction, redrawKey, visible, width]);
+    // 兜底：两端那一列设备像素保持透明（裁剪边正好压在格边上时会有极淡的一丝渗出去）。
+    // 右边界按位图宽度算，否则 CSS 宽度的零头会把最后一根柱子擦掉百分之几的一列。
+    ctx.clearRect(0, 0, edgeInset, height);
+    ctx.clearRect(pixelWidth / dpr - edgeInset, 0, edgeInset, height);
+  }, [dpr, draw, drawWidth, edgeInset, height, interaction, redrawKey, visible, width]);
 
   const clearTouchHoldTimer = () => {
     if (touchHoldTimerRef.current == null) return;
@@ -541,12 +564,15 @@ export function CanvasStrip({
     onHoverIndex?.(next);
   };
 
-  /** 触屏点哪根柱子。canvas 铺满容器，按 X 比例换算即可（和 hover 同一套 `getHoverIndex`）。 */
+  /**
+   * 触屏点哪根柱子。canvas 铺满容器，按 X 比例换算即可（和 hover 同一套 `getHoverIndex`）；
+   * 比例要按可画区域算 —— 柱子画在里面，用整条宽度换算出的一格会整体偏掉一点点。
+   */
   const resolveTouchIndex = (event: PointerEvent<HTMLCanvasElement>): number | null => {
     if (!getHoverIndex || width <= 0) return null;
     const rect = event.currentTarget.getBoundingClientRect();
     // 不用 offsetX：触屏事件的 target 可能是 canvas 本身以外的东西（捕获之后尤其如此）。
-    return getHoverIndex(event.clientX - rect.left, width);
+    return getHoverIndex(event.clientX - rect.left - edgeInset, drawWidth);
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
@@ -572,7 +598,7 @@ export function CanvasStrip({
       return;
     }
     if (!getHoverIndex || width <= 0) return;
-    selectIndex(getHoverIndex(event.nativeEvent.offsetX, width));
+    selectIndex(getHoverIndex(event.nativeEvent.offsetX - edgeInset, drawWidth));
   };
 
   const endTouch = (event: PointerEvent<HTMLCanvasElement>, keep: boolean) => {

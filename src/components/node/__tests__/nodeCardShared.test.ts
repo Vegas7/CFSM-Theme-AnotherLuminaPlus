@@ -3,8 +3,11 @@ import type { PingOverviewBucket } from "@/types/cfsm";
 import {
   formatCompactBillingCycle,
   formatCompactExpire,
+  getBarGeometry,
   healthBarInteractionModel,
   healthBarSlotModel,
+  snapBarRect,
+  snapBarTop,
 } from "@/components/node/nodeCardShared";
 
 function bucket(value: number | null, loss: number | null = 0): PingOverviewBucket {
@@ -112,5 +115,50 @@ describe("formatCompactBillingCycle", () => {
     expect(formatCompactBillingCycle("")).toBe("年付");
     expect(formatCompactBillingCycle(null)).toBe("年付");
     expect(formatCompactBillingCycle(undefined)).toBe("年付");
+  });
+});
+
+describe("snapBarRect", () => {
+  // 175.95px 分 20 根 → 柱宽 6.9px，不取整时每条边都落在半像素上，边界列只有部分覆盖率。
+  it("lands both edges of every bar on whole device pixels", () => {
+    const geometry = getBarGeometry(175.95, 20);
+    // 除以 dpr 会留下 1e-14 级的浮点尾数，栅格化看不出来，断言给个容差即可。
+    const isWhole = (value: number) => Math.abs(value - Math.round(value)) < 1e-9;
+
+    for (const dpr of [1, 1.25, 2]) {
+      for (let index = 0; index < 20; index += 1) {
+        const { x, width } = snapBarRect(index, geometry, dpr);
+        expect(isWhole(x * dpr)).toBe(true);
+        expect(isWhole((x + width) * dpr)).toBe(true);
+      }
+    }
+  });
+
+  it("keeps the row inside the track and every bar at least one device pixel wide", () => {
+    const geometry = getBarGeometry(60, 20);
+    const last = snapBarRect(19, geometry, 1);
+
+    expect(snapBarRect(0, geometry, 1).x).toBe(0);
+    expect(last.x + last.width).toBeLessThanOrEqual(60);
+    expect(last.width).toBeGreaterThanOrEqual(1);
+  });
+
+  it("keeps each gap within one device pixel of the requested gap", () => {
+    const geometry = getBarGeometry(175.95, 20);
+
+    for (let index = 1; index < 20; index += 1) {
+      const previous = snapBarRect(index - 1, geometry, 1);
+      const current = snapBarRect(index, geometry, 1);
+      const gap = current.x - (previous.x + previous.width);
+      expect(Math.abs(gap - geometry.gap)).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+describe("snapBarTop", () => {
+  it("rounds the top edge to whole device pixels", () => {
+    expect(snapBarTop(11 - 11 * 0.84, 1)).toBe(2);
+    expect(snapBarTop(2.4, 1)).toBe(2);
+    expect(snapBarTop(2.4, 2)).toBe(2.5);
   });
 });

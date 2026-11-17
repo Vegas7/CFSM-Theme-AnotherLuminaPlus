@@ -6,6 +6,8 @@ import {
   getBarSlot,
   healthBarInteractionModel,
   healthBarSlotModel,
+  snapBarRect,
+  snapBarTop,
 } from "./nodeCardShared";
 import type {
   PingLossColors,
@@ -55,8 +57,8 @@ export function QualityBars({
   );
 
   const draw = useCallback(
-    (ctx: CanvasRenderingContext2D, width: number, height: number, interaction: { hoverIndex: number | null; hoverProgress: number }) => {
-      const { gap, barWidth } = getBarGeometry(width, bars.length);
+    (ctx: CanvasRenderingContext2D, width: number, height: number, interaction: { hoverIndex: number | null; hoverProgress: number }, dpr: number) => {
+      const geometry = getBarGeometry(width, bars.length);
 
       bars.forEach(({ heightFraction, alpha, tone }, index) => {
         const visual = healthBarInteractionModel(
@@ -64,12 +66,13 @@ export function QualityBars({
           interaction.hoverIndex === index,
           interaction.hoverProgress,
         );
-        const barHeight = height * visual.heightFraction;
-        const y = height - barHeight;
-        const x = index * (barWidth + gap);
+        // 柱宽与柱顶都对齐设备像素，边界才是 1 像素硬边（见 snapBarRect）。
+        const { x, width: barWidth } = snapBarRect(index, geometry, dpr);
+        const top = snapBarTop(height - height * visual.heightFraction, dpr);
+        const barHeight = Math.max(1 / dpr, height - top);
         ctx.globalAlpha = visual.alpha;
         ctx.fillStyle = tone;
-        fillRoundedRect(ctx, x, y, barWidth, barHeight, 2);
+        fillRoundedRect(ctx, x, top, barWidth, barHeight, 2);
       });
 
       ctx.globalAlpha = 1;

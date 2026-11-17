@@ -1,5 +1,6 @@
 import { useCallback, type ReactNode } from "react";
 import { CanvasStrip, fillRoundedRect, safeCanvasColor } from "./CanvasStrip";
+import { snapBarRect } from "./nodeCardShared";
 
 const METRIC_SEGMENT_COUNT = 18;
 
@@ -30,28 +31,36 @@ export function MetricBar({
   // 除非填充比例或配色真正变化,否则跨渲染保持稳定,这样 CanvasStrip 的重绘 effect
   // 不会在父组件每个 metrics tick 都触发。
   const draw = useCallback(
-    (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    (
+      ctx: CanvasRenderingContext2D,
+      width: number,
+      height: number,
+      _interaction: { hoverIndex: number | null; hoverProgress: number },
+      dpr: number,
+    ) => {
       const inactiveColor = safeCanvasColor("var(--progress-bg)");
       const gap = 2;
       const segmentWidth = Math.max(
         1,
         (width - gap * (METRIC_SEGMENT_COUNT - 1)) / METRIC_SEGMENT_COUNT,
       );
+      const geometry = { gap, barWidth: segmentWidth };
       const activePaint = safeCanvasColor(paint);
 
       for (let index = 0; index < METRIC_SEGMENT_COUNT; index += 1) {
-        const x = index * (segmentWidth + gap);
+        // 每格左右边界对齐设备像素，格边才不会跨两列渲染成半透明（见 snapBarRect）。
+        const { x, width: segmentDrawWidth } = snapBarRect(index, geometry, dpr);
         const fillLevel = Math.max(0, Math.min(1, activeSegments - index));
         const isActive = fillLevel > 0;
 
         ctx.globalAlpha = 0.58;
         ctx.fillStyle = inactiveColor;
-        fillRoundedRect(ctx, x, 0, segmentWidth, height, 2);
+        fillRoundedRect(ctx, x, 0, segmentDrawWidth, height, 2);
 
         if (isActive) {
           ctx.globalAlpha = 0.42 + fillLevel * 0.56;
           ctx.fillStyle = activePaint;
-          fillRoundedRect(ctx, x, 0, segmentWidth, height, 2);
+          fillRoundedRect(ctx, x, 0, segmentDrawWidth, height, 2);
         }
       }
 

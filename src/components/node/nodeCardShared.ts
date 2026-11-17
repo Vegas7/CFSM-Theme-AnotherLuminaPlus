@@ -114,6 +114,29 @@ export function getBarGeometry(width: number, count: number): { gap: number; bar
   return { gap, barWidth };
 }
 
+/**
+ * 把第 `index` 根柱子的左右边界对齐到设备像素。
+ * 柱宽通常除不尽（176px 分 20 根 → 5.6px），边界压在半个像素上时这半条边会被分给相邻
+ * 两列、各按一半透明度渲染：量出来每根柱子两端的边界列只有 21%–83% 的覆盖率，一整排
+ * 小柱子看上去就是发虚、边缘不锐利。取整到 device px 后每条边只占一列像素，边界变硬；
+ * 代价是相邻柱宽最多差 1 个设备像素（视觉上比整排都糊更接近「清晰」）。
+ */
+export function snapBarRect(
+  index: number,
+  geometry: { gap: number; barWidth: number },
+  dpr: number,
+): { x: number; width: number } {
+  const step = geometry.barWidth + geometry.gap;
+  const left = Math.round(index * step * dpr);
+  const right = Math.round((index * step + geometry.barWidth) * dpr);
+  return { x: left / dpr, width: Math.max(1, right - left) / dpr };
+}
+
+/** 柱顶同样对齐设备像素：底边本来就落在整数上,顶边压在半像素时会糊成一条淡像素。 */
+export function snapBarTop(top: number, dpr: number): number {
+  return Math.round(top * dpr) / dpr;
+}
+
 // 延迟/丢包柱的统一取值模型:激活判定/柱高/颜色/透明度只在这一处定义,canvas(大卡/列表)、
 // DOM(紧凑卡)、SVG(迷你卡)三种渲染层各自消费,避免规则漂移。基准取大卡规则:
 // 延迟与丢包都使用固定高度，严重度只由绝对值颜色表达，便于跨节点比较。
